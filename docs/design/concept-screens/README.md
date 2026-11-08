@@ -1,6 +1,6 @@
 # Concept screens (illustrative only)
 
-These six images were extracted unchanged from `15_400_Coffee_Client_Pitch_Deck.pptx` (`ppt/media/image1–6.png`), because the `UI_Concept_Screenshots/` folder named in the package MANIFEST was not supplied. They are named after the inventory in doc 13.
+These are the six concept screenshots from the package's `UI_Concept_Screenshots/` folder. Amit supplied them on 08 Nov 2026. They are byte-identical (same MD5) to the copies previously extracted from `15_400_Coffee_Client_Pitch_Deck.pptx` (`ppt/media/image1–6.png`), so the deck and this folder show the same images. Their names follow the inventory in doc 13.
 
 **They are concept mockups, not production screenshots, and are not approved.** Known defects are listed in [`../../onboarding/DOCUMENTATION_INVENTORY.md`](../../onboarding/DOCUMENTATION_INVENTORY.md) §6: wrong or clipped greeting, emoji placeholders, mismatched totals (₹500 vs ₹765), no pay-at-counter option. They also still show the old "400 Coffee" name.
 

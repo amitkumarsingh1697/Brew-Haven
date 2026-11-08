@@ -56,7 +56,7 @@ Product owner (café-side decision authority named), tech lead/backend, backend 
 ## 6. Immediate next steps (non-development)
 
 1. Amit reviews `OPEN_QUESTIONS.md` §4 and takes the business questions to the team and 400 Coffee.
-2. Confirm whether doc 11 and `UI_Concept_Screenshots/` exist.
+2. ~~Confirm whether doc 11 and `UI_Concept_Screenshots/` exist.~~ Done: both supplied 08 Nov 2026.
 3. Link or create the application repository when ready (needed for CB-5).
 4. Schedule the menu/tax workshop with the owner and their accountant.
 5. Ask the package author to fix DP-02 (₹ glyphs in the commercial PDF) before any external sharing.

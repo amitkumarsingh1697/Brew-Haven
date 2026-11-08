@@ -97,7 +97,7 @@ Prepared 07 November 2026.
 
 ## SO-9 Customer journey and all six UI concept screens
 
-* **Evidence:** the journey is fully written [01 §1.2; 13]. Six concept images exist **only embedded in doc 15**; the `UI_Concept_Screenshots/` folder named in MANIFEST is missing. The concepts cover 6 of the 11 CX screens and contain defects: clipped greeting, wrong copy, emoji or missing-glyph product art, a ₹500 confirmation total against a ₹765 basket, no pay-at-counter option, no status on confirmation, a sequential-looking reference. See `DOCUMENTATION_INVENTORY.md` §6.
+* **Evidence:** the journey is fully written [01 §1.2; 13]. The six concept images (supplied 08 Nov 2026, identical to those in doc 15) exist. The concepts cover 6 of the 11 CX screens and contain defects: clipped greeting, wrong copy, emoji or missing-glyph product art, a ₹500 confirmation total against a ₹765 basket, no pay-at-counter option, no status on confirmation, a sequential-looking reference. See `DOCUMENTATION_INVENTORY.md` §6.
 * **Status:** Partially defined.
 * **Missing:** concepts for CX-02, 06, 07, 08 and 11; corrected concepts; an interactive prototype; client approval of the journey and visual direction (still requested in doc 15 slide 12).
 * **Responsible:** the supplier's UX designer; 400 Coffee approves.
@@ -106,7 +106,7 @@ Prepared 07 November 2026.
 
 ## SO-10 Hosting, domain, analytics and monitoring approach
 
-* **Evidence:** the pattern only (containers, managed PostgreSQL, CI/CD, observability goals) [02]; region, provider, IdP and observability are listed as open [01 §10]. No domain or analytics tool is named.
+* **Evidence:** the pattern only (containers, managed PostgreSQL, CI/CD, observability goals) [02]; doc 11 gives a cost-category framework and blank worksheet for hosting, CDN, monitoring, domain and analytics, with no providers or figures; region, provider, IdP and observability are listed as open [01 §10]. No domain or analytics tool is named.
 * **Status:** Not started.
 * **Missing:** cloud provider and region (data residency); domain/subdomain and DNS ownership; CDN for 3D assets; observability and error-tracking vendor; product analytics tool with PII rules; uptime monitoring; cost estimate; who pays (pass-through or included [08 §5]).
 * **Responsible:** supplier proposes; 400 Coffee owns the domain; commercial approval by both.

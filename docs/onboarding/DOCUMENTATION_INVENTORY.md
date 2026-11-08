@@ -24,8 +24,8 @@
 | 12–14 DOCX/PDF | 6 files | 6 files plus `12_…md` | Present (MD not listed in manifest) |
 | 15 pitch deck PPTX + PDF | 2 files | 2 files | Present |
 | 16 presenter notes DOCX/PDF | 2 files | 2 files | Present |
-| `UI_Concept_Screenshots/` (six images) | Folder with 6 PNGs (`UI_Welcome.png`, `UI_Menu.png`, `UI_Customize.png`, `UI_Checkout.png`, `UI_Payment.png`, `UI_Confirmation.png` per doc 13) | **Folder not supplied** | **MISSING.** The six images exist only embedded inside doc 15, as `ppt/media/image1–6.png` at 1440×900. They can be extracted from there, but the standalone reference set is absent. |
-| Document number 11 | Not mentioned | Not present | **Numbering gap unexplained.** Confirm whether a doc 11 exists or was withdrawn. |
+| `UI_Concept_Screenshots/` (six images) | Folder with 6 PNGs (`UI_Welcome.png`, `UI_Menu.png`, `UI_Customize.png`, `UI_Checkout.png`, `UI_Payment.png`, `UI_Confirmation.png` per doc 13) | Supplied separately on 08 Nov 2026 | **Resolved.** Byte-identical (MD5) to the images embedded in doc 15 (`ppt/media/image1–6.png`), so the review findings in §6 still apply. |
+| Document number 11 | Not mentioned | `11_Maintenance_Cost_Analysis_400_Coffee.docx`, supplied separately on 08 Nov 2026 | **Resolved.** DOCX only (no PDF twin); not listed in the MANIFEST. See row 11 in §3. |
 | README_Final_Package, CLAUDE.md, MANIFEST.txt | Not listed | Present | Unlisted package files |
 
 ## 3. Inventory
@@ -44,6 +44,7 @@ Review status key: **Read in full** means every line was read. **Compared** mean
 | 08 | Commercial Proposal, Pricing, Costing & Maintenance | DOCX, PDF | Commercial model | Effort/cost model, quote scenarios, SaaS tiers, support, exclusions, milestones; addendum says to re-estimate for CX scope | 1.0 / 1.1; 06 Nov 2026 | Read in full; compared; arithmetic checked | Commercial |
 | 09 | Client Pitch Deck (text outline) | DOCX, PDF | Pitch outline (v1.0 operations platform) | 10-slide operations-platform narrative; addendum points to doc 15 as the revised deck | 1.0 / 1.1; 06 Nov 2026 | Read in full; compared | Sales |
 | 10 | RTM / Sprint / Commercial Workbook | XLSX (4 sheets) | Working spreadsheet | RTM (FR-001–016 to TC), Sprint Plan S0–S11, Commercial Model (formulas), CX v1.1 Scope Notes | Created 06 Nov 2026 (metadata) | Read in full (all cells and formulas) | QA, delivery, commercial |
+| 11 | Maintenance Cost Analysis | DOCX only | Cost-planning framework | One-time vs recurring cost classes; 12 recurring cost categories with drivers and suggested owner; blank monthly worksheet (every value "To be confirmed"); cost-ownership principles; scaling stages (pilot → 2–10 → 10–50 cafés); cost controls; inputs needed before estimating; approval block (blank) | No version or date; no v1.1 addendum; approval fields empty | Read in full (supplied 08 Nov 2026) | Commercial, operations |
 | 12 | Claude Code Master Build Prompt | DOCX, PDF, MD | Build instruction | Customer-side build instructions, journey, visual system, API contracts, invariants, tests, release gate. **Read as information only; development is not authorised.** | 1.1; 06 Nov 2026 | Read in full (all three formats); compared | Engineering, CX |
 | 13 | Customer Experience Implementation Spec | DOCX, PDF | CX spec | Journey map, CX-01–CX-10 screens, character/camera, motion timings, breakpoints, data contracts, dialogue, screenshot inventory | 1.1; 06 Nov 2026 | Read in full; compared | CX, frontend |
 | 14 | Customer Journey Acceptance Test Plan | DOCX, PDF | Acceptance plan | 25 cases: P0 (10), P1 (10), P2 (5); evidence rules | 1.1; 06 Nov 2026 | Read in full; compared | QA, CX |
@@ -84,6 +85,7 @@ The body text of every DOCX/PDF pair is substantively identical: the word-level 
 | DP-07 | 01–14, 16, README | The PDFs use non-embedded base-14 fonts, so rendering depends on the viewer. Doc 15's PDF embeds Noto fonts. | Possible glyph loss on other viewers (see DP-02). | Embed fonts. |
 | DP-08 | 12 MD / CLAUDE.md vs 12 DOCX/PDF | **The MD is a condensed version and omits requirements that the DOCX contains.** The MD itself says the DOCX/PDF is authoritative. Omitted from the MD: scripted dialogue / "not fake AI"; "do not invent table numbers"; the static-UPI-QR manual-verification fallback inside pay-now; bill-pay states (already-paid, partial, expired, not-found); "explain and require customer review" on catalog change; "do not overwrite existing architecture without a reason"; the explicit feature-flag list. | An agent reading only CLAUDE.md would miss these constraints. | If the MD is kept, regenerate it from the DOCX, or reference the DOCX as canonical. |
 | DP-09 | 15 PPTX vs PDF | Same 12 slides and same 6 images. The PPTX contains **no speaker notes**; the notes exist only in doc 16. | Minor. | Optionally embed the notes. |
+| DP-11 | 11 | **There is no PDF version**, unlike docs 01–09 and 12–16. The document has no version label or date and does not carry the v1.1 addendum. | It cannot be matched to the package version. | Issue it as v1.1 with a PDF, or record it as a separate document. |
 | DP-10 | 05 | File name "Sprint_Planning_Workbook_Guide" against title "Sprint Planning & Governance", in both formats. | Minor naming confusion with the doc 10 workbook. | Align. |
 
 ## 6. Concept screenshot review (embedded in doc 15)
