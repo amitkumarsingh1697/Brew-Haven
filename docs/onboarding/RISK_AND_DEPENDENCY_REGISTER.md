@@ -68,7 +68,7 @@ Prepared 07 November 2026.
 | DD-05 | 2D fallback artwork and poster | CX-S2 (and the default path) | UX designer | Not started | Medium |
 | DD-06 | Product photography (licensed) | CX-S3 | 400 Coffee | Not started | Medium |
 | DD-07 | Corrected and complete concept screens (11) | Visual QA [06 §6.2] | UX designer | 6 of 11, with defects | Medium |
-| DD-08 | Standalone `UI_Concept_Screenshots/` folder | Reference | Package author | Missing | Low (can be extracted from PPTX) |
+| DD-08 | Standalone `UI_Concept_Screenshots/` folder | Reference | Package author | **Supplied 08 Nov 2026** (identical to the deck images) | Closed |
 | DD-09 | Approved microcopy and dialogue | CX-S2–S6 | 400 Coffee / UX | Draft exists [03 §3.5; 13] | Low |
 
 ## 7. External vendor dependencies

@@ -35,7 +35,7 @@ Validation status: *Unvalidated* · *Partially validated* · *Validated* (no ass
 
 | ID | Assumption | Reason | How to confirm |
 |---|---|---|---|
-| RA-01 | The 16 uploads plus the files in `/mnt/project-files/` are the whole package | No ZIP found; MANIFEST otherwise reconciles | Amit confirms; also confirm whether doc 11 exists |
+| RA-01 | The 16 uploads plus the files in `/mnt/project-files/` are the whole package | No ZIP found; MANIFEST otherwise reconciles | Amit confirms. Doc 11 and the six screenshots were supplied on 08 Nov 2026 |
 | RA-02 | For customer-facing UX the v1.1 addendum takes precedence over the v1.0 body; for everything else the baseline stands until amended | The addendum says it supersedes "customer-facing UX description" only | Product owner confirmation |
 | RA-03 | The DOCX is the editable source and the PDF a rendering; where they differ only in format, content is equal | Word-level diffs are identical apart from covers, markers and footers | — |
 | RA-04 | The 12 DOCX is authoritative over the 12 MD / CLAUDE.md | The MD says so itself | — |

@@ -28,6 +28,7 @@ Decision owner: **B** = business (400 Coffee / commercial), **P** = product owne
 | C-18 | **"Approved" against "please approve".** | MANIFEST; 01 §1.1; 03 §3.1 | 15 slide 12; 16 #12 | Treat as proposed until a dated sign-off exists | B |
 | C-19 | **Diary transition timing.** "< 500 ms" against "250–450 ms". | 03 §3.3 | 13 | Compatible; adopt 250–450 ms | P |
 | C-20 | **Customer endpoint path parameter.** `{ref}` against `{publicRef}`; `/api/v1` prefix absent from customer paths. | 02 §2.4; 02 §6 | 12 | Finalise in OpenAPI | T |
+| C-22 | **RESOLVED 08 Nov 2026 (Amit): PostgreSQL confirmed; doc 08 is the cost basis.** **Recurring-cost basis.** Doc 08 gives illustrative figures (for example managed support ₹35,000–₹60,000/month). Doc 11 leaves every recurring cost "To be confirmed" and lists "database technology" as an open input, although ADR [02] already selects PostgreSQL. | 08 §5–6; 02 §1 | 11 §4, §8 | Treat doc 11 as the costing template and doc 08 figures as placeholders; pre-fill doc 11 with the decided stack (PostgreSQL) once hosting is chosen (SO-10) | B + T |
 | C-21 | **12 MD/CLAUDE.md omits requirements** that the DOCX contains. | 12 MD; CLAUDE.md | 12 DOCX/PDF | Regenerate the MD from the DOCX or point to the DOCX | Package author |
 
 ## 2. Duplicated requirements (consolidate, no conflict)
@@ -93,7 +94,7 @@ Backend APIs (no repo or owner); SO-1 menu; SO-6 tax rules; SO-4 payment provide
 2. Is 400 Coffee a paid pilot, design partner or demo? Who is the contracting entity? Is Inferra Software confirmed as supplier?
 3. Should the Virtual Café be tenant-themeable SaaS, or bespoke to 400 Coffee? (C-11)
 4. Will the commercial model be re-estimated before Sprint 1, and who is producing the 3D assets?
-5. Does a document 11 exist? Where is the `UI_Concept_Screenshots/` folder?
+5. ~~Does a document 11 exist? Where is the `UI_Concept_Screenshots/` folder?~~ Answered 08 Nov 2026: both supplied. Doc 11 is the Maintenance Cost Analysis; the screenshots match the deck images.
 
 **Product decisions**
 6. Payment model for launch: pay-at-counter only, pay-now behind a flag, or pay-now required? (C-01)
