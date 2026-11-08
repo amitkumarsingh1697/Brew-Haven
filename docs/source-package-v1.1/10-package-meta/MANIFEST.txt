@@ -1,0 +1,21 @@
+400 COFFEE — FINAL DOCUMENTATION PACKAGE v1.1
+Prepared: 06 November 2026
+Approved direction: Interactive Virtual Café; 3D manager; cinematic camera; customer side only.
+
+Contents:
+01–09: Original baseline DOCX/PDF documents with a Version 1.1 customer experience addendum.
+10: RTM/Sprint/Commercial workbook with CX v1.1 scope notes.
+12–14: Claude Code master build prompt, implementation specification, acceptance test plan (DOCX/PDF).
+15: Client-facing pitch deck (editable PPTX and PDF) with six illustrative concept UI screenshots.
+16: Presenter notes (DOCX/PDF).
+UI_Concept_Screenshots/: six illustrative concept screen references.
+
+Critical disclosures:
+- UI screenshots are concept mockups, not production screenshots.
+- Sample products and prices are illustrative; obtain approved café menu data.
+- Payment, WhatsApp and restaurant-side order sync require real integrations and credentials.
+- Never mark payment paid without server-side provider verification or authorized merchant-side verification.
+- Static UPI QR does not automatically reconcile a specific order.
+- Legal templates require qualified counsel review.
+- Previous commercial values are indicative only; re-estimate the immersive 3D and integrations scope before a binding quote.
+- This build scope is customer-side only; restaurant-side POS/KDS/owner UI remains a separate workstream.
