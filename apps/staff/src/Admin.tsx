@@ -6,7 +6,7 @@ import { formatInr } from "@brew-haven/domain";
 import { ApiError, CUSTOMER_URL, TENANT, api, type ActivityEntry, type AdminItem, type ItemInput, type SalesReport } from "./api";
 
 /** Owner self-service (D-17): cafés, kitchens, menu, staff, settings and QR codes. */
-type Section = "reports" | "cafes" | "menu" | "staff" | "settings" | "messages" | "activity";
+type Section = "reports" | "checks" | "cafes" | "menu" | "staff" | "settings" | "messages" | "activity";
 
 export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
   const [setup, setSetup] = useState<AdminSetup | null>(null);
@@ -47,6 +47,7 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
         {(
           [
             ["reports", "Reports"],
+            ["checks", "Payment checks"],
             ["cafes", `Cafés & kitchens (${setup.outlets.length})`],
             ["menu", "Menu"],
             ["staff", "Staff"],
@@ -71,6 +72,7 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
         </p>
       )}
       {section === "reports" && <Reports setup={setup} />}
+      {section === "checks" && <PaymentChecks setup={setup} />}
       {section === "cafes" && <Cafes setup={setup} act={act} onOutletsChanged={onOutletsChanged} />}
       {section === "menu" && <MenuAdmin setup={setup} act={act} />}
       {section === "staff" && <StaffAdmin setup={setup} act={act} />}
@@ -1196,5 +1198,81 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
       <strong>{value}</strong>
       {sub && <span className="muted small">{sub}</span>}
     </div>
+  );
+}
+
+// ---------- Payment checks ----------
+
+const CHECK_LABEL: Record<string, string> = {
+  REFUND_FAILED: "Refund failed",
+  REFUND_STUCK: "Refund stuck",
+  PAID_NOT_SERVED: "Paid, not served",
+  UPI_NO_REFERENCE: "UPI, no reference",
+};
+
+function PaymentChecks({ setup }: { setup: AdminSetup }) {
+  const [outletId, setOutletId] = useState("");
+  const [data, setData] = useState<Awaited<ReturnType<typeof api.admin.paymentChecks>> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setData(null);
+    api.admin.paymentChecks(outletId || undefined).then(setData, (e: ApiError) => setError(e.message));
+  }, [outletId]);
+  const when = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const act = data?.items.filter((i) => i.severity === "act").length ?? 0;
+  return (
+    <section className="panel activity">
+      <header className="items-head">
+        <h2>Payment checks</h2>
+        <select value={outletId} onChange={(e) => setOutletId(e.target.value)} aria-label="Filter by café">
+          <option value="">All cafés</option>
+          {setup.outlets.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+      </header>
+      <p className="muted small">The last 30 days: refunds that failed or are stuck, money taken for orders that weren't served, and counter UPI payments with no reference to match on the bank statement.</p>
+      {error && <p className="error">{error}</p>}
+      {data && (
+        <p className={act ? "banner-inline note" : "ok"}>{act ? `${act} need${act === 1 ? "s" : ""} action.` : "Nothing needs action."}</p>
+      )}
+      <div className="table-wrap">
+        <table className="items-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Order</th>
+              <th>Check</th>
+              <th className="num">Amount</th>
+              <th>What to do</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.items.map((i, n) => (
+              <tr key={`${i.orderId}-${i.kind}-${n}`}>
+                <td className="nowrap">{when(i.at)}</td>
+                <td className="nowrap">
+                  {i.orderCode ?? "—"} <small className="muted">{i.outlet}</small>
+                </td>
+                <td className="nowrap">
+                  <span className={`pill ${i.severity === "act" ? "pill-failed" : "pill-logged"}`}>{CHECK_LABEL[i.kind] ?? i.kind}</span>
+                </td>
+                <td className="num">{formatInr(i.amountPaise)}</td>
+                <td>{i.message}</td>
+              </tr>
+            ))}
+            {data && data.items.length === 0 && (
+              <tr>
+                <td colSpan={5} className="muted">
+                  All clear.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

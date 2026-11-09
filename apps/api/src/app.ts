@@ -49,6 +49,7 @@ import {
   staffAction,
   type Ctx,
 } from "./services/flows.js";
+import { listPaymentExceptions } from "./services/exceptions.js";
 import { orderView } from "./services/orders.js";
 import { receiptByToken, receiptForStaff } from "./services/receipts.js";
 import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login, stockList, updateStock } from "./services/staff.js";
@@ -323,6 +324,7 @@ export async function buildApp(deps: AppDeps) {
   // ---------- Owner admin (D-17) ----------
   type IdParams = { Params: { id: string } };
   app.get("/v1/admin/setup", async (req) => admin.getSetup(deps.db, await staff(req)));
+  app.get<{ Querystring: { outletId?: string } }>("/v1/admin/payment-checks", async (req) => listPaymentExceptions(deps.db, await staff(req), { outletId: req.query.outletId || undefined }));
   app.get<{ Querystring: { from?: string; to?: string; outletId?: string } }>("/v1/admin/reports", async (req) => salesReport(deps.db, await staff(req), req.query));
   app.get("/v1/admin/notifications", async (req) => ({ provider: notifier.name, delivers: notifier.delivers, messages: await listNotifications(deps.db, await staff(req)) }));
   app.get<{ Querystring: { limit?: string; before?: string; outletId?: string } }>("/v1/admin/activity", async (req) =>

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "payments_upi_reference" ON "payments" USING btree ("tenant_id","provider_payment_id") WHERE "payments"."method" = 'UPI_COUNTER';

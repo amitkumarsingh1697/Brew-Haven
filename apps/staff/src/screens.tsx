@@ -97,6 +97,7 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
   const [cat, setCat] = useState<string | null>(null);
   const [picking, setPicking] = useState<MenuItemDto | null>(null);
   const [name, setName] = useState("");
+  const [utr, setUtr] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string; orderId?: string } | null>(null);
   const [printing, setPrinting] = useState<string | null>(null);
@@ -127,10 +128,12 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
         method,
         lines: lines.map((l) => ({ itemId: l.item.id, quantity: l.quantity, modifierIds: l.modifierIds })),
         ...(name.trim() ? { customer: { name: name.trim() } } : {}),
+        ...(method === "UPI_COUNTER" && utr ? { upiReference: utr } : {}),
       });
       onCreated(o);
       setLines([]);
       setName("");
+      setUtr("");
       setMsg({ kind: "ok", text: `Order ${o.pickupCode} sent to the kitchen · ${formatInr(o.paidPaise)} recorded`, orderId: o.id });
     } catch (e) {
       setMsg({ kind: "err", text: (e as ApiError).message });
@@ -181,7 +184,15 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
             </li>
           ))}
         </ul>
-        <input placeholder="Customer name (optional)" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+        <input aria-label="Customer name" placeholder="Customer name (optional)" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+        <input
+          aria-label="UPI reference (UTR)"
+          placeholder="UPI reference, 12 digits (optional)"
+          value={utr}
+          onChange={(e) => setUtr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+          inputMode="numeric"
+          autoComplete="off"
+        />
         <div className="pos-total">
           <span>Total</span>
           <strong>{formatInr(total)}</strong>

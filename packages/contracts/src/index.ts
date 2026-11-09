@@ -211,11 +211,15 @@ export const FlagUnavailableRequest = z.object({
   markSoldOut: z.boolean().default(true),
 });
 export const CounterPaymentMethod = z.enum(["CASH", "UPI_COUNTER", "CARD_COUNTER"]);
+/** The 12-digit UPI transaction reference (UTR) shown on the customer's payment screen. */
+export const UpiReference = z.string().trim().regex(/^\d{12}$/, "The UPI reference (UTR) is the 12-digit number on the customer's payment screen");
 export const WalkInOrderRequest = QuoteRequest.extend({
   outletId: Id,
   method: CounterPaymentMethod,
   customer: z.object({ name: z.string().trim().max(60).optional(), phone: IndianMobile.optional() }).optional(),
-});
+  /** Optional for UPI at the counter; when given it must be new, so one payment can't be used twice. */
+  upiReference: UpiReference.optional(),
+}).refine((b) => !b.upiReference || b.method === "UPI_COUNTER", { message: "A UPI reference only goes with a UPI payment", path: ["upiReference"] });
 export const StockUpdateRequest = z.object({
   outletId: Id,
   itemId: Id,
