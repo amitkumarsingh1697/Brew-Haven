@@ -1,5 +1,7 @@
 /* Brew Haven tokens (ADR-0006). Keep in sync with index.ts; contrast is tested there. */
 :root {
+  /* The display serif defaults to old-style figures ("4oo"); prices, codes and the café name need lining ones everywhere. */
+  font-variant-numeric: lining-nums;
   --bh-espresso: #120d0a;
   --bh-walnut: #241810;
   --bh-roasted: #57331f;
