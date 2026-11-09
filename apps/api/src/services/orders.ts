@@ -23,6 +23,7 @@ import {
   outlets,
   payments,
   refunds,
+  tenants,
 } from "../db/schema.js";
 import { AppError, notFound } from "../errors.js";
 import type { EventBus } from "../events.js";
@@ -238,6 +239,7 @@ export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
   const [o] = await tx.select().from(orders).where(eq(orders.id, orderId));
   if (!o) throw notFound("Order");
   const [outlet] = await tx.select().from(outlets).where(eq(outlets.id, o.outletId));
+  const [tenant] = await tx.select().from(tenants).where(eq(tenants.id, o.tenantId));
   const lines = await tx.select().from(orderLines).where(eq(orderLines.orderId, o.id)).orderBy(asc(orderLines.createdAt));
   const adjs = await tx.select().from(adjustments).where(eq(adjustments.orderId, o.id)).orderBy(asc(adjustments.createdAt));
   const pays = await tx.select().from(payments).where(eq(payments.orderId, o.id));
@@ -246,7 +248,7 @@ export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
   const refunded = refs.filter((r) => r.status !== "FAILED").reduce((s, r) => s + r.amountPaise, 0);
   return {
     id: o.id,
-    outlet: { slug: outlet!.slug, name: outlet!.name },
+    outlet: { slug: outlet!.slug, name: outlet!.name, tenantSlug: tenant!.slug, cafeName: String((tenant!.branding as { displayName?: string }).displayName ?? tenant!.name) },
     channel: o.channel,
     state: o.state as OrderView["state"],
     pickupCode: o.pickupCode,

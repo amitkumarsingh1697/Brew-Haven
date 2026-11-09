@@ -151,7 +151,7 @@ export const AdjustmentView = z.object({
 });
 export const OrderView = z.object({
   id: Id,
-  outlet: z.object({ slug: z.string(), name: z.string() }),
+  outlet: z.object({ slug: z.string(), name: z.string(), tenantSlug: z.string(), cafeName: z.string() }),
   channel: z.enum(["ONLINE", "COUNTER"]),
   state: OrderStateSchema,
   pickupCode: z.string().nullable(),
