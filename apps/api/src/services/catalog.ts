@@ -85,6 +85,7 @@ export async function getMenu(db: Db, tenantSlug: string, outletSlug: string): P
             isVeg: i.isVeg,
             imageUrl: i.imageUrl,
             tags: i.tags,
+            stationKey: i.stationKey,
             available: s ? s.available && (s.stockCount === null || s.stockCount > 0) : true,
             modifierGroups: (groupsByItem.get(i.id) ?? []).map((g) => ({
               id: g.id,

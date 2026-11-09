@@ -42,6 +42,8 @@ export const MenuItem = z.object({
   isVeg: z.boolean(),
   imageUrl: z.string().nullable(),
   tags: z.array(z.string()),
+  /** Preparation station, e.g. "bar" or "kitchen" (ADR-0005). */
+  stationKey: z.string(),
   available: z.boolean(),
   modifierGroups: z.array(ModifierGroup),
 });

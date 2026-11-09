@@ -8,13 +8,45 @@ COFFEE · COMFORT · CONNECTION
 
 ---
 
-## Status: pre-development (documentation baseline)
+## Status: Sprint 0 (development authorised 09 Nov 2026)
 
-This repository holds the project's documentation baseline. **Application development has not started and is not yet authorised.** Open questions and pre-development sign-offs are still being resolved. See [`docs/onboarding/OPEN_QUESTIONS.md`](docs/onboarding/OPEN_QUESTIONS.md).
+Brew Haven is the product (owned by Inferra Software). **400 Coffee Cafe** is the first café customer, with two outlets (Tower A and Tower B). Decisions are in [`docs/decisions/DECISION_LOG.md`](docs/decisions/DECISION_LOG.md); architecture choices are in [`docs/adr/`](docs/adr/README.md).
 
-Brew Haven is the project name. The supplied documentation package (v1.1, 06 Nov 2026) was written under the working name "400 Coffee"; see [`docs/brand/BRAND.md`](docs/brand/BRAND.md) for how the name change is tracked.
+What works today:
 
-## Repository layout
+* **Customer app** (`apps/customer`): 2D café welcome, menu with customisation and veg/non-veg marks, basket, checkout with mobile number and separate offers opt-in, pay-now (demo gateway or Razorpay), and live order tracking. If an item runs out after payment, the customer can swap it (paying or getting back the difference), remove it (refund) or cancel the order (full refund).
+* **Staff app** (`apps/staff`): PIN sign-in by role; live order board; kitchen display with station filter and new-order chime; reject with reason and refund; "item ran out"; counter orders paid by cash, UPI or card; stock and sold-out toggles; today's takings.
+* **API** (`apps/api`): Fastify + PostgreSQL. Orders are placed only after a signed payment webhook is verified.
+
+## Run it locally
+
+Needs Node 22, pnpm 10 and PostgreSQL 16.
+
+```bash
+pnpm install
+createdb brewhaven                      # once
+pnpm --filter @brew-haven/api db:seed   # migrates and loads the demo café
+pnpm dev:api                            # http://localhost:8080
+pnpm dev:customer                       # http://localhost:5173
+pnpm dev:staff                          # http://localhost:5174
+```
+
+Demo staff PINs (demo data only): Owner/Admin 1111, Cashier Tower A 2222, Kitchen Tower A 3333, Cashier Tower B 4444, Kitchen Tower B 5555.
+
+Tests: `createdb brewhaven_test && pnpm test` (domain rules, design-token contrast, and API integration tests against a real database).
+
+## Code layout
+
+| Folder | Contents |
+|---|---|
+| `apps/api` | Backend API, database schema and migrations, payment adapters |
+| `apps/customer` | Customer ordering web app (PWA) |
+| `apps/staff` | Cashier, kitchen and admin web app |
+| `packages/domain` | Money, pricing, order state machine, refund rules (no I/O) |
+| `packages/contracts` | Shared API schemas used by the API and both apps |
+| `packages/ui-tokens` | Colours, type and motion tokens, with contrast tests |
+
+## Documentation layout
 
 | Folder | Contents |
 |---|---|
@@ -23,6 +55,7 @@ Brew Haven is the project name. The supplied documentation package (v1.1, 06 Nov
 | `docs/design/concept-screens/` | The six illustrative concept UI images, extracted from the client pitch deck (not production screens) |
 | `docs/brand/` | Project name, tagline and brand notes |
 | `docs/decisions/` | Decision log for resolving the open questions and conflicts |
+| `docs/adr/` | Architecture decision records for the build |
 
 ## Where to start
 
