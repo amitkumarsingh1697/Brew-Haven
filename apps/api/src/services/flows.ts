@@ -290,6 +290,7 @@ export async function createWalkInOrder(ctx: Ctx, staff: StaffClaims, body: z.ou
   const lines = await resolveLines(ctx.db, tenant!.id, outlet.id, body.lines, { requireAvailable: true });
   const q = quote(lines, tenant!.taxRateBps);
   return withTx(ctx.db, async (tx, after) => {
+    if (body.upiReference) await assertNewUpiReference(tx, tenant!.id, body.upiReference);
     let customerId: string | null = null;
     if (body.customer?.phone) {
       const now = new Date();
@@ -317,12 +318,46 @@ export async function createWalkInOrder(ctx: Ctx, staff: StaffClaims, body: z.ou
       })
       .returning();
     await insertLines(tx, order!, lines);
-    await tx.insert(payments).values({ tenantId: tenant!.id, orderId: order!.id, kind: "ORDER", method: body.method, amountPaise: q.totalPaise, status: "CAPTURED", capturedAt: new Date(), recordedByStaffId: staff.sub });
+    await tx
+      .insert(payments)
+      .values({
+        tenantId: tenant!.id,
+        orderId: order!.id,
+        kind: "ORDER",
+        method: body.method,
+        ...(body.upiReference ? { provider: "upi_counter", providerPaymentId: body.upiReference } : {}),
+        amountPaise: q.totalPaise,
+        status: "CAPTURED",
+        capturedAt: new Date(),
+        recordedByStaffId: staff.sub,
+      })
+      .catch((e: unknown) => {
+        // Two tills entering the same reference at the same moment: the unique index catches the second.
+        const err = e as { code?: string; cause?: { code?: string } };
+        if ((err.code ?? err.cause?.code) === "23505") throw new AppError("CONFLICT", "This UPI reference was just used for another order. Check the customer's payment screen.");
+        throw e;
+      });
     await tx.insert(orderEvents).values({ tenantId: tenant!.id, orderId: order!.id, action: "CREATE", fromState: null, toState: "AWAITING_PAYMENT", actor: staff.role, actorId: staff.sub });
     // The cashier has taken the money, so the system records the payment as verified.
     await placeOrder(tx, after, ctx.bus, order!, "PAYMENT_VERIFIED", "SYSTEM", staff.sub);
     return orderView(tx, order!.id);
   });
+}
+
+/**
+ * One UPI payment can't pay for two orders. The unique index is the backstop; this check gives
+ * the cashier a useful message (which order already used it, and when).
+ */
+async function assertNewUpiReference(tx: Tx, tenantId: string, ref: string) {
+  const [used] = await tx
+    .select({ code: orders.pickupCode, at: payments.createdAt, outlet: outlets.name })
+    .from(payments)
+    .innerJoin(orders, eq(orders.id, payments.orderId))
+    .innerJoin(outlets, eq(outlets.id, orders.outletId))
+    .where(and(eq(payments.tenantId, tenantId), eq(payments.method, "UPI_COUNTER"), eq(payments.providerPaymentId, ref)));
+  if (!used) return;
+  const when = used.at.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  throw new AppError("CONFLICT", `This UPI reference was already used for order ${used.code ?? ""} at ${used.outlet} on ${when}. Check the customer's payment screen.`);
 }
 
 // ---------- Customer resolves an unavailable item ----------

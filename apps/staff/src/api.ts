@@ -97,7 +97,7 @@ export const api = {
   action: (id: string, action: "START" | "MARK_READY" | "HAND_OVER") => post<OrderView>(`/v1/staff/orders/${id}/actions`, { action }),
   reject: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/reject`, { reason }),
   flag: (id: string, lineIds: string[], note: string) => post<OrderView>(`/v1/staff/orders/${id}/flag-unavailable`, { lineIds, note: note || undefined, markSoldOut: true }),
-  walkIn: (body: { outletId: string; method: "CASH" | "UPI_COUNTER" | "CARD_COUNTER"; lines: Array<{ itemId: string; quantity: number; modifierIds: string[] }>; customer?: { name?: string } }) =>
+  walkIn: (body: { outletId: string; method: "CASH" | "UPI_COUNTER" | "CARD_COUNTER"; lines: Array<{ itemId: string; quantity: number; modifierIds: string[] }>; customer?: { name?: string }; upiReference?: string }) =>
     post<OrderView>("/v1/staff/orders/walk-in", body),
   stock: (outletId: string) => call<StockRow[]>(`/v1/staff/stock?outletId=${outletId}`),
   setStock: (body: { outletId: string; itemId: string; available: boolean; stockCount?: number | null }) => call<StockRow>("/v1/staff/stock", { method: "PUT", body: JSON.stringify(body) }),
@@ -114,6 +114,10 @@ export const api = {
       if (q.outletId) p.set("outletId", q.outletId);
       return call<SalesReport>(`/v1/admin/reports?${p}`);
     },
+    paymentChecks: (outletId?: string) =>
+      call<{ items: Array<{ kind: string; severity: "act" | "check"; at: string; orderId: string; orderCode: string | null; outlet: string; amountPaise: number; message: string }> }>(
+        `/v1/admin/payment-checks${outletId ? `?outletId=${outletId}` : ""}`,
+      ),
     notifications: () =>
       call<{
         provider: string;

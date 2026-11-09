@@ -269,7 +269,11 @@ export const payments = pgTable(
     createdAt: createdAt(),
     capturedAt: timestamp("captured_at", { withTimezone: true }),
   },
-  (t) => [uniqueIndex("payments_provider_order").on(t.provider, t.providerOrderId)],
+  (t) => [
+    uniqueIndex("payments_provider_order").on(t.provider, t.providerOrderId),
+    /** A counter UPI reference (UTR) can only be recorded once per business. */
+    uniqueIndex("payments_upi_reference").on(t.tenantId, t.providerPaymentId).where(sql`${t.method} = 'UPI_COUNTER'`),
+  ],
 );
 
 export const refunds = pgTable("refunds", {
