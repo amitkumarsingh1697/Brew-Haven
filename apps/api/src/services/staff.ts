@@ -55,15 +55,20 @@ export async function login(
   };
 }
 
-export function assertStaffOutlet(staff: StaffClaims, outletId: string) {
-  if (!staff.outletIds.includes(outletId)) throw new AppError("FORBIDDEN", "You are not assigned to this café");
+/** Admins can use every café of their tenant, including ones added after they signed in. */
+export async function assertStaffOutlet(db: Db, staff: StaffClaims, outletId: string) {
+  if (staff.role === "ADMIN") {
+    const [o] = await db.select({ id: outlets.id }).from(outlets).where(and(eq(outlets.id, outletId), eq(outlets.tenantId, staff.tenantId)));
+    if (o) return;
+  } else if (staff.outletIds.includes(outletId)) return;
+  throw new AppError("FORBIDDEN", "You are not assigned to this café");
 }
 
 const LIVE_STATES = ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY"];
 
 /** The live queue for POS and kitchen, plus today's finished orders. */
 export async function listOutletOrders(db: Db, staff: StaffClaims, outletId: string, scope: "live" | "today"): Promise<OrderView[]> {
-  assertStaffOutlet(staff, outletId);
+  await assertStaffOutlet(db, staff, outletId);
   const since = new Date(Date.now() - 18 * 60 * 60 * 1000);
   const cond =
     scope === "live"
@@ -75,7 +80,7 @@ export async function listOutletOrders(db: Db, staff: StaffClaims, outletId: str
 
 export async function updateStock(db: Db, staff: StaffClaims, input: { outletId: string; itemId: string; available: boolean; stockCount?: number | null | undefined }) {
   if (staff.role === "KITCHEN" && input.stockCount !== undefined) throw new AppError("FORBIDDEN", "Kitchen staff can mark items sold out, but not set counts");
-  assertStaffOutlet(staff, input.outletId);
+  await assertStaffOutlet(db, staff, input.outletId);
   const [item] = await db.select().from(menuItems).where(and(eq(menuItems.id, input.itemId), eq(menuItems.tenantId, staff.tenantId)));
   if (!item) throw notFound("Menu item");
   const set: { available: boolean; updatedAt: Date; stockCount?: number | null } = { available: input.available, updatedAt: new Date() };
@@ -88,7 +93,7 @@ export async function updateStock(db: Db, staff: StaffClaims, input: { outletId:
 }
 
 export async function stockList(db: Db, staff: StaffClaims, outletId: string) {
-  assertStaffOutlet(staff, outletId);
+  await assertStaffOutlet(db, staff, outletId);
   const items = await db.select().from(menuItems).where(and(eq(menuItems.tenantId, staff.tenantId), eq(menuItems.active, true))).orderBy(asc(menuItems.sort));
   const stock = await db.select().from(outletItemStock).where(eq(outletItemStock.outletId, outletId));
   const byItem = new Map(stock.map((s) => [s.itemId, s]));
@@ -101,7 +106,7 @@ export async function stockList(db: Db, staff: StaffClaims, outletId: string) {
 /** Minimal collections view for the cashier and owner (the pilot's shift close). */
 export async function daySummary(db: Db, staff: StaffClaims, outletId: string, date?: string): Promise<DaySummary> {
   if (staff.role === "KITCHEN") throw new AppError("FORBIDDEN", "Only the cashier or admin can see takings");
-  assertStaffOutlet(staff, outletId);
+  await assertStaffOutlet(db, staff, outletId);
   const [outlet] = await db.select().from(outlets).where(eq(outlets.id, outletId));
   const day = date ?? businessDate(new Date(), outlet!.timezone);
   const dayOrders = await db.select().from(orders).where(and(eq(orders.outletId, outletId), eq(orders.businessDate, day)));

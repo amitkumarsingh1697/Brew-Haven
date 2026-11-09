@@ -1,6 +1,7 @@
-import type { DaySummary, MenuResponse, OrderView, StaffSession } from "@brew-haven/contracts";
+import type { AdminSetup, DaySummary, MenuResponse, OrderView, OutletWithStations, StaffSession } from "@brew-haven/contracts";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:8080";
+export const CUSTOMER_URL = (import.meta.env.VITE_CUSTOMER_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5173";
 export const TENANT = (import.meta.env.VITE_TENANT as string | undefined) ?? "400-coffee";
 
 export class ApiError extends Error {
@@ -40,6 +41,10 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 const post = <T>(path: string, body: unknown) => call<T>(path, { method: "POST", body: JSON.stringify(body) });
+const send = <T>(method: "PUT" | "PATCH" | "DELETE", path: string, body?: unknown) => call<T>(path, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
+
+export type AdminItem = AdminSetup["items"][number];
+export type ItemInput = Omit<AdminItem, "id" | "unlistedAt" | "imageUrl">;
 
 export interface StockRow {
   itemId: string;
@@ -61,5 +66,22 @@ export const api = {
   setStock: (body: { outletId: string; itemId: string; available: boolean; stockCount?: number | null }) => call<StockRow>("/v1/staff/stock", { method: "PUT", body: JSON.stringify(body) }),
   summary: (outletId: string) => call<DaySummary>(`/v1/staff/summary?outletId=${outletId}`),
   menu: (outletSlug: string) => call<MenuResponse>(`/v1/cafes/${TENANT}/${outletSlug}/menu`),
+  outlets: () => call<OutletWithStations[]>("/v1/staff/outlets"),
+  admin: {
+    setup: () => call<AdminSetup>("/v1/admin/setup"),
+    settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),
+    createOutlet: (b: { name: string; pickupPrefix: string; address?: string }) => post<OutletWithStations>("/v1/admin/outlets", b),
+    updateOutlet: (id: string, b: { name?: string; pickupPrefix?: string; address?: string; isOpen?: boolean }) => send<OutletWithStations>("PATCH", `/v1/admin/outlets/${id}`, b),
+    addStation: (outletId: string, name: string) => post<OutletWithStations>(`/v1/admin/outlets/${outletId}/stations`, { name }),
+    renameStation: (id: string, name: string) => send<OutletWithStations>("PATCH", `/v1/admin/stations/${id}`, { name }),
+    removeStation: (id: string) => send<OutletWithStations>("DELETE", `/v1/admin/stations/${id}`),
+    createCategory: (name: string) => post<AdminSetup["categories"][number]>("/v1/admin/categories", { name }),
+    updateCategory: (id: string, b: { name: string; sort?: number; active?: boolean }) => send<AdminSetup["categories"][number]>("PATCH", `/v1/admin/categories/${id}`, b),
+    createItem: (b: ItemInput) => post<AdminItem>("/v1/admin/items", b),
+    updateItem: (id: string, b: Partial<ItemInput>) => send<AdminItem>("PATCH", `/v1/admin/items/${id}`, b),
+    listing: (outletId: string, itemId: string, listed: boolean) => send<unknown>("PUT", "/v1/admin/listings", { outletId, itemId, listed }),
+    createStaff: (b: { name: string; role: string; pin: string; outletIds: string[] }) => post<AdminSetup["staff"][number]>("/v1/admin/staff", b),
+    updateStaff: (id: string, b: { name?: string; role?: string; pin?: string; outletIds?: string[]; active?: boolean }) => send<AdminSetup["staff"][number]>("PATCH", `/v1/admin/staff/${id}`, b),
+  },
   streamUrl: (outletId: string) => `${API_URL}/v1/staff/stream?outletId=${outletId}&token=${encodeURIComponent(token ?? "")}`,
 };

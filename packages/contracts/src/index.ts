@@ -236,3 +236,107 @@ export type DaySummary = z.infer<typeof DaySummary>;
 
 export const ApiError = z.object({ error: z.object({ code: z.string(), message: z.string() }) });
 export type ApiError = z.infer<typeof ApiError>;
+
+// ---------- Owner admin (D-17) ----------
+
+const Name = z.string().trim().min(1).max(60);
+const OptionalText = z.string().trim().max(400).optional();
+export const PickupPrefix = z.string().trim().toUpperCase().pipe(z.string().regex(/^[A-Z]{1,3}$/, "Use 1 to 3 letters, e.g. C"));
+export const SlugInput = z.string().trim().toLowerCase().pipe(Slug);
+
+export const AdminSettingsRequest = z.object({
+  displayName: Name,
+  tagline: z.string().trim().max(80).optional(),
+  greeting: z.string().trim().max(140).optional(),
+  managerName: z.string().trim().max(30).optional(),
+  /** GST in basis points, e.g. 500 = 5% (SO-6 pending with the owner). */
+  taxRateBps: z.number().int().min(0).max(2800),
+});
+
+export const StationInput = z.object({ name: Name, key: SlugInput.optional() });
+
+export const CreateOutletRequest = z.object({
+  name: Name,
+  slug: SlugInput.optional(),
+  pickupPrefix: PickupPrefix,
+  address: OptionalText,
+  /** Kitchens/stations for the new café. Defaults to a copy of an existing café's stations. */
+  stations: z.array(StationInput).max(10).optional(),
+});
+export const UpdateOutletRequest = z.object({
+  name: Name.optional(),
+  pickupPrefix: PickupPrefix.optional(),
+  address: OptionalText,
+  isOpen: z.boolean().optional(),
+});
+
+export const CategoryRequest = z.object({ name: Name, sort: z.number().int().min(0).max(999).optional(), active: z.boolean().optional() });
+
+export const ModifierGroupInput = z
+  .object({
+    name: Name,
+    minSelect: z.number().int().min(0).max(10),
+    maxSelect: z.number().int().min(1).max(10),
+    options: z.array(z.object({ name: Name, pricePaise: Paise.max(10_000_00) })).min(1).max(15),
+  })
+  .refine((g) => g.minSelect <= g.maxSelect && g.maxSelect <= g.options.length, { message: "Min must be ≤ max, and max ≤ the number of options" });
+
+export const ItemRequest = z.object({
+  categoryId: Id,
+  name: Name,
+  description: z.string().trim().max(240).default(""),
+  pricePaise: Paise.min(100, "Price must be at least ₹1").max(10_000_00),
+  isVeg: z.boolean(),
+  tags: z.array(z.enum(["bestseller", "new", "spicy", "seasonal"])).max(4).default([]),
+  stationKey: SlugInput,
+  imageUrl: z.string().url().max(500).nullable().optional(),
+  active: z.boolean().optional(),
+  modifierGroups: z.array(ModifierGroupInput).max(6).optional(),
+});
+export const UpdateItemRequest = ItemRequest.partial().omit({ modifierGroups: true }).extend({ modifierGroups: z.array(ModifierGroupInput).max(6).optional() });
+
+export const ListingRequest = z.object({ outletId: Id, itemId: Id, listed: z.boolean() });
+
+export const StaffUserRequest = z.object({
+  name: Name,
+  role: StaffRole,
+  pin: z.string().regex(/^\d{4}$/, "PIN must be 4 digits"),
+  outletIds: z.array(Id).max(50),
+});
+export const UpdateStaffUserRequest = StaffUserRequest.partial().extend({ active: z.boolean().optional() });
+
+export const OutletWithStations = z.object({
+  id: Id,
+  slug: z.string(),
+  name: z.string(),
+  pickupPrefix: z.string(),
+  address: z.string().nullable(),
+  isOpen: z.boolean(),
+  stations: z.array(z.object({ id: Id, key: z.string(), name: z.string() })),
+});
+export type OutletWithStations = z.infer<typeof OutletWithStations>;
+
+export const AdminSetup = z.object({
+  tenant: z.object({ slug: z.string(), name: z.string(), taxRateBps: z.number().int(), branding: Branding }),
+  outlets: z.array(OutletWithStations),
+  categories: z.array(z.object({ id: Id, name: z.string(), sort: z.number().int(), active: z.boolean() })),
+  items: z.array(
+    z.object({
+      id: Id,
+      categoryId: Id,
+      name: z.string(),
+      description: z.string(),
+      pricePaise: Paise,
+      isVeg: z.boolean(),
+      tags: z.array(z.string()),
+      stationKey: z.string(),
+      imageUrl: z.string().nullable(),
+      active: z.boolean(),
+      modifierGroups: z.array(z.object({ name: z.string(), minSelect: z.number().int(), maxSelect: z.number().int(), options: z.array(z.object({ name: z.string(), pricePaise: Paise })) })),
+      /** Outlet ids where this item is NOT sold. */
+      unlistedAt: z.array(Id),
+    }),
+  ),
+  staff: z.array(z.object({ id: Id, name: z.string(), role: StaffRole, outletIds: z.array(Id), active: z.boolean() })),
+});
+export type AdminSetup = z.infer<typeof AdminSetup>;

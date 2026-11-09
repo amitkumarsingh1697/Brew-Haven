@@ -36,7 +36,7 @@ async function stockMap(db: Exec, outletId: string) {
 export async function getMenu(db: Db, tenantSlug: string, outletSlug: string): Promise<MenuResponse> {
   const { tenant, outlet } = await loadTenantOutlet(db, tenantSlug, outletSlug);
   const [cats, items, groups, options, stock, allOutlets] = await Promise.all([
-    db.select().from(categories).where(eq(categories.tenantId, tenant.id)).orderBy(asc(categories.sort)),
+    db.select().from(categories).where(and(eq(categories.tenantId, tenant.id), eq(categories.active, true))).orderBy(asc(categories.sort)),
     db
       .select()
       .from(menuItems)
@@ -75,7 +75,7 @@ export async function getMenu(db: Db, tenantSlug: string, outletSlug: string): P
       .map((c) => ({
         id: c.id,
         name: c.name,
-        items: (itemsByCat.get(c.id) ?? []).map((i) => {
+        items: (itemsByCat.get(c.id) ?? []).filter((i) => stock.get(i.id)?.listed !== false).map((i) => {
           const s = stock.get(i.id);
           return {
             id: i.id,
@@ -139,7 +139,7 @@ export async function resolveLines(
 
   return lines.map((l) => {
     const item = itemById.get(l.itemId);
-    if (!item) throw new AppError("VALIDATION", "One of the items is no longer on the menu");
+    if (!item || stock.get(item.id)?.listed === false) throw new AppError("VALIDATION", "One of the items is no longer on the menu at this café");
     if (opts.requireAvailable) {
       const s = stock.get(item.id);
       const wanted = qtyByItem.get(item.id) ?? l.quantity;

@@ -3,7 +3,17 @@ import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { eq } from "drizzle-orm";
 import { ZodError, type ZodTypeAny, type z } from "zod";
 import {
+  AdminSettingsRequest,
+  CategoryRequest,
   CreateOrderRequest,
+  CreateOutletRequest,
+  ItemRequest,
+  ListingRequest,
+  StaffUserRequest,
+  StationInput,
+  UpdateItemRequest,
+  UpdateOutletRequest,
+  UpdateStaffUserRequest,
   FlagUnavailableRequest,
   QuoteRequest,
   RejectRequest,
@@ -37,7 +47,8 @@ import {
   type Ctx,
 } from "./services/flows.js";
 import { orderView } from "./services/orders.js";
-import { daySummary, listOutletOrders, listStaffUsers, login, stockList, updateStock } from "./services/staff.js";
+import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login, stockList, updateStock } from "./services/staff.js";
+import * as admin from "./services/admin.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -82,7 +93,7 @@ export async function buildApp(deps: AppDeps) {
   const limiter = new AttemptLimiter();
   const origins = new Set(deps.config.corsOrigins);
 
-  await app.register(cors, { origin: [...origins], allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key"] });
+  await app.register(cors, { origin: [...origins], methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"], allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key"] });
 
   app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
     req.rawBody = body as string;
@@ -214,7 +225,7 @@ export async function buildApp(deps: AppDeps) {
 
   app.get<{ Querystring: { outletId: string } }>("/v1/staff/stream", async (req, reply) => {
     const s = await staff(req, { allowQueryToken: true });
-    if (!s.outletIds.includes(req.query.outletId)) throw new AppError("FORBIDDEN", "You are not assigned to this café");
+    await assertStaffOutlet(deps.db, s, req.query.outletId);
     const sse = openSse(req, reply);
     sse.send("hello", { outletId: req.query.outletId });
     const off = bus.onOrder((e) => {
@@ -244,6 +255,27 @@ export async function buildApp(deps: AppDeps) {
   app.get<{ Querystring: { outletId: string; date?: string } }>("/v1/staff/summary", async (req) =>
     daySummary(deps.db, await staff(req), req.query.outletId, req.query.date),
   );
+
+  app.get("/v1/staff/outlets", async (req) => admin.accessibleOutlets(deps.db, await staff(req)));
+
+  // ---------- Owner admin (D-17) ----------
+  type IdParams = { Params: { id: string } };
+  app.get("/v1/admin/setup", async (req) => admin.getSetup(deps.db, await staff(req)));
+  app.put("/v1/admin/settings", async (req) => admin.updateSettings(deps.db, await staff(req), parse(AdminSettingsRequest, req.body)));
+  app.post("/v1/admin/outlets", async (req, reply) => reply.status(201).send(await admin.createOutlet(deps.db, await staff(req), parse(CreateOutletRequest, req.body))));
+  app.patch<IdParams>("/v1/admin/outlets/:id", async (req) => admin.updateOutlet(deps.db, await staff(req), req.params.id, parse(UpdateOutletRequest, req.body)));
+  app.post<IdParams>("/v1/admin/outlets/:id/stations", async (req, reply) =>
+    reply.status(201).send(await admin.addStation(deps.db, await staff(req), req.params.id, parse(StationInput, req.body))),
+  );
+  app.patch<IdParams>("/v1/admin/stations/:id", async (req) => admin.renameStation(deps.db, await staff(req), req.params.id, parse(StationInput, req.body).name));
+  app.delete<IdParams>("/v1/admin/stations/:id", async (req) => admin.removeStation(deps.db, await staff(req), req.params.id));
+  app.post("/v1/admin/categories", async (req, reply) => reply.status(201).send(await admin.createCategory(deps.db, await staff(req), parse(CategoryRequest, req.body))));
+  app.patch<IdParams>("/v1/admin/categories/:id", async (req) => admin.updateCategory(deps.db, await staff(req), req.params.id, parse(CategoryRequest, req.body)));
+  app.post("/v1/admin/items", async (req, reply) => reply.status(201).send(await admin.createItem(deps.db, await staff(req), parse(ItemRequest, req.body))));
+  app.patch<IdParams>("/v1/admin/items/:id", async (req) => admin.updateItem(deps.db, await staff(req), req.params.id, parse(UpdateItemRequest, req.body)));
+  app.put("/v1/admin/listings", async (req) => admin.setListing(deps.db, await staff(req), parse(ListingRequest, req.body)));
+  app.post("/v1/admin/staff", async (req, reply) => reply.status(201).send(await admin.createStaffUser(deps.db, await staff(req), parse(StaffUserRequest, req.body))));
+  app.patch<IdParams>("/v1/admin/staff/:id", async (req) => admin.updateStaffUser(deps.db, await staff(req), req.params.id, parse(UpdateStaffUserRequest, req.body)));
 
   return { app, ctx };
 }
