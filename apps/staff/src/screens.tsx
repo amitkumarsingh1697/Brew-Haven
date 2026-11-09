@@ -36,15 +36,11 @@ export function Board({ live, role, now }: { live: Live; role: StaffRole; now: n
   );
 }
 
-const STATIONS = [
-  { key: "", name: "Everything" },
-  { key: "bar", name: "Coffee bar" },
-  { key: "kitchen", name: "Kitchen" },
-];
 
 /** Kitchen display: big tickets, oldest first, optionally filtered to one station. */
-export function Kitchen({ live, role, now, menu }: { live: Live; role: StaffRole; now: number; menu: MenuResponse | null }) {
-  const [station, setStation] = useState(() => {
+export function Kitchen({ live, role, now, menu, stations }: { live: Live; role: StaffRole; now: number; menu: MenuResponse | null; stations: Array<{ key: string; name: string }> }) {
+  const STATIONS = [{ key: "", name: "Everything" }, ...stations];
+  const [stored, setStation] = useState(() => {
     try {
       return localStorage.getItem("bh:station") ?? "";
     } catch {
@@ -53,11 +49,12 @@ export function Kitchen({ live, role, now, menu }: { live: Live; role: StaffRole
   });
   useEffect(() => {
     try {
-      localStorage.setItem("bh:station", station);
+      localStorage.setItem("bh:station", stored);
     } catch {
       /* ignore */
     }
-  }, [station]);
+  }, [stored]);
+  const station = STATIONS.some((s) => s.key === stored) ? stored : "";
   const stationOf = useMemo(() => {
     const m = new Map<string, string>();
     for (const c of menu?.categories ?? []) for (const i of c.items) m.set(i.id, i.stationKey);

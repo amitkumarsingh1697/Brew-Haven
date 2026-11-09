@@ -38,6 +38,7 @@ export const outlets = pgTable(
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     pickupPrefix: text("pickup_prefix").notNull(),
+    address: text("address"),
     timezone: text("timezone").notNull().default("Asia/Kolkata"),
     isOpen: boolean("is_open").notNull().default(true),
     createdAt: createdAt(),
@@ -45,13 +46,18 @@ export const outlets = pgTable(
   (t) => [uniqueIndex("outlets_tenant_slug").on(t.tenantId, t.slug)],
 );
 
-export const stations = pgTable("stations", {
-  id: id(),
-  tenantId: tenantId(),
-  outletId: uuid("outlet_id").notNull().references(() => outlets.id),
-  key: text("key").notNull(),
-  name: text("name").notNull(),
-});
+export const stations = pgTable(
+  "stations",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    key: text("key").notNull(),
+    name: text("name").notNull(),
+    sort: integer("sort").notNull().default(0),
+  },
+  (t) => [uniqueIndex("stations_outlet_key").on(t.outletId, t.key)],
+);
 
 export const staffUsers = pgTable("staff_users", {
   id: id(),
@@ -69,6 +75,7 @@ export const categories = pgTable("categories", {
   tenantId: tenantId(),
   name: text("name").notNull(),
   sort: integer("sort").notNull().default(0),
+  active: boolean("active").notNull().default(true),
 });
 
 export const menuItems = pgTable(
@@ -115,6 +122,8 @@ export const outletItemStock = pgTable(
     tenantId: tenantId(),
     outletId: uuid("outlet_id").notNull().references(() => outlets.id),
     itemId: uuid("item_id").notNull().references(() => menuItems.id),
+    /** false = this café does not sell the item at all (hidden from its menu). */
+    listed: boolean("listed").notNull().default(true),
     available: boolean("available").notNull().default(true),
     /** null = not counted, just available/sold out. */
     stockCount: integer("stock_count"),

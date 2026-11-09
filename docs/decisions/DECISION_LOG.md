@@ -28,6 +28,7 @@ Record each resolved question or conflict here. IDs refer to [`../onboarding/OPE
 | 2026-11-09 | Q-R2-18 / D-14 | **Free-tier hosting and cloud for the demo.** Claude recommends providers. After the deal, hosting, database, cloud and maintenance costs (including hidden and miscellaneous costs) go into the SOW. | Amit | Thread, 09 Nov 2026. See `ADR-0002` |
 | 2026-11-09 | Q-R2-16, Q-R2-20, Q-R2-21 / D-15 | **Look and feel, fonts, colours, tech stack and demo date are delegated to Claude's judgement**, based on research. Stack criteria: easy to maintain, easy to host, high-performing and easy to scale. | Amit | Thread, 09 Nov 2026. See `ADR-0001` |
 | 2026-11-09 | Q-R2-24 / D-16 | **Go-ahead given for Sprint 0, development and implementation.** | Amit | Thread, 09 Nov 2026. Lifts the "no development" hold from the onboarding phase |
+| 2026-11-09 | D-17 | **The café owner manages their own setup from the admin dashboard**, without asking the supplier: add a new café/outlet, its kitchens (stations), the menu (categories, items, prices, options, which café sells what), staff and PINs, café settings, and print each café's ordering QR code. The product must scale to more cafés and more customers without code changes. | Amit | Thread, 09 Nov 2026 |
 
 ## Pending (from the onboarding review)
 

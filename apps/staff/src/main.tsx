@@ -1,20 +1,22 @@
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import type { MenuResponse, StaffRole, StaffSession } from "@brew-haven/contracts";
+import type { MenuResponse, OutletWithStations, StaffRole, StaffSession } from "@brew-haven/contracts";
 import "@brew-haven/ui-tokens/tokens.css";
 import "./styles.css";
 import { api, setSessionToken } from "./api";
 import { useLiveOrders } from "./live";
+import { Admin } from "./Admin";
 import { Login } from "./Login";
 import { Board, Kitchen, NewOrder, Stock, Today } from "./screens";
 
-type Tab = "orders" | "kitchen" | "new" | "stock" | "today";
+type Tab = "orders" | "kitchen" | "new" | "stock" | "today" | "setup";
 const TABS: Array<{ id: Tab; label: string; roles: StaffRole[] }> = [
   { id: "orders", label: "Orders", roles: ["ADMIN", "CASHIER", "KITCHEN"] },
   { id: "kitchen", label: "Kitchen display", roles: ["ADMIN", "KITCHEN", "CASHIER"] },
   { id: "new", label: "New counter order", roles: ["ADMIN", "CASHIER"] },
   { id: "stock", label: "Stock", roles: ["ADMIN", "CASHIER", "KITCHEN"] },
   { id: "today", label: "Today", roles: ["ADMIN", "CASHIER"] },
+  { id: "setup", label: "Setup", roles: ["ADMIN"] },
 ];
 
 function loadSession(): StaffSession | null {
@@ -64,13 +66,19 @@ function App() {
 
 function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () => void }) {
   const role = session.user.role;
-  const [outletId, setOutletId] = useState(session.outlets[0]?.id ?? "");
-  const outlet = session.outlets.find((o) => o.id === outletId)!;
-  const tabs = TABS.filter((t) => t.roles.includes(role));
   const [tab, setTab] = useState<Tab>(role === "KITCHEN" ? "kitchen" : "orders");
+  // Cafés come from the server so ones the owner adds appear without signing in again.
+  const [outlets, setOutlets] = useState<OutletWithStations[] | null>(null);
+  const refreshOutlets = () => api.outlets().then(setOutlets).catch(() => undefined);
+  // Refresh on every tab change too, so kitchens added in Setup show up on the kitchen display.
+  useEffect(() => void refreshOutlets(), [tab]);
+  const list: Array<{ id: string; slug: string; name: string; stations?: OutletWithStations["stations"] }> = outlets ?? session.outlets;
+  const [outletId, setOutletId] = useState(session.outlets[0]?.id ?? "");
+  const outlet = list.find((o) => o.id === outletId) ?? list[0]!;
+  const tabs = TABS.filter((t) => t.roles.includes(role));
   const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [now, setNow] = useState(Date.now());
-  const live = useLiveOrders(outletId, { sound: role !== "ADMIN" });
+  const live = useLiveOrders(outlet.id, { sound: role !== "ADMIN" });
 
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -88,9 +96,9 @@ function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () 
       <header className="topbar">
         <span className="brand">Brew Haven</span>
         <span className="cafe">{session.tenant.name}</span>
-        {session.outlets.length > 1 ? (
-          <select value={outletId} onChange={(e) => setOutletId(e.target.value)} aria-label="Café">
-            {session.outlets.map((o) => (
+        {list.length > 1 ? (
+          <select value={outlet.id} onChange={(e) => setOutletId(e.target.value)} aria-label="Café">
+            {list.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
               </option>
@@ -120,10 +128,11 @@ function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () 
       {live.error && <p className="error banner">{live.error}</p>}
       <main className="content">
         {tab === "orders" && <Board live={live} role={role} now={now} />}
-        {tab === "kitchen" && <Kitchen live={live} role={role} now={now} menu={menu} />}
-        {tab === "new" && <NewOrder outletId={outletId} menu={menu} onCreated={live.upsert} />}
-        {tab === "stock" && <Stock key={outletId} outletId={outletId} role={role} />}
-        {tab === "today" && <Today key={outletId} outletId={outletId} />}
+        {tab === "kitchen" && <Kitchen live={live} role={role} now={now} menu={menu} stations={outlet.stations ?? []} />}
+        {tab === "new" && <NewOrder outletId={outlet.id} menu={menu} onCreated={live.upsert} />}
+        {tab === "stock" && <Stock key={outlet.id} outletId={outlet.id} role={role} />}
+        {tab === "today" && <Today key={outlet.id} outletId={outlet.id} />}
+        {tab === "setup" && <Admin onOutletsChanged={refreshOutlets} />}
       </main>
     </div>
   );
