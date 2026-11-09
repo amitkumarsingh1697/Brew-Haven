@@ -23,3 +23,8 @@ services:
         value: simulated
       - key: CORS_ORIGINS
         sync: false
+      # Customer messages: "log" previews them in the owner's Setup > Customer messages; "meta" sends via WhatsApp Cloud API.
+      - key: NOTIFY_PROVIDER
+        value: log
+      - key: CUSTOMER_APP_URL
+        sync: false

@@ -78,6 +78,12 @@ export const api = {
   outlets: () => call<OutletWithStations[]>("/v1/staff/outlets"),
   admin: {
     setup: () => call<AdminSetup>("/v1/admin/setup"),
+    notifications: () =>
+      call<{
+        provider: string;
+        delivers: boolean;
+        messages: Array<{ id: string; at: string; to: string; orderCode: string | null; outlet: string; template: string; body: string; status: string; error: string | null }>;
+      }>("/v1/admin/notifications"),
     activity: (q: { outletId?: string; before?: number }) => {
       const p = new URLSearchParams({ limit: "50" });
       if (q.outletId) p.set("outletId", q.outletId);

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   bigserial,
   boolean,
   date,
@@ -315,4 +316,27 @@ export const auditLog = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("audit_tenant_time").on(t.tenantId, t.createdAt)],
+);
+
+/** Every customer message, sent or not, so the owner can see exactly what customers received. */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    orderId: uuid("order_id").notNull().references(() => orders.id),
+    /** The outbox job that produced it: a retried job never sends twice. */
+    outboxId: bigint("outbox_id", { mode: "number" }).notNull(),
+    channel: text("channel").notNull().default("whatsapp"),
+    provider: text("provider").notNull(),
+    toPhone: text("to_phone").notNull(),
+    template: text("template").notNull(),
+    body: text("body").notNull(),
+    status: text("status", { enum: ["QUEUED", "SENT", "LOGGED", "FAILED"] }).notNull(),
+    providerMessageId: text("provider_message_id"),
+    error: text("error"),
+    createdAt: createdAt(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("notifications_outbox").on(t.outboxId), index("notifications_tenant_time").on(t.tenantId, t.createdAt)],
 );

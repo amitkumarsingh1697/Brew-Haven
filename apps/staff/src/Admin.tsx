@@ -5,7 +5,7 @@ import { formatInr } from "@brew-haven/domain";
 import { ApiError, CUSTOMER_URL, TENANT, api, type ActivityEntry, type AdminItem, type ItemInput } from "./api";
 
 /** Owner self-service (D-17): cafés, kitchens, menu, staff, settings and QR codes. */
-type Section = "cafes" | "menu" | "staff" | "settings" | "activity";
+type Section = "cafes" | "menu" | "staff" | "settings" | "messages" | "activity";
 
 export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
   const [setup, setSetup] = useState<AdminSetup | null>(null);
@@ -49,6 +49,7 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
             ["menu", "Menu"],
             ["staff", "Staff"],
             ["settings", "Café settings"],
+            ["messages", "Customer messages"],
             ["activity", "Activity"],
           ] as const
         ).map(([id, label]) => (
@@ -71,6 +72,7 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
       {section === "menu" && <MenuAdmin setup={setup} act={act} />}
       {section === "staff" && <StaffAdmin setup={setup} act={act} />}
       {section === "settings" && <Settings setup={setup} act={act} />}
+      {section === "messages" && <Messages />}
       {section === "activity" && <Activity setup={setup} />}
     </div>
   );
@@ -846,6 +848,68 @@ function Activity({ setup }: { setup: AdminSetup }) {
           {loading ? "Loading…" : "Show older"}
         </button>
       )}
+    </section>
+  );
+}
+
+// ---------- Customer messages (WhatsApp) ----------
+
+const STATUS_LABEL: Record<string, string> = { SENT: "Sent", LOGGED: "Preview only", FAILED: "Failed, retrying", QUEUED: "Sending" };
+
+function Messages() {
+  const [data, setData] = useState<Awaited<ReturnType<typeof api.admin.notifications>> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    api.admin.notifications().then(setData, (e: ApiError) => setError(e.message));
+  }, []);
+  const when = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  return (
+    <section className="panel activity">
+      <header className="items-head">
+        <h3>Customer messages</h3>
+      </header>
+      {data && !data.delivers && (
+        <p className="banner-inline note">
+          WhatsApp isn't connected yet, so these messages are previews of what customers will receive. Nothing has been sent.
+        </p>
+      )}
+      <p className="muted small">Customers get a message when their order is confirmed, when it's ready, if an item runs out, and if it's cancelled.</p>
+      {error && <p className="error">{error}</p>}
+      <div className="table-wrap">
+        <table className="items-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Order</th>
+              <th>To</th>
+              <th>Message</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.messages.map((m) => (
+              <tr key={m.id}>
+                <td className="nowrap">{when(m.at)}</td>
+                <td className="nowrap">
+                  {m.orderCode ?? "—"} <small className="muted">{m.outlet}</small>
+                </td>
+                <td className="nowrap">{m.to}</td>
+                <td>{m.body}</td>
+                <td className="nowrap" title={m.error ?? undefined}>
+                  <span className={`pill pill-${m.status.toLowerCase()}`}>{STATUS_LABEL[m.status] ?? m.status}</span>
+                </td>
+              </tr>
+            ))}
+            {data && data.messages.length === 0 && (
+              <tr>
+                <td colSpan={5} className="muted">
+                  No messages yet. They appear here as orders come in.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

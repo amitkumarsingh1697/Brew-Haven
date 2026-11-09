@@ -12,6 +12,8 @@ import { withTx, type After, type Db, type Tx } from "../db/client.js";
 import { adjustments, customers, orderEvents, orderLines, orders, outbox, outletItemStock, outlets, payments, refunds, tenants, webhookEvents } from "../db/schema.js";
 import { AppError, notFound } from "../errors.js";
 import type { EventBus } from "../events.js";
+import type { Notifier } from "../notify/provider.js";
+import { notifyCustomer } from "./notifications.js";
 import type { PaymentProvider, WebhookEvent } from "../payments/provider.js";
 import { loadTenantOutlet, resolveLines } from "./catalog.js";
 import {
@@ -35,6 +37,8 @@ export interface Ctx {
   db: Db;
   bus: EventBus;
   provider: PaymentProvider;
+  notifier: Notifier;
+  customerAppUrl: string;
   log: { info: (o: object, msg?: string) => void; warn: (o: object, msg?: string) => void; error: (o: object, msg?: string) => void };
 }
 
@@ -429,6 +433,8 @@ export async function runSweeps(ctx: Ctx, now = new Date()) {
   return { expired: stale.length, adjustmentsTimedOut: overdue.length };
 }
 
+const MAX_ATTEMPTS = 8;
+
 /** Drains the transactional outbox. Each job is retried with backoff. */
 export async function drainOutbox(ctx: Ctx, limit = 20) {
   const jobs = await ctx.db
@@ -440,14 +446,16 @@ export async function drainOutbox(ctx: Ctx, limit = 20) {
   for (const job of jobs) {
     try {
       if (job.topic === "refund.process") await processRefund(ctx, String(job.payload.refundId));
-      else if (job.topic === "notify.customer") ctx.log.info({ job: job.payload }, "customer notification (WhatsApp provider not configured yet)");
+      else if (job.topic === "notify.customer") await notifyCustomer(ctx, job.id, String(job.payload.orderId), String(job.payload.state));
       else ctx.log.warn({ job }, "outbox job");
       await ctx.db.update(outbox).set({ processedAt: new Date() }).where(eq(outbox.id, job.id));
     } catch (e) {
       const attempts = job.attempts + 1;
+      // After MAX_ATTEMPTS the job is parked (processed with its last error) so one bad job can't retry forever.
+      const giveUp = attempts >= MAX_ATTEMPTS;
       await ctx.db
         .update(outbox)
-        .set({ attempts, lastError: String(e), availableAt: new Date(Date.now() + Math.min(2 ** attempts, 600) * 1000) })
+        .set({ attempts, lastError: String(e), availableAt: new Date(Date.now() + Math.min(2 ** attempts, 600) * 1000), ...(giveUp ? { processedAt: new Date() } : {}) })
         .where(eq(outbox.id, job.id));
       ctx.log.error({ err: String(e), jobId: job.id }, "outbox job failed");
     }
