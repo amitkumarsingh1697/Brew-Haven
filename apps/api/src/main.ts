@@ -7,7 +7,7 @@ import { drainOutbox, runSweeps } from "./services/flows.js";
 const config = loadConfig();
 const { db, pool } = createDb(config.databaseUrl);
 if (process.env.MIGRATE_ON_START !== "false") await migrate(db);
-const { app, ctx } = await buildApp({ config, db });
+const { app, ctx } = await buildApp({ config, db, rateLimit: config.rateLimits });
 
 const timers: NodeJS.Timeout[] = [];
 if (config.runWorker) {
