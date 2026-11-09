@@ -14,6 +14,10 @@ export interface Config {
   };
   /** Start the in-process outbox worker and timeout sweeps. */
   runWorker: boolean;
+  /** Chat webhook for operational alerts (ALERT_WEBHOOK_URL); unset logs them only. */
+  alertWebhookUrl?: string;
+  /** Shown in alerts, e.g. "demo" or "production" (APP_ENV). */
+  appEnv?: string;
   notifications?: {
     /** "log" records messages without sending them; "meta" sends via the WhatsApp Cloud API. */
     provider: "log" | "meta";
@@ -53,6 +57,8 @@ export function loadConfig(): Config {
           : undefined,
     },
     runWorker: process.env.RUN_WORKER !== "false",
+    alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || undefined,
+    appEnv: process.env.APP_ENV ?? (isProd ? "production" : "dev"),
     notifications: {
       provider: (process.env.NOTIFY_PROVIDER ?? "log") as "log" | "meta",
       customerAppUrl: process.env.CUSTOMER_APP_URL ?? "http://localhost:5173",

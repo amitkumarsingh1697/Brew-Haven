@@ -1,6 +1,7 @@
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
+import { randomBytes } from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { eq } from "drizzle-orm";
 import { ZodError, type ZodTypeAny, type z } from "zod";
@@ -28,6 +29,7 @@ import {
   WalkInOrderRequest,
 } from "@brew-haven/contracts";
 import { quote } from "@brew-haven/domain";
+import { createAlerter, type Alerter } from "./alerts.js";
 import { AttemptLimiter, StaffTokens, type StaffClaims } from "./auth.js";
 import type { Config } from "./config.js";
 import type { Db } from "./db/client.js";
@@ -50,6 +52,7 @@ import {
   type Ctx,
 } from "./services/flows.js";
 import { listPaymentExceptions } from "./services/exceptions.js";
+import { readiness } from "./services/health.js";
 import { orderView } from "./services/orders.js";
 import { receiptByToken, receiptForStaff } from "./services/receipts.js";
 import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login, stockList, updateStock } from "./services/staff.js";
@@ -96,6 +99,7 @@ export interface AppDeps {
   provider?: PaymentProvider;
   bus?: EventBus;
   notifier?: Notifier;
+  alerter?: Alerter;
   /** Per-IP limits on public endpoints. On by default; the test suite turns it off except where it tests it. */
   rateLimit?: boolean;
 }
@@ -105,11 +109,24 @@ export async function buildApp(deps: AppDeps) {
     logger: process.env.NODE_ENV === "test" ? false : { level: process.env.LOG_LEVEL ?? "info", redact: ["req.headers.authorization"] },
     trustProxy: true,
     bodyLimit: 64 * 1024,
+    // Short ids, echoed back as X-Request-Id, so a staff member can quote one from an error.
+    requestIdHeader: "x-request-id",
+    genReqId: () => randomBytes(6).toString("base64url"),
   });
   const bus = deps.bus ?? new EventBus();
   const provider = deps.provider ?? createProvider(deps.config);
   const notifier = deps.notifier ?? createNotifier(deps.config);
-  const ctx: Ctx = { db: deps.db, bus, provider, notifier, customerAppUrl: deps.config.notifications?.customerAppUrl ?? "http://localhost:5173", log: app.log };
+  const alerter = deps.alerter ?? createAlerter(deps.config.alertWebhookUrl, deps.config.appEnv ?? "dev", app.log);
+  const ctx: Ctx = {
+    db: deps.db,
+    bus,
+    provider,
+    notifier,
+    alerter,
+    worker: { lastTickAt: null },
+    customerAppUrl: deps.config.notifications?.customerAppUrl ?? "http://localhost:5173",
+    log: app.log,
+  };
   const tokens = new StaffTokens(deps.config.staffTokenSecret);
   const limiter = new AttemptLimiter();
   const origins = new Set(deps.config.corsOrigins);
@@ -148,7 +165,9 @@ export async function buildApp(deps: AppDeps) {
     if (status === 429) return reply.status(429).send({ error: { code: "RATE_LIMITED", message: (err as Error).message } });
     if (status && status < 500) return reply.status(status).send({ error: { code: "BAD_REQUEST", message: (err as Error).message } });
     req.log.error({ err }, "unhandled error");
-    return reply.status(500).send({ error: { code: "INTERNAL", message: "Something went wrong on our side. Please try again." } });
+    const route = req.routeOptions?.url ?? req.url.split("?")[0];
+    void alerter.send({ key: `500 ${req.method} ${route}`, title: `Server error on ${req.method} ${route}`, detail: `${(err as Error).message} (ref ${req.id})` });
+    return reply.status(500).send({ error: { code: "INTERNAL", message: `Something went wrong on our side. Please try again. If it keeps happening, quote ref ${req.id}.`, ref: req.id } });
   });
 
   async function staff(req: FastifyRequest, opts: { allowQueryToken?: boolean } = {}): Promise<StaffClaims> {
@@ -192,9 +211,23 @@ export async function buildApp(deps: AppDeps) {
   }
 
   // ---------- Health ----------
+  app.addHook("onSend", async (req, reply) => {
+    reply.header("x-request-id", req.id);
+  });
+
+  /** Liveness: the process is up and can reach the database. */
   app.get("/health", async () => {
     await deps.db.execute("select 1");
     return { ok: true, provider: provider.name, notifications: notifier.name };
+  });
+
+  /**
+   * Readiness, for the host's health check and uptime monitors: database round trip, background
+   * jobs not backing up, and the worker still ticking. 503 with the reasons when not ready.
+   */
+  app.get("/health/ready", async (_req, reply) => {
+    const r = await readiness(ctx, { workerExpected: deps.config.runWorker });
+    return reply.status(r.ok ? 200 : 503).send(r);
   });
 
   // ---------- Customer ----------

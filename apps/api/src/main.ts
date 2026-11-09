@@ -17,8 +17,10 @@ if (config.runWorker) {
     busy = true;
     try {
       await drainOutbox(ctx);
+      ctx.worker!.lastTickAt = Date.now();
     } catch (e) {
       app.log.error({ err: e }, "outbox tick failed");
+      void ctx.alerter?.send({ key: "worker tick", title: "Background worker pass failed", detail: String(e) });
     } finally {
       busy = false;
     }
