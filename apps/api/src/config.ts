@@ -5,6 +5,8 @@ export interface Config {
   /** Secret for signing staff session tokens. */
   staffTokenSecret: string;
   corsOrigins: string[];
+  /** Per-IP request limits. Only a local load test turns them off (RATE_LIMIT=off); never in production. */
+  rateLimits?: boolean;
   payments: {
     provider: "simulated" | "razorpay";
     simulatedWebhookSecret: string;
@@ -30,7 +32,9 @@ function required(name: string, fallback?: string): string {
 export function loadConfig(): Config {
   const provider = (process.env.PAYMENT_PROVIDER ?? "simulated") as Config["payments"]["provider"];
   const isProd = process.env.NODE_ENV === "production";
+  if (isProd && process.env.RATE_LIMIT === "off") throw new Error("RATE_LIMIT=off is not allowed in production");
   return {
+    rateLimits: process.env.RATE_LIMIT !== "off",
     databaseUrl: required("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/brewhaven"),
     port: Number(process.env.PORT ?? 8080),
     host: process.env.HOST ?? "0.0.0.0",

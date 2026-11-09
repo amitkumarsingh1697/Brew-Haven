@@ -18,8 +18,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Customer WhatsApp messages with a pluggable sender (previews only until a provider is chosen); owner "Customer messages" view | Merged (#8) |
 | Shift close with cash count and variance (cashier, Today tab); owner Reports tab with sales by day, by café, payment methods, top items, busiest hours, day closes and CSV download | Merged (#9) |
 | Installable apps (customer and staff) and offline handling: app shell works offline, saved menu, ordering paused offline, staff warning banner. See OFFLINE.md | Merged (#10) |
-| Accessibility pass: WCAG 2.2 AA audit clean on 18 screens, keyboard support for pop-ups. See ACCESSIBILITY.md | In review |
-| Load-test script | Planned |
+| Accessibility pass: WCAG 2.2 AA audit clean on 18 screens, keyboard support for pop-ups. See ACCESSIBILITY.md | Merged (#11) |
+| Load-test script: 100 customers and 8 staff screens, about 41 orders a second with p95 under 0.6 s and no errors (local). See LOAD_TEST.md | In review |
 
 ## Waiting on Amit
 
