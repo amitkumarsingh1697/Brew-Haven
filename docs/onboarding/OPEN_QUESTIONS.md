@@ -116,3 +116,67 @@ Backend APIs (no repo or owner); SO-1 menu; SO-6 tax rules; SO-4 payment provide
 18. When can the owner supply the menu, prices, tax treatment, photos and brand assets?
 19. Has counsel been engaged for the privacy notice, consent wording and customer terms?
 20. Who are the nominated acceptance testers and sign-off authority at 400 Coffee?
+
+## 5. Round 2 questions (08 Nov 2026)
+
+Answers to §4 are recorded in [`../decisions/DECISION_LOG.md`](../decisions/DECISION_LOG.md) (D-01 to D-08). These are the questions still open. **Must** means the answer is needed before Sprint 1. **Soon** means it is needed during the first few sprints.
+
+### Payments and orders
+| ID | Question | Why it matters | Priority |
+|---|---|---|---|
+| Q-R2-01 | Which **payment gateway** should we use (for example Razorpay, Cashfree, PhonePe PG, Paytm)? Does 400 Coffee already have a merchant account with one? Who will complete the merchant KYC? | Pay-now is now mandatory (D-02). Nothing can go live without a gateway, and KYC takes days to weeks. For development, I can build against the gateway's free sandbox once one is chosen. | **Must** |
+| Q-R2-02 | Once payment succeeds, should the order go **straight to the kitchen**, or should the cashier still tap "accept"? | This sets the order flow and whether a cashier acceptance screen is needed. Recommendation: straight to the kitchen after verified payment, with the cashier able to see and cancel orders. | **Must** |
+| Q-R2-03 | If an item turns out unavailable **after the customer has paid**, should we refund the full order automatically, refund just that item, or have the cashier call the customer? | A refund flow is needed because payment comes first. | **Must** |
+| Q-R2-04 | Will the cashier also take **walk-in orders** at the counter on the POS? If so, which payment methods: cash, UPI QR, card? | It sets the POS payment screens. Walk-in counter orders were in the original scope. | **Must** |
+| Q-R2-05 | Can a customer **cancel** an order after paying, and until when (for example, until the kitchen starts it)? | Cancellation and refund rules (SO-6). | Soon |
+| Q-R2-06 | How is the customer told the order is **ready for pickup**: WhatsApp only, a token number on a screen at the counter, or both? | Takeaway-only (D-04) makes the pickup step central. | Soon |
+
+### Customer data and WhatsApp
+| ID | Question | Why it matters | Priority |
+|---|---|---|---|
+| Q-R2-07 | For **offers**, are you OK with a separate "Send me offers" checkbox that is unticked by default, while order updates are always sent? | Under Indian data-protection law (DPDP Act) and WhatsApp's rules, promotional messages need separate opt-in consent. To be confirmed by counsel. | **Must** |
+| Q-R2-08 | Which **WhatsApp Business provider** (Meta Cloud API directly, or a BSP such as Gupshup, Interakt, AiSensy, Twilio)? Which phone number will be the café's WhatsApp sender, and is it already a WhatsApp Business account? | Templates need Meta approval, which takes time. | Soon |
+| Q-R2-09 | Which **WhatsApp messages** should customers get? Proposal: order confirmed (paid), order ready for pickup, refund issued, plus offers for opted-in customers. | Each template has to be written and approved. | Soon |
+| Q-R2-10 | Should the mobile number be **verified by OTP** before payment? | It stops fake numbers, but OTP adds an SMS/WhatsApp cost and slows checkout. Recommendation: no OTP for the pilot; rely on the payment itself. | Soon |
+
+### Kitchen, staff and devices
+| ID | Question | Why it matters | Priority |
+|---|---|---|---|
+| Q-R2-11 | Does 400 Coffee have **separate beverage and food stations**, each needing its own kitchen screen, or one kitchen screen for everything? | It sets the split-ticket design (doc 02 ADR-004). | **Must** |
+| Q-R2-12 | Which **devices** will the cashier and kitchen use (Android tablet, iPad, laptop, existing PC)? Is a **receipt printer** needed? | It sets the device testing and printing work. | Soon |
+| Q-R2-13 | How many **staff accounts and roles** are needed (cashier, kitchen, manager, owner)? Is a simple PIN login on shared tablets OK for staff? | It sets the login and permission model. | Soon |
+| Q-R2-14 | What are the **opening hours**, and roughly how many orders arrive in the **busiest hour**? | Closed-café handling in the app, and load-testing targets. | Soon |
+
+### Brand, 3D and hosting
+| ID | Question | Why it matters | Priority |
+|---|---|---|---|
+| Q-R2-15 | Can you share the logo as **SVG or a transparent PNG** (mark and wordmark separately)? | The brand board is a single raster image; the app and favicon need clean logo files. | Soon |
+| Q-R2-16 | **Approve the proposed fonts and colours** in [`../brand/BRAND.md`](../brand/BRAND.md)? | It locks the design tokens. | **Must** |
+| Q-R2-17 | For the **3D manager and café scene**: should I build the first version myself with free-licence (CC0) 3D models plus the 2D fallback, and have a 3D artist polish it later? Or is a 3D artist or studio already lined up? | The 3D assets have the longest lead time (SO-3). | **Must** |
+| Q-R2-18 | Where should we **host** the demo and production: AWS, Google Cloud, Azure, or a simpler platform such as Railway or Render for the demo? Who will create the **cloud account** and add billing? I can't create accounts or pay for services. | Without hosting, the demo only runs locally. | **Must** (for demo) |
+| Q-R2-19 | **Domain**: who buys it, and what should it be (for example brewhaven.app, or 400coffee.brewhaven.app per café)? | Needed for the QR code and the WhatsApp links. | Soon |
+
+### Delivery approach
+| ID | Question | Why it matters | Priority |
+|---|---|---|---|
+| Q-R2-20 | Keep the **tech stack** in doc 02 (Java 21 + Spring Boot backend, React + TypeScript apps, PostgreSQL)? Recommendation: yes. | It is the foundational choice. | **Must** |
+| Q-R2-21 | For the **pitch demo**, what is the target date? Is a demo that runs on the gateway sandbox (test payments) and a dummy menu OK for showing the café owner? | It sets the order of work. Recommendation: build an end-to-end demo first (order → pay in sandbox → kitchen → ready), then harden it. | **Must** |
+| Q-R2-22 | Should the **SaaS admin** (onboarding other cafés, subscriptions) be in the first build, or later? Recommendation: build the data model as multi-café from day one, but leave the self-service onboarding screens until after the pilot. | Scope. | Soon |
+| Q-R2-23 | Language: **English only** for now? | Copy and layout. | Soon |
+| Q-R2-24 | **Go-ahead for Sprint 0** (state machines, API contract, design tokens, 3D feasibility test, dummy menu) and then development? | No development starts until you authorise it. | **Must** |
+
+
+## 6. Round 3 questions (09 Nov 2026)
+
+Raised by the Round 2 answers. None blocks development; each has a working default.
+
+| ID | Question | Working default until answered |
+|---|---|---|
+| Q-R3-01 | In each of the two cafés, is there one kitchen counter, or separate coffee (bar) and food stations? | One station per outlet; stations are configurable per outlet |
+| Q-R3-02 | What are the names and addresses of the two towers/outlets? Do both share one menu and price list? | "Tower A" and "Tower B"; shared menu, with availability set per outlet |
+| Q-R3-03 | Can a customer order from either outlet, and how do they pick one (for example, a separate QR code per tower)? | A separate entry link/QR per outlet; the customer can switch outlet |
+| Q-R3-04 | When an item is unavailable, how long does the customer have to choose replace/remove/cancel before we auto-refund that item? | 5 minutes, then the item is removed and refunded automatically |
+| Q-R3-05 | If the customer owes a balance after a replacement and does not pay it, what happens? | After 5 minutes, revert to "remove item" (refund that item) |
+| Q-R3-06 | Is stock tracked by count (e.g. 12 croissants) or just available/sold out? | Both: an optional count per item per outlet; sold out when it reaches 0 or a staff toggle is set |
+| Q-R3-07 | Walk-in orders paid by UPI or card at the counter: is there a card machine/static UPI QR, and does the cashier just record the method, or must it be verified? | The cashier records the method and amount; cash goes to the drawer total |
+| Q-R3-08 | Who can reject or refund: the cashier, or only the admin/owner? Is there a refund limit for cashiers? | Cashier and admin can reject; every rejection is logged with a reason |
