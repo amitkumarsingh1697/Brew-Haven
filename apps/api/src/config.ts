@@ -12,6 +12,13 @@ export interface Config {
   };
   /** Start the in-process outbox worker and timeout sweeps. */
   runWorker: boolean;
+  notifications?: {
+    /** "log" records messages without sending them; "meta" sends via the WhatsApp Cloud API. */
+    provider: "log" | "meta";
+    /** Base URL of the customer app, for tracking links in messages. */
+    customerAppUrl: string;
+    meta?: { token: string; phoneNumberId: string; language: string };
+  };
 }
 
 function required(name: string, fallback?: string): string {
@@ -42,5 +49,13 @@ export function loadConfig(): Config {
           : undefined,
     },
     runWorker: process.env.RUN_WORKER !== "false",
+    notifications: {
+      provider: (process.env.NOTIFY_PROVIDER ?? "log") as "log" | "meta",
+      customerAppUrl: process.env.CUSTOMER_APP_URL ?? "http://localhost:5173",
+      meta:
+        process.env.NOTIFY_PROVIDER === "meta"
+          ? { token: required("WHATSAPP_TOKEN"), phoneNumberId: required("WHATSAPP_PHONE_NUMBER_ID"), language: process.env.WHATSAPP_TEMPLATE_LANGUAGE ?? "en" }
+          : undefined,
+    },
   };
 }

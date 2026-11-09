@@ -52,6 +52,8 @@ import { orderView } from "./services/orders.js";
 import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login, stockList, updateStock } from "./services/staff.js";
 import * as admin from "./services/admin.js";
 import * as audit from "./services/audit.js";
+import { listNotifications } from "./services/notifications.js";
+import { LogNotifier, MetaWhatsAppNotifier, type Notifier } from "./notify/provider.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -78,11 +80,18 @@ export function createProvider(config: Config): PaymentProvider {
   return new SimulatedProvider(config.payments.simulatedWebhookSecret);
 }
 
+export function createNotifier(config: Config): Notifier {
+  const n = config.notifications;
+  if (n?.provider === "meta" && n.meta) return new MetaWhatsAppNotifier(n.meta.token, n.meta.phoneNumberId, n.meta.language);
+  return new LogNotifier();
+}
+
 export interface AppDeps {
   config: Config;
   db: Db;
   provider?: PaymentProvider;
   bus?: EventBus;
+  notifier?: Notifier;
   /** Per-IP limits on public endpoints. On by default; the test suite turns it off except where it tests it. */
   rateLimit?: boolean;
 }
@@ -95,7 +104,8 @@ export async function buildApp(deps: AppDeps) {
   });
   const bus = deps.bus ?? new EventBus();
   const provider = deps.provider ?? createProvider(deps.config);
-  const ctx: Ctx = { db: deps.db, bus, provider, log: app.log };
+  const notifier = deps.notifier ?? createNotifier(deps.config);
+  const ctx: Ctx = { db: deps.db, bus, provider, notifier, customerAppUrl: deps.config.notifications?.customerAppUrl ?? "http://localhost:5173", log: app.log };
   const tokens = new StaffTokens(deps.config.staffTokenSecret);
   const limiter = new AttemptLimiter();
   const origins = new Set(deps.config.corsOrigins);
@@ -180,7 +190,7 @@ export async function buildApp(deps: AppDeps) {
   // ---------- Health ----------
   app.get("/health", async () => {
     await deps.db.execute("select 1");
-    return { ok: true, provider: provider.name };
+    return { ok: true, provider: provider.name, notifications: notifier.name };
   });
 
   // ---------- Customer ----------
@@ -305,6 +315,7 @@ export async function buildApp(deps: AppDeps) {
   // ---------- Owner admin (D-17) ----------
   type IdParams = { Params: { id: string } };
   app.get("/v1/admin/setup", async (req) => admin.getSetup(deps.db, await staff(req)));
+  app.get("/v1/admin/notifications", async (req) => ({ provider: notifier.name, delivers: notifier.delivers, messages: await listNotifications(deps.db, await staff(req)) }));
   app.get<{ Querystring: { limit?: string; before?: string; outletId?: string } }>("/v1/admin/activity", async (req) =>
     audit.listActivity(deps.db, await staff(req), { limit: Number(req.query.limit) || undefined, before: Number(req.query.before) || undefined, outletId: req.query.outletId }),
   );

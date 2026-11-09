@@ -1096,3 +1096,25 @@ a.btn {
 .activity select {
   width: auto;
 }
+.banner-inline.note {
+  background: #fff6e0;
+  color: var(--bh-warning);
+  font-weight: 500;
+}
+.pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--bh-parchment);
+  color: var(--bh-ink-muted);
+}
+.pill-sent {
+  background: var(--bh-mint);
+  color: var(--bh-leaf-text);
+}
+.pill-failed {
+  background: #fdecea;
+  color: var(--bh-danger);
+}
