@@ -199,6 +199,7 @@ h2 {
   font-size: 1.5rem;
 }
 .cafe {
+  margin: 0;
   font-family: var(--bh-font-display);
   font-size: 1.3rem;
   font-weight: 700;
@@ -676,7 +677,8 @@ h2 {
 .panel h4 {
   margin: 0;
 }
-.panel h4 {
+.panel h4,
+.admin .panel h3:not(.modal *) {
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -825,6 +827,7 @@ h2 {
   align-items: center;
   gap: 12px;
 }
+.items-head h2,
 .items-head h3 {
   flex: 1;
   font-family: var(--bh-font-display);
@@ -1188,7 +1191,7 @@ a.btn {
 .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
 .report-card { border: 1px solid var(--bh-parchment); border-radius: var(--bh-radius-sm); padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
 .report-card.wide { grid-column: 1 / -1; }
-.report-card h4 { margin: 0; font-size: 1rem; }
+.panel.reports .report-card h3 { margin: 0; font-size: 1rem; }
 .bars { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-end; gap: 4px; height: 160px; overflow-x: auto; }
 .bars li { flex: 1 0 22px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
 .bars .bar { width: 100%; max-width: 40px; background: var(--bh-roasted); border-radius: 4px 4px 0 0; }
@@ -1226,4 +1229,19 @@ a.btn {
   color: #fff;
   font-weight: 600;
   text-align: center;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Setup sections use h2 under the page's h1; keep the size they had as h3. */
+.admin :where(h2:not(.modal *)) {
+  font-family: inherit;
+  font-size: 1.17em;
 }

@@ -1,3 +1,4 @@
+import { useDialog } from "@brew-haven/ui-react";
 import { useEffect, useMemo, useState } from "react";
 import type { DaySummary, MenuItemDto, MenuResponse, OrderView, StaffRole } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
@@ -204,9 +205,10 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
 
 function ModifierPicker({ item, onClose, onAdd }: { item: MenuItemDto; onClose: () => void; onAdd: (ids: string[]) => void }) {
   const [chosen, setChosen] = useState<Record<string, string[]>>(() => Object.fromEntries(item.modifierGroups.map((g) => [g.id, g.minSelect > 0 ? [g.options[0]!.id] : []])));
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={item.name} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className="modal" role="dialog" aria-modal="true" aria-label={item.name} onClick={(e) => e.stopPropagation()}>
         <h2>{item.name}</h2>
         {item.modifierGroups.map((g) => (
           <fieldset key={g.id}>
