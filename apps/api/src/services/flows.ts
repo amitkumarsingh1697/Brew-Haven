@@ -8,6 +8,7 @@ import {
 import { inclusiveTax, quote, resolveAdjustment, type OrderAction } from "@brew-haven/domain";
 import type { z } from "zod";
 import type { StaffClaims } from "../auth.js";
+import type { Alerter } from "../alerts.js";
 import { withTx, type After, type Db, type Tx } from "../db/client.js";
 import { adjustments, customers, orderEvents, orderLines, orders, outbox, outletItemStock, outlets, payments, refunds, tenants, webhookEvents } from "../db/schema.js";
 import { AppError, notFound } from "../errors.js";
@@ -39,6 +40,10 @@ export interface Ctx {
   provider: PaymentProvider;
   notifier: Notifier;
   customerAppUrl: string;
+  /** Operational alerts (see alerts.ts). Optional so tests and scripts can leave it out. */
+  alerter?: Alerter;
+  /** Set by the background worker on each pass; the readiness check reads it. */
+  worker?: { lastTickAt: number | null };
   log: { info: (o: object, msg?: string) => void; warn: (o: object, msg?: string) => void; error: (o: object, msg?: string) => void };
 }
 
@@ -493,6 +498,7 @@ export async function drainOutbox(ctx: Ctx, limit = 20) {
         .set({ attempts, lastError: String(e), availableAt: new Date(Date.now() + Math.min(2 ** attempts, 600) * 1000), ...(giveUp ? { processedAt: new Date() } : {}) })
         .where(eq(outbox.id, job.id));
       ctx.log.error({ err: String(e), jobId: job.id }, "outbox job failed");
+      if (giveUp) void ctx.alerter?.send({ key: `parked ${job.topic}`, title: `A ${job.topic} job gave up after ${MAX_ATTEMPTS} tries`, detail: `Job ${job.id}: ${String(e)}` });
     }
   }
   return jobs.length;

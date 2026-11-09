@@ -7,7 +7,7 @@ services:
     region: singapore
     buildCommand: corepack enable && pnpm install --frozen-lockfile
     startCommand: pnpm --filter @brew-haven/api start
-    healthCheckPath: /health
+    healthCheckPath: /health/ready
     envVars:
       - key: NODE_ENV
         value: production
@@ -28,3 +28,8 @@ services:
         value: log
       - key: CUSTOMER_APP_URL
         sync: false
+      # Operational alerts (server errors, background jobs that gave up): a Slack / Google Chat / Discord webhook URL.
+      - key: ALERT_WEBHOOK_URL
+        sync: false
+      - key: APP_ENV
+        value: demo
