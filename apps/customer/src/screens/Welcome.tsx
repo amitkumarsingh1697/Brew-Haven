@@ -3,6 +3,7 @@ import { CafeScene } from "../components/CafeScene";
 import { ErrorNote, Spinner } from "../components/ui";
 import { lastOrder } from "../basket";
 import { useMenu } from "../hooks";
+import { formatInr } from "@brew-haven/domain";
 
 export function Welcome({ tenant, outlet }: { tenant: string; outlet: string }) {
   const { menu, error, reload } = useMenu(tenant, outlet);
@@ -14,6 +15,12 @@ export function Welcome({ tenant, outlet }: { tenant: string; outlet: string }) 
 
   const b = menu.tenant.branding;
   const manager = b.managerName ?? "your barista";
+  // The chalkboard in the 3D café shows the bestsellers, so it changes with the owner's menu.
+  const all = menu.categories.flatMap((c) => c.items).filter((i) => i.available);
+  const favourites = [...all.filter((i) => i.tags.includes("bestseller")), ...all]
+    .filter((i, n, arr) => arr.indexOf(i) === n)
+    .slice(0, 4)
+    .map((i) => ({ name: i.name, price: formatInr(i.pricePaise).replace(".00", "") }));
   return (
     <main className="welcome">
       <header className="welcome-top">
@@ -30,7 +37,7 @@ export function Welcome({ tenant, outlet }: { tenant: string; outlet: string }) 
       </header>
 
       <div className="scene-wrap">
-        <CafeScene cafeName={b.displayName} managerName={manager} />
+        <CafeScene cafeName={b.displayName} managerName={manager} favourites={favourites} />
         <div className="bubble" role="status">
           <strong>{manager}</strong>
           <span>{b.greeting ?? "Welcome in! What can I get you?"}</span>
