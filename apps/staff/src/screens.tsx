@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DaySummary, MenuItemDto, MenuResponse, OrderView, StaffRole } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
-import { ApiError, api, type StockRow } from "./api";
+import { ApiError, api, type DayClose, type StockRow } from "./api";
 import { OrderCard } from "./OrderCard";
 
 type Live = { orders: OrderView[]; upsert: (o: OrderView) => void };
@@ -345,6 +345,7 @@ export function Today({ outletId }: { outletId: string }) {
           <strong>{formatInr(s.netPaise)}</strong>
         </div>
       </div>
+      <CloseDay outletId={outletId} />
       <h2>By payment method</h2>
       <table>
         <tbody>
@@ -393,4 +394,104 @@ export function Today({ outletId }: { outletId: string }) {
       </table>
     </div>
   );
+}
+
+const rupees = (s: string) => Math.round(Number(s.replace(/[^\d.]/g, "") || "0") * 100);
+
+/** End-of-day cash count: what should be in the drawer vs what was counted. */
+function CloseDay({ outletId }: { outletId: string }) {
+  const [info, setInfo] = useState<Awaited<ReturnType<typeof api.closeInfo>> | null>(null);
+  const [float, setFloat] = useState("");
+  const [counted, setCounted] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const load = () =>
+    api.closeInfo(outletId).then((i) => {
+      setInfo(i);
+      if (i.close) setFloat(String(i.close.openingFloatPaise / 100));
+    }, (e: ApiError) => setError(e.message));
+  useEffect(() => void load(), [outletId]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!info) return error ? <p className="error">{error}</p> : null;
+
+  const expected = rupees(float) + info.cash.takenPaise - info.cash.refundedPaise;
+  const variance = counted ? rupees(counted) - expected : null;
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api.closeDay({ outletId, openingFloatPaise: rupees(float), countedCashPaise: rupees(counted), ...(note.trim() ? { note: note.trim() } : {}) });
+      setEditing(false);
+      setCounted("");
+      setNote("");
+      await load();
+    } catch (err) {
+      setError((err as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const c: DayClose | null = info.close;
+  if (c && !editing)
+    return (
+      <section className="close-day done">
+        <h2>Day closed</h2>
+        <p>
+          Closed by {c.closedBy} at {new Date(c.closedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}. Counted {formatInr(c.countedCashPaise)} against{" "}
+          {formatInr(c.expectedCashPaise)} expected: <Variance paise={c.variancePaise} />
+        </p>
+        {c.note && <p className="muted">Note: {c.note}</p>}
+        <button className="btn btn-ghost" onClick={() => setEditing(true)}>
+          Recount
+        </button>
+      </section>
+    );
+  return (
+    <form className="close-day" onSubmit={submit}>
+      <h2>Close the day</h2>
+      {info.summary.orders.open > 0 && <p className="warn">{info.summary.orders.open} orders are still open. Finish or hand them over before closing if you can.</p>}
+      <div className="close-grid">
+        <label>
+          Opening float (₹)
+          <input inputMode="decimal" value={float} onChange={(e) => setFloat(e.target.value)} placeholder="e.g. 1000" required />
+        </label>
+        <div className="calc">
+          <span>Cash taken</span>
+          <b>+ {formatInr(info.cash.takenPaise)}</b>
+          <span>Cash handed back</span>
+          <b>− {formatInr(info.cash.refundedPaise)}</b>
+          <span>Should be in the drawer</span>
+          <b className="big">{formatInr(expected)}</b>
+        </div>
+        <label>
+          Cash counted (₹)
+          <input inputMode="decimal" value={counted} onChange={(e) => setCounted(e.target.value)} placeholder="Count the drawer" required />
+        </label>
+        <div className="calc">{variance !== null && <Variance paise={variance} />}</div>
+        <label className="span2">
+          Note (optional)
+          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. ₹20 note taken out for milk" />
+        </label>
+      </div>
+      {error && <p className="error">{error}</p>}
+      <div className="row-btns">
+        <button className="btn btn-primary" disabled={busy || !float || !counted}>
+          {busy ? "Saving…" : "Close the day"}
+        </button>
+        {editing && (
+          <button type="button" className="btn btn-ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+function Variance({ paise }: { paise: number }) {
+  if (paise === 0) return <span className="ok">cash matches</span>;
+  return <span className={paise < 0 ? "error" : "warn"}>{paise < 0 ? `${formatInr(-paise)} short` : `${formatInr(paise)} over`}</span>;
 }

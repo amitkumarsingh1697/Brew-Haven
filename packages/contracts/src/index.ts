@@ -340,3 +340,13 @@ export const AdminSetup = z.object({
   staff: z.array(z.object({ id: Id, name: z.string(), role: StaffRole, outletIds: z.array(Id), active: z.boolean() })),
 });
 export type AdminSetup = z.infer<typeof AdminSetup>;
+
+// ---------- Day close and reports ----------
+
+const RupeesPaise = z.number().int().min(0).max(100_000_00);
+export const CloseDayRequest = z.object({
+  outletId: Id,
+  openingFloatPaise: RupeesPaise,
+  countedCashPaise: RupeesPaise,
+  note: z.string().trim().max(200).optional(),
+});

@@ -62,6 +62,34 @@ export interface ActivityEntry {
   outlet: string | null;
 }
 
+export interface DayClose {
+  id: string;
+  outletId: string;
+  businessDate: string;
+  closedBy: string;
+  closedAt: string;
+  openingFloatPaise: number;
+  countedCashPaise: number;
+  expectedCashPaise: number;
+  variancePaise: number;
+  takingsByMethod: Record<string, number>;
+  netPaise: number;
+  openOrders: number;
+  note: string | null;
+}
+
+export interface SalesReport {
+  from: string;
+  to: string;
+  totals: { orders: number; cancelled: number; open: number; capturedPaise: number; refundedPaise: number; netPaise: number; averageOrderPaise: number };
+  byDay: Array<{ date: string; orders: number; netPaise: number }>;
+  byCafe: Array<{ outletId: string; name: string; orders: number; cancelled: number; netPaise: number; online: number; counter: number }>;
+  byMethod: Record<string, number>;
+  topItems: Array<{ name: string; quantity: number; revenuePaise: number }>;
+  busiestHours: Array<{ hour: number; orders: number }>;
+  closes: Array<DayClose & { outlet: string }>;
+}
+
 export const api = {
   users: () => call<{ tenant: { name: string }; users: Array<{ id: string; name: string; role: string }> }>(`/v1/staff/${TENANT}/users`),
   login: (staffUserId: string, pin: string) => post<StaffSession>("/v1/staff/login", { tenantSlug: TENANT, staffUserId, pin }),
@@ -73,11 +101,18 @@ export const api = {
     post<OrderView>("/v1/staff/orders/walk-in", body),
   stock: (outletId: string) => call<StockRow[]>(`/v1/staff/stock?outletId=${outletId}`),
   setStock: (body: { outletId: string; itemId: string; available: boolean; stockCount?: number | null }) => call<StockRow>("/v1/staff/stock", { method: "PUT", body: JSON.stringify(body) }),
+  closeInfo: (outletId: string) => call<{ summary: DaySummary; cash: { takenPaise: number; refundedPaise: number }; close: DayClose | null }>(`/v1/staff/close?outletId=${outletId}`),
+  closeDay: (b: { outletId: string; openingFloatPaise: number; countedCashPaise: number; note?: string }) => post<DayClose>("/v1/staff/close", b),
   summary: (outletId: string) => call<DaySummary>(`/v1/staff/summary?outletId=${outletId}`),
   menu: (outletSlug: string) => call<MenuResponse>(`/v1/cafes/${TENANT}/${outletSlug}/menu`),
   outlets: () => call<OutletWithStations[]>("/v1/staff/outlets"),
   admin: {
     setup: () => call<AdminSetup>("/v1/admin/setup"),
+    reports: (q: { from: string; to: string; outletId?: string }) => {
+      const p = new URLSearchParams({ from: q.from, to: q.to });
+      if (q.outletId) p.set("outletId", q.outletId);
+      return call<SalesReport>(`/v1/admin/reports?${p}`);
+    },
     notifications: () =>
       call<{
         provider: string;
