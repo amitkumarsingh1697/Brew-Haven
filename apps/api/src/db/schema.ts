@@ -340,3 +340,26 @@ export const notifications = pgTable(
   },
   (t) => [uniqueIndex("notifications_outbox").on(t.outboxId), index("notifications_tenant_time").on(t.tenantId, t.createdAt)],
 );
+
+/** End-of-day cash count per café (one per business day; re-closing replaces it and is audited). */
+export const shiftCloses = pgTable(
+  "shift_closes",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    businessDate: date("business_date").notNull(),
+    closedById: uuid("closed_by_id").references(() => staffUsers.id),
+    closedByName: text("closed_by_name").notNull(),
+    openingFloatPaise: integer("opening_float_paise").notNull(),
+    countedCashPaise: integer("counted_cash_paise").notNull(),
+    expectedCashPaise: integer("expected_cash_paise").notNull(),
+    variancePaise: integer("variance_paise").notNull(),
+    takingsByMethod: jsonb("takings_by_method").$type<Record<string, number>>().notNull(),
+    netPaise: integer("net_paise").notNull(),
+    openOrders: integer("open_orders").notNull(),
+    note: text("note"),
+    closedAt: timestamp("closed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("shift_closes_outlet_day").on(t.outletId, t.businessDate)],
+);

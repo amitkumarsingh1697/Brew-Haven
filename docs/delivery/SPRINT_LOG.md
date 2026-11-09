@@ -15,8 +15,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Item | Status |
 |---|---|
 | Audit trail of staff and owner actions, owner "Activity" view, security headers, per-IP rate limits | Merged (#7) |
-| Customer WhatsApp messages with a pluggable sender (previews only until a provider is chosen); owner "Customer messages" view | In review |
-| Shift close with cash count and variance; owner reports across cafés | Planned |
+| Customer WhatsApp messages with a pluggable sender (previews only until a provider is chosen); owner "Customer messages" view | Merged (#8) |
+| Shift close with cash count and variance (cashier, Today tab); owner Reports tab with sales by day, by café, payment methods, top items, busiest hours, day closes and CSV download | In review |
 | Installable app and offline handling (PWA) | Planned |
 | Accessibility pass; load-test script | Planned |
 

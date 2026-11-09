@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import type { AdminSetup, OutletWithStations } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
-import { ApiError, CUSTOMER_URL, TENANT, api, type ActivityEntry, type AdminItem, type ItemInput } from "./api";
+import { ApiError, CUSTOMER_URL, TENANT, api, type ActivityEntry, type AdminItem, type ItemInput, type SalesReport } from "./api";
 
 /** Owner self-service (D-17): cafés, kitchens, menu, staff, settings and QR codes. */
-type Section = "cafes" | "menu" | "staff" | "settings" | "messages" | "activity";
+type Section = "reports" | "cafes" | "menu" | "staff" | "settings" | "messages" | "activity";
 
 export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
   const [setup, setSetup] = useState<AdminSetup | null>(null);
-  const [section, setSection] = useState<Section>("cafes");
+  const [section, setSection] = useState<Section>("reports");
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -45,6 +45,7 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
       <nav className="subtabs" role="tablist" aria-label="Setup">
         {(
           [
+            ["reports", "Reports"],
             ["cafes", `Cafés & kitchens (${setup.outlets.length})`],
             ["menu", "Menu"],
             ["staff", "Staff"],
@@ -68,6 +69,7 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
           {toast}
         </p>
       )}
+      {section === "reports" && <Reports setup={setup} />}
       {section === "cafes" && <Cafes setup={setup} act={act} onOutletsChanged={onOutletsChanged} />}
       {section === "menu" && <MenuAdmin setup={setup} act={act} />}
       {section === "staff" && <StaffAdmin setup={setup} act={act} />}
@@ -911,5 +913,259 @@ function Messages() {
         </table>
       </div>
     </section>
+  );
+}
+
+// ---------- Reports ----------
+
+const METHOD_LABEL: Record<string, string> = { ONLINE: "Paid online", CASH: "Cash", UPI_COUNTER: "UPI at counter", CARD_COUNTER: "Card at counter" };
+
+/** Business dates are Asia/Kolkata, same as the API. */
+const istDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
+const daysAgo = (n: number) => istDate(new Date(Date.now() - n * 86_400_000));
+const shortDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+const hourLabel = (h: number) => `${h % 12 || 12} ${h < 12 ? "am" : "pm"}`;
+
+function csvCell(v: string | number) {
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+export function reportCsv(r: SalesReport): string {
+  const rupees = (p: number) => (p / 100).toFixed(2);
+  const rows: Array<Array<string | number>> = [
+    ["Report", `${r.from} to ${r.to}`],
+    [],
+    ["Date", "Orders", "Net sales (INR)"],
+    ...r.byDay.map((d) => [d.date, d.orders, rupees(d.netPaise)]),
+    [],
+    ["Café", "Orders", "Cancelled", "Online", "Counter", "Net sales (INR)"],
+    ...r.byCafe.map((c) => [c.name, c.orders, c.cancelled, c.online, c.counter, rupees(c.netPaise)]),
+    [],
+    ["Item", "Quantity", "Revenue (INR)"],
+    ...r.topItems.map((i) => [i.name, i.quantity, rupees(i.revenuePaise)]),
+    [],
+    ["Day close", "Café", "Closed by", "Expected cash (INR)", "Counted cash (INR)", "Difference (INR)", "Note"],
+    ...r.closes.map((c) => [c.businessDate, c.outlet, c.closedBy, rupees(c.expectedCashPaise), rupees(c.countedCashPaise), rupees(c.variancePaise), c.note ?? ""]),
+  ];
+  return rows.map((row) => row.map(csvCell).join(",")).join("\n");
+}
+
+function Reports({ setup }: { setup: AdminSetup }) {
+  const [preset, setPreset] = useState<"today" | "7" | "30" | "custom">("7");
+  const [from, setFrom] = useState(daysAgo(6));
+  const [to, setTo] = useState(daysAgo(0));
+  const [outletId, setOutletId] = useState("");
+  const [report, setReport] = useState<SalesReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const choose = (p: "today" | "7" | "30") => {
+    setPreset(p);
+    setFrom(daysAgo(p === "today" ? 0 : Number(p) - 1));
+    setTo(daysAgo(0));
+  };
+
+  useEffect(() => {
+    let live = true;
+    setError(null);
+    api.admin.reports({ from, to, outletId: outletId || undefined }).then(
+      (r) => live && setReport(r),
+      (e: ApiError) => live && setError(e.message),
+    );
+    return () => {
+      live = false;
+    };
+  }, [from, to, outletId]);
+
+  const download = () => {
+    if (!report) return;
+    const url = URL.createObjectURL(new Blob([reportCsv(report)], { type: "text/csv" }));
+    const a = Object.assign(document.createElement("a"), { href: url, download: `brew-haven-${report.from}-to-${report.to}.csv` });
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const r = report;
+  const maxDay = Math.max(1, ...(r?.byDay.map((d) => d.netPaise) ?? [1]));
+  const maxHour = Math.max(1, ...(r?.busiestHours.map((h) => h.orders) ?? [1]));
+  const methodTotal = Object.values(r?.byMethod ?? {}).reduce((a, b) => a + b, 0) || 1;
+
+  return (
+    <section className="panel reports">
+      <header className="items-head">
+        <h3>Reports</h3>
+        <div className="report-controls">
+          {(["today", "7", "30"] as const).map((p) => (
+            <button key={p} className={preset === p ? "chip chip-on" : "chip"} onClick={() => choose(p)}>
+              {p === "today" ? "Today" : `Last ${p} days`}
+            </button>
+          ))}
+          <label className="date-range">
+            <input type="date" value={from} max={to} onChange={(e) => (setPreset("custom"), setFrom(e.target.value))} aria-label="From" />
+            <span>to</span>
+            <input type="date" value={to} min={from} max={daysAgo(0)} onChange={(e) => (setPreset("custom"), setTo(e.target.value))} aria-label="To" />
+          </label>
+          <select value={outletId} onChange={(e) => setOutletId(e.target.value)} aria-label="Café">
+            <option value="">All cafés</option>
+            {setup.outlets.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+          <button className="btn btn-ghost" onClick={download} disabled={!r}>
+            Download CSV
+          </button>
+        </div>
+      </header>
+      {error && <p className="error">{error}</p>}
+      {!r && !error && <p className="muted">Loading…</p>}
+      {r && (
+        <>
+          <div className="stat-tiles">
+            <Tile label="Net sales" value={formatInr(r.totals.netPaise)} sub={r.totals.refundedPaise ? `after ${formatInr(r.totals.refundedPaise)} refunded` : "no refunds"} />
+            <Tile label="Orders" value={String(r.totals.orders)} sub={`${r.totals.cancelled} cancelled${r.totals.open ? `, ${r.totals.open} still open` : ""}`} />
+            <Tile label="Average order" value={formatInr(r.totals.averageOrderPaise)} />
+            <Tile label="Taken" value={formatInr(r.totals.capturedPaise)} sub="before refunds" />
+          </div>
+
+          <div className="report-grid">
+            <article className="report-card wide">
+              <h4>Sales by day</h4>
+              {r.byDay.length === 0 ? (
+                <p className="muted">No sales in this period.</p>
+              ) : (
+                <ol className="bars" aria-label="Net sales by day">
+                  {r.byDay.map((d) => (
+                    <li key={d.date} title={`${shortDate(d.date)}: ${formatInr(d.netPaise)}, ${d.orders} orders`}>
+                      <span className="bar" style={{ height: `${Math.max(2, (d.netPaise / maxDay) * 100)}%` }} />
+                      <span className="bar-label">{shortDate(d.date)}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </article>
+
+            <article className="report-card">
+              <h4>By café</h4>
+              <table className="items-table compact">
+                <thead>
+                  <tr>
+                    <th>Café</th>
+                    <th className="num">Orders</th>
+                    <th className="num">Online / counter</th>
+                    <th className="num">Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.byCafe.map((c) => (
+                    <tr key={c.outletId}>
+                      <td>{c.name}</td>
+                      <td className="num">{c.orders}</td>
+                      <td className="num">
+                        {c.online} / {c.counter}
+                      </td>
+                      <td className="num">{formatInr(c.netPaise)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </article>
+
+            <article className="report-card">
+              <h4>How customers paid</h4>
+              <ul className="method-list">
+                {Object.entries(r.byMethod)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([m, p]) => (
+                    <li key={m}>
+                      <span>{METHOD_LABEL[m] ?? m}</span>
+                      <span className="meter" aria-hidden>
+                        <span style={{ width: `${(p / methodTotal) * 100}%` }} />
+                      </span>
+                      <strong>{formatInr(p)}</strong>
+                    </li>
+                  ))}
+                {Object.keys(r.byMethod).length === 0 && <li className="muted">No payments yet.</li>}
+              </ul>
+            </article>
+
+            <article className="report-card">
+              <h4>Top items</h4>
+              <ol className="top-items">
+                {r.topItems.map((i) => (
+                  <li key={i.name}>
+                    <span>{i.name}</span>
+                    <span className="muted">×{i.quantity}</span>
+                    <strong>{formatInr(i.revenuePaise)}</strong>
+                  </li>
+                ))}
+                {r.topItems.length === 0 && <li className="muted">Nothing sold yet.</li>}
+              </ol>
+            </article>
+
+            <article className="report-card">
+              <h4>Busiest hours</h4>
+              <ul className="hours">
+                {r.busiestHours.map((h) => (
+                  <li key={h.hour}>
+                    <span>{hourLabel(h.hour)}</span>
+                    <span className="meter" aria-hidden>
+                      <span style={{ width: `${(h.orders / maxHour) * 100}%` }} />
+                    </span>
+                    <span className="muted">{h.orders}</span>
+                  </li>
+                ))}
+                {r.busiestHours.length === 0 && <li className="muted">No orders yet.</li>}
+              </ul>
+            </article>
+
+            <article className="report-card wide">
+              <h4>Day closes</h4>
+              {r.closes.length === 0 ? (
+                <p className="muted">No days closed in this period. The cashier closes the day from the Today tab.</p>
+              ) : (
+                <table className="items-table compact">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Café</th>
+                      <th>Closed by</th>
+                      <th className="num">Expected cash</th>
+                      <th className="num">Counted</th>
+                      <th className="num">Difference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {r.closes.map((c) => (
+                      <tr key={c.id}>
+                        <td className="nowrap">{shortDate(c.businessDate)}</td>
+                        <td>{c.outlet}</td>
+                        <td>{c.closedBy}</td>
+                        <td className="num">{formatInr(c.expectedCashPaise)}</td>
+                        <td className="num">{formatInr(c.countedCashPaise)}</td>
+                        <td className={`num ${c.variancePaise === 0 ? "ok" : "warn"}`} title={c.note ?? undefined}>
+                          {c.variancePaise === 0 ? "Matched" : `${c.variancePaise < 0 ? "Short" : "Over"} ${formatInr(Math.abs(c.variancePaise))}`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </article>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="stat-tile">
+      <span className="muted small">{label}</span>
+      <strong>{value}</strong>
+      {sub && <span className="muted small">{sub}</span>}
+    </div>
   );
 }

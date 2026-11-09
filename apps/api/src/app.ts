@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { ZodError, type ZodTypeAny, type z } from "zod";
 import {
   AdminSettingsRequest,
+  CloseDayRequest,
   CategoryRequest,
   CreateOrderRequest,
   CreateOutletRequest,
@@ -53,6 +54,7 @@ import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login,
 import * as admin from "./services/admin.js";
 import * as audit from "./services/audit.js";
 import { listNotifications } from "./services/notifications.js";
+import { closeDay, getClose, salesReport } from "./services/reports.js";
 import { LogNotifier, MetaWhatsAppNotifier, type Notifier } from "./notify/provider.js";
 
 declare module "fastify" {
@@ -310,11 +312,14 @@ export async function buildApp(deps: AppDeps) {
     daySummary(deps.db, await staff(req), req.query.outletId, req.query.date),
   );
 
+  app.get<{ Querystring: { outletId: string } }>("/v1/staff/close", async (req) => getClose(deps.db, await staff(req), req.query.outletId));
+  app.post("/v1/staff/close", async (req) => closeDay(deps.db, await staff(req), parse(CloseDayRequest, req.body)));
   app.get("/v1/staff/outlets", async (req) => admin.accessibleOutlets(deps.db, await staff(req)));
 
   // ---------- Owner admin (D-17) ----------
   type IdParams = { Params: { id: string } };
   app.get("/v1/admin/setup", async (req) => admin.getSetup(deps.db, await staff(req)));
+  app.get<{ Querystring: { from?: string; to?: string; outletId?: string } }>("/v1/admin/reports", async (req) => salesReport(deps.db, await staff(req), req.query));
   app.get("/v1/admin/notifications", async (req) => ({ provider: notifier.name, delivers: notifier.delivers, messages: await listNotifications(deps.db, await staff(req)) }));
   app.get<{ Querystring: { limit?: string; before?: string; outletId?: string } }>("/v1/admin/activity", async (req) =>
     audit.listActivity(deps.db, await staff(req), { limit: Number(req.query.limit) || undefined, before: Number(req.query.before) || undefined, outletId: req.query.outletId }),

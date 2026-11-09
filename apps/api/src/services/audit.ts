@@ -82,6 +82,12 @@ export async function describe(
       const count = typeof body.stockCount === "number" ? `, ${body.stockCount} left` : "";
       return { action: "stock.update", summary: `${body.available ? "Marked available" : "Marked sold out"}: ${name}${count}`, targetId: str(body.itemId), outletId: str(body.outletId) };
     }
+    case "POST /v1/staff/close": {
+      const v = Number(result.variancePaise ?? 0);
+      const r = (p: number) => `₹${(Math.abs(p) / 100).toLocaleString("en-IN")}`;
+      const diff = v === 0 ? "cash matched" : v < 0 ? `cash short by ${r(v)}` : `cash over by ${r(v)}`;
+      return { action: "day.close", summary: `Closed the day: counted ${r(Number(result.countedCashPaise ?? 0))}, ${diff}`, targetId: str(result.id), outletId: str(body.outletId) };
+    }
     case "PUT /v1/admin/settings":
       return { action: "settings.update", summary: "Updated café settings" };
     case "POST /v1/admin/outlets":
