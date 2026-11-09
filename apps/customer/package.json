@@ -13,6 +13,7 @@
   "dependencies": {
     "@brew-haven/contracts": "workspace:*",
     "@brew-haven/domain": "workspace:*",
+    "@brew-haven/pwa": "workspace:*",
     "@brew-haven/ui-tokens": "workspace:*",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",

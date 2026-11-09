@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { registerServiceWorker, useOnline } from "@brew-haven/pwa";
 import { Redirect, Route, Switch } from "wouter";
 import "@brew-haven/ui-tokens/tokens.css";
 import "./styles.css";
@@ -10,8 +11,20 @@ import { Welcome } from "./screens/Welcome";
 
 const DEFAULT_CAFE = (import.meta.env.VITE_DEFAULT_CAFE as string | undefined) ?? "400-coffee/tower-a";
 
+function OfflineBanner() {
+  const online = useOnline();
+  if (online) return null;
+  return (
+    <p className="offline-banner" role="status">
+      You're offline. You can look through the menu, and ordering will work again once you're back online.
+    </p>
+  );
+}
+
 function App() {
   return (
+    <>
+    <OfflineBanner />
     <Switch>
       <Route path="/order/:token">{(p) => <Track token={p.token} />}</Route>
       <Route path="/:tenant/:outlet/menu">{(p) => <Menu tenant={p.tenant} outlet={p.outlet} />}</Route>
@@ -21,8 +34,11 @@ function App() {
         <Redirect to={`/${DEFAULT_CAFE}`} />
       </Route>
     </Switch>
+    </>
   );
 }
+
+registerServiceWorker(import.meta.env.PROD);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

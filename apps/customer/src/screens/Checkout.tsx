@@ -5,6 +5,7 @@ import { IndianMobile } from "@brew-haven/contracts";
 import { ApiError, api } from "../api";
 import { basket, lastOrder, savedDetails, useBasket } from "../basket";
 import { ErrorNote, Rs, Stepper } from "../components/ui";
+import { useOnline } from "@brew-haven/pwa";
 import { useMenu } from "../hooks";
 
 export function Checkout({ tenant, outlet }: { tenant: string; outlet: string }) {
@@ -20,6 +21,7 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [touched, setTouched] = useState(false);
+  const online = useOnline();
   // One key per checkout attempt, so a double tap or a retry never creates two orders.
   const idemKey = useRef(crypto.randomUUID());
 
@@ -27,19 +29,24 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
 
   const payload = useMemo(() => lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity, modifierIds: l.modifierIds, ...(l.note ? { note: l.note } : {}) })), [lines]);
 
+  // A new basket is a new checkout attempt. Coming back online is not, so a payment that went
+  // through just before the connection dropped is never charged twice.
   useEffect(() => {
-    if (!payload.length) return;
+    idemKey.current = crypto.randomUUID();
+  }, [payload]);
+
+  useEffect(() => {
+    if (!payload.length || !online) return;
     let cancelled = false;
     setQuoteError(null);
     api
       .quote(tenant, outlet, payload)
       .then((q) => !cancelled && setQuote(q))
       .catch((e: ApiError) => !cancelled && setQuoteError(e.message));
-    idemKey.current = crypto.randomUUID();
     return () => {
       cancelled = true;
     };
-  }, [payload, tenant, outlet]);
+  }, [payload, tenant, outlet, online]);
 
   const phoneCheck = IndianMobile.safeParse(phone);
   const nameOk = name.trim().length > 0;
@@ -130,7 +137,7 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
           </>
         ) : (
           <div className="row">
-            <span>Checking prices…</span>
+            <span>{online ? "Checking prices…" : "We'll check prices when you're back online."}</span>
           </div>
         )}
       </section>
@@ -160,8 +167,8 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
       {submitError && <ErrorNote message={submitError} />}
 
       <div className="pay-bar">
-        <button className="btn btn-primary btn-block btn-lg" onClick={submit} disabled={busy || !quote}>
-          {busy ? "Placing your order…" : quote ? <>Pay <Rs paise={quote.totalPaise} /></> : "Pay"}
+        <button className="btn btn-primary btn-block btn-lg" onClick={submit} disabled={busy || !quote || !online}>
+          {!online ? "You're offline" : busy ? "Placing your order…" : quote ? <>Pay <Rs paise={quote.totalPaise} /></> : "Pay"}
         </button>
         <p className="fine">Your order goes to the kitchen as soon as the payment is confirmed.</p>
       </div>

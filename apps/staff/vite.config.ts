@@ -1,8 +1,9 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { brewHavenPwa } from "@brew-haven/pwa/vite";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), brewHavenPwa("Brew Haven Staff")],
   server: { port: 5174 },
   build: { target: "es2022", sourcemap: true },
 });
