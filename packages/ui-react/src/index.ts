@@ -61,3 +61,4 @@ export function useDialog<T extends HTMLElement>(onClose: () => void): RefObject
 
   return ref;
 }
+export { Receipt } from "./Receipt";

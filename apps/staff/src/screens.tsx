@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DaySummary, MenuItemDto, MenuResponse, OrderView, StaffRole } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
 import { ApiError, api, type DayClose, type StockRow } from "./api";
+import { ReceiptModal } from "./ReceiptModal";
 import { OrderCard } from "./OrderCard";
 
 type Live = { orders: OrderView[]; upsert: (o: OrderView) => void };
@@ -97,7 +98,8 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
   const [picking, setPicking] = useState<MenuItemDto | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string; orderId?: string } | null>(null);
+  const [printing, setPrinting] = useState<string | null>(null);
   if (!menu) return <p className="muted">Loading menu…</p>;
   const active = menu.categories.find((c) => c.id === cat) ?? menu.categories[0]!;
   const total = lines.reduce((s, l) => s + l.unit * l.quantity, 0);
@@ -129,7 +131,7 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
       onCreated(o);
       setLines([]);
       setName("");
-      setMsg({ kind: "ok", text: `Order ${o.pickupCode} sent to the kitchen · ${formatInr(o.paidPaise)} recorded` });
+      setMsg({ kind: "ok", text: `Order ${o.pickupCode} sent to the kitchen · ${formatInr(o.paidPaise)} recorded`, orderId: o.id });
     } catch (e) {
       setMsg({ kind: "err", text: (e as ApiError).message });
     } finally {
@@ -196,8 +198,21 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
           </button>
         </div>
         <p className="muted small">Take the payment first, then tap how the customer paid.</p>
-        {msg && <p className={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</p>}
+        {msg && (
+          <p className={msg.kind === "ok" ? "ok" : "error"}>
+            {msg.text}
+            {msg.orderId && (
+              <>
+                {" "}
+                <button className="link-btn" onClick={() => setPrinting(msg.orderId!)}>
+                  Print receipt
+                </button>
+              </>
+            )}
+          </p>
+        )}
       </aside>
+      {printing && <ReceiptModal orderId={printing} autoPrint onClose={() => setPrinting(null)} />}
       {picking && <ModifierPicker item={picking} onClose={() => setPicking(null)} onAdd={(ids) => (add(picking, ids), setPicking(null))} />}
     </div>
   );

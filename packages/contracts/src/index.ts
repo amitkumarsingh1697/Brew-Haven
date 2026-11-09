@@ -244,6 +244,21 @@ const OptionalText = z.string().trim().max(400).optional();
 export const PickupPrefix = z.string().trim().toUpperCase().pipe(z.string().regex(/^[A-Z]{1,3}$/, "Use 1 to 3 letters, e.g. C"));
 export const SlugInput = z.string().trim().toLowerCase().pipe(Slug);
 
+/** GST registration number: 2-digit state code, PAN, entity number, Z, check character. */
+export const Gstin = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .pipe(z.string().regex(/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, "That doesn't look like a GSTIN. It has 15 characters, e.g. 29ABCDE1234F1Z5"));
+/** Printed on receipts. Empty strings clear a field. */
+export const BillingDetails = z.object({
+  legalName: z.string().trim().max(100).optional(),
+  gstin: z.union([z.literal(""), Gstin]).optional(),
+  fssaiLicence: z.union([z.literal(""), z.string().trim().regex(/^\d{14}$/, "The FSSAI licence number has 14 digits")]).optional(),
+  footer: z.string().trim().max(140).optional(),
+});
+export type BillingDetails = z.infer<typeof BillingDetails>;
+
 export const AdminSettingsRequest = z.object({
   displayName: Name,
   tagline: z.string().trim().max(80).optional(),
@@ -251,6 +266,7 @@ export const AdminSettingsRequest = z.object({
   managerName: z.string().trim().max(30).optional(),
   /** GST in basis points, e.g. 500 = 5% (SO-6 pending with the owner). */
   taxRateBps: z.number().int().min(0).max(2800),
+  billing: BillingDetails.optional(),
 });
 
 export const StationInput = z.object({ name: Name, key: SlugInput.optional() });
@@ -317,7 +333,7 @@ export const OutletWithStations = z.object({
 export type OutletWithStations = z.infer<typeof OutletWithStations>;
 
 export const AdminSetup = z.object({
-  tenant: z.object({ slug: z.string(), name: z.string(), taxRateBps: z.number().int(), branding: Branding }),
+  tenant: z.object({ slug: z.string(), name: z.string(), taxRateBps: z.number().int(), branding: Branding, billing: BillingDetails }),
   outlets: z.array(OutletWithStations),
   categories: z.array(z.object({ id: Id, name: z.string(), sort: z.number().int(), active: z.boolean() })),
   items: z.array(
@@ -350,3 +366,39 @@ export const CloseDayRequest = z.object({
   countedCashPaise: RupeesPaise,
   note: z.string().trim().max(200).optional(),
 });
+
+// ---------- Receipts ----------
+
+/**
+ * A receipt for a placed order. With a GSTIN on file it is a tax invoice: consecutive number per
+ * café per financial year, GST split into CGST and SGST (intra-state supply). Without one it is a
+ * plain receipt.
+ */
+export const ReceiptView = z.object({
+  kind: z.enum(["TAX_INVOICE", "RECEIPT"]),
+  number: z.string(),
+  issuedAt: z.string(),
+  pickupCode: z.string().nullable(),
+  seller: z.object({
+    name: z.string(),
+    legalName: z.string().nullable(),
+    outlet: z.string(),
+    address: z.string().nullable(),
+    gstin: z.string().nullable(),
+    fssaiLicence: z.string().nullable(),
+  }),
+  customerName: z.string().nullable(),
+  channel: z.enum(["ONLINE", "COUNTER"]),
+  lines: z.array(z.object({ name: z.string(), options: z.array(z.string()), quantity: z.number().int(), amountPaise: Paise })),
+  totals: z.object({
+    totalPaise: Paise,
+    taxablePaise: Paise,
+    taxRateBps: z.number().int(),
+    cgstPaise: Paise,
+    sgstPaise: Paise,
+  }),
+  payments: z.array(z.object({ method: z.string(), amountPaise: Paise, reference: z.string().nullable() })),
+  refundedPaise: Paise,
+  footer: z.string().nullable(),
+});
+export type ReceiptView = z.infer<typeof ReceiptView>;

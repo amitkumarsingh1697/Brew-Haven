@@ -4,6 +4,8 @@ import type { LineRequest, OrderView } from "@brew-haven/contracts";
 import {
   ADJUSTMENT_TIMEOUT_MS,
   assertRefundAllowed,
+  financialYear,
+  formatInvoiceNo,
   formatPickupCode,
   inclusiveTax,
   transition,
@@ -15,6 +17,7 @@ import type { After, Tx } from "../db/client.js";
 import {
   adjustments,
   dailyCounters,
+  invoiceCounters,
   orderEvents,
   orderLines,
   orders,
@@ -107,7 +110,7 @@ export async function applyTransition(
   return updated!;
 }
 
-/** PLACED: assigns the daily pickup code and takes the items out of stock. */
+/** PLACED: assigns the daily pickup code and the receipt number, and takes the items out of stock. */
 export async function placeOrder(tx: Tx, after: After, bus: EventBus, order: OrderRow, action: OrderAction, actor: Actor, actorId?: string | null) {
   const [outlet] = await tx.select().from(outlets).where(eq(outlets.id, order.outletId));
   const day = businessDate(new Date(), outlet!.timezone);
@@ -116,11 +119,22 @@ export async function placeOrder(tx: Tx, after: After, bus: EventBus, order: Ord
     .values({ outletId: order.outletId, businessDate: day, lastSeq: 1 })
     .onConflictDoUpdate({ target: [dailyCounters.outletId, dailyCounters.businessDate], set: { lastSeq: sql`${dailyCounters.lastSeq} + 1` } })
     .returning();
+  const fy = financialYear(day);
+  const [invoice] = await tx
+    .insert(invoiceCounters)
+    .values({ outletId: order.outletId, financialYear: fy, lastSeq: 1 })
+    .onConflictDoUpdate({ target: [invoiceCounters.outletId, invoiceCounters.financialYear], set: { lastSeq: sql`${invoiceCounters.lastSeq} + 1` } })
+    .returning();
   const lines = await tx.select().from(orderLines).where(and(eq(orderLines.orderId, order.id), eq(orderLines.status, "ACTIVE")));
   for (const l of lines) await takeStock(tx, order.outletId, l.itemId, l.quantity);
   await tx
     .update(orders)
-    .set({ pickupCode: formatPickupCode(outlet!.pickupPrefix, counter!.lastSeq), businessDate: day, placedAt: new Date() })
+    .set({
+      pickupCode: formatPickupCode(outlet!.pickupPrefix, counter!.lastSeq),
+      invoiceNo: formatInvoiceNo(outlet!.pickupPrefix, fy, invoice!.lastSeq),
+      businessDate: day,
+      placedAt: new Date(),
+    })
     .where(eq(orders.id, order.id));
   const fresh = await lockOrder(tx, { id: order.id });
   return applyTransition(tx, after, bus, fresh, action, actor, { actorId: actorId ?? null });

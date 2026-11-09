@@ -3,6 +3,7 @@ import type { OrderView, StaffRole } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
 import { ApiError, api } from "./api";
 import { minutesSince } from "./live";
+import { ReceiptModal } from "./ReceiptModal";
 
 const can = {
   start: (r: StaffRole) => r === "KITCHEN" || r === "ADMIN",
@@ -27,6 +28,7 @@ export function OrderCard({
   stationFilter?: string;
 }) {
   const [mode, setMode] = useState<"none" | "reject" | "flag">("none");
+  const [receipt, setReceipt] = useState(false);
   const [reason, setReason] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -136,8 +138,14 @@ export function OrderCard({
               Reject
             </button>
           )}
+          {!big && can.handOver(role) && order.pickupCode && (
+            <button className="btn btn-ghost" onClick={() => setReceipt(true)}>
+              Receipt
+            </button>
+          )}
         </footer>
       )}
+      {receipt && <ReceiptModal orderId={order.id} onClose={() => setReceipt(false)} />}
     </article>
   );
 }

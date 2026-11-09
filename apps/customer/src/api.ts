@@ -1,4 +1,4 @@
-import type { CheckoutInfo, CreateOrderResponse, MenuResponse, OrderView, QuoteResponse, ResolveAdjustmentRequest } from "@brew-haven/contracts";
+import type { CheckoutInfo, ReceiptView, CreateOrderResponse, MenuResponse, OrderView, QuoteResponse, ResolveAdjustmentRequest } from "@brew-haven/contracts";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:8080";
 
@@ -50,6 +50,7 @@ export const api = {
       headers: { "Idempotency-Key": idempotencyKey },
     }),
   track: (token: string) => call<OrderView>(`/v1/track/${token}`),
+  receipt: (token: string) => call<ReceiptView>(`/v1/track/${token}/receipt`),
   retryPayment: (token: string) => call<CheckoutInfo>(`/v1/track/${token}/pay`, { method: "POST" }),
   resolve: (token: string, adjustmentId: string, body: ResolveAdjustmentRequest) =>
     call<OrderView>(`/v1/track/${token}/adjustments/${adjustmentId}/resolve`, { method: "POST", body: JSON.stringify(body) }),
