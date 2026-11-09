@@ -1,4 +1,6 @@
 import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { eq } from "drizzle-orm";
 import { ZodError, type ZodTypeAny, type z } from "zod";
@@ -49,10 +51,13 @@ import {
 import { orderView } from "./services/orders.js";
 import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login, stockList, updateStock } from "./services/staff.js";
 import * as admin from "./services/admin.js";
+import * as audit from "./services/audit.js";
 
 declare module "fastify" {
   interface FastifyRequest {
     rawBody?: string;
+    /** Set once a staff token has been verified, for the audit trail. */
+    staffClaims?: StaffClaims;
   }
 }
 
@@ -78,6 +83,8 @@ export interface AppDeps {
   db: Db;
   provider?: PaymentProvider;
   bus?: EventBus;
+  /** Per-IP limits on public endpoints. On by default; the test suite turns it off except where it tests it. */
+  rateLimit?: boolean;
 }
 
 export async function buildApp(deps: AppDeps) {
@@ -92,6 +99,21 @@ export async function buildApp(deps: AppDeps) {
   const tokens = new StaffTokens(deps.config.staffTokenSecret);
   const limiter = new AttemptLimiter();
   const origins = new Set(deps.config.corsOrigins);
+
+  await app.register(helmet, {
+    // JSON API: no pages to protect with CSP; the apps set their own CSP (see public/_headers).
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  });
+  const limits = deps.rateLimit ?? process.env.NODE_ENV !== "test";
+  if (limits) {
+    await app.register(rateLimit, {
+      global: false,
+      errorResponseBuilder: (_req, ctx) => ({ statusCode: 429, error: "Too Many Requests", message: `Too many requests. Please wait ${Math.ceil(ctx.ttl / 1000)} seconds and try again.` }),
+    });
+  }
+  /** Route option for a per-IP limit (ignored when limits are off). */
+  const perMinute = (max: number) => (limits ? { config: { rateLimit: { max, timeWindow: "1 minute" } } } : {});
 
   await app.register(cors, { origin: [...origins], methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"], allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key"] });
 
@@ -109,6 +131,7 @@ export async function buildApp(deps: AppDeps) {
     if (err instanceof ZodError) return reply.status(400).send({ error: { code: "VALIDATION", message: err.issues[0]?.message ?? "Invalid" } });
     if (err instanceof RangeError) return reply.status(400).send({ error: { code: "VALIDATION", message: err.message } });
     const status = (err as { statusCode?: number }).statusCode;
+    if (status === 429) return reply.status(429).send({ error: { code: "RATE_LIMITED", message: (err as Error).message } });
     if (status && status < 500) return reply.status(status).send({ error: { code: "BAD_REQUEST", message: (err as Error).message } });
     req.log.error({ err }, "unhandled error");
     return reply.status(500).send({ error: { code: "INTERNAL", message: "Something went wrong on our side. Please try again." } });
@@ -119,8 +142,24 @@ export async function buildApp(deps: AppDeps) {
     const q = opts.allowQueryToken ? (req.query as { token?: string }).token : undefined;
     const token = h?.startsWith("Bearer ") ? h.slice(7) : q;
     if (!token) throw new AppError("UNAUTHORIZED", "Please sign in");
-    return tokens.verify(token);
+    const claims = await tokens.verify(token);
+    req.staffClaims = claims;
+    return claims;
   }
+
+  // ---------- Audit trail: every successful staff or owner change ----------
+  app.addHook("onSend", async (req, reply, payload) => {
+    const s = req.staffClaims;
+    if (!s || req.method === "GET" || reply.statusCode >= 400 || !req.routeOptions.url) return payload;
+    try {
+      const result = typeof payload === "string" ? JSON.parse(payload) : {};
+      const d = await audit.describe(deps.db, s, req.method, req.routeOptions.url, (req.params ?? {}) as Record<string, unknown>, (req.body ?? {}) as Record<string, unknown>, result ?? {});
+      if (d) await audit.recordAudit(deps.db, { ...d, meta: audit.scrub(req.body), tenantId: s.tenantId, actorId: s.sub, actorName: s.name, ip: req.ip });
+    } catch (err) {
+      req.log.error({ err }, "audit write failed"); // never fail the change because the log failed
+    }
+    return payload;
+  });
 
   function openSse(req: FastifyRequest, reply: FastifyReply) {
     const origin = req.headers.origin;
@@ -150,7 +189,7 @@ export async function buildApp(deps: AppDeps) {
     return getMenu(deps.db, req.params.tenant, req.params.outlet);
   });
 
-  app.post<{ Params: { tenant: string; outlet: string } }>("/v1/cafes/:tenant/:outlet/quote", async (req) => {
+  app.post<{ Params: { tenant: string; outlet: string } }>("/v1/cafes/:tenant/:outlet/quote", perMinute(60), async (req) => {
     const body = parse(QuoteRequest, req.body);
     const { tenant, outlet } = await loadTenantOutlet(deps.db, req.params.tenant, req.params.outlet);
     const lines = await resolveLines(deps.db, tenant.id, outlet.id, body.lines, { requireAvailable: true });
@@ -158,14 +197,14 @@ export async function buildApp(deps: AppDeps) {
     return { ...q, lines: q.lines.map((l, i) => ({ itemId: l.itemId, name: l.name, quantity: l.quantity, modifiers: l.modifiers, unitTotalPaise: l.unitTotalPaise, lineTotalPaise: l.lineTotalPaise, ...(lines[i]?.note ? { note: lines[i]!.note } : {}) })) };
   });
 
-  app.post<{ Params: { tenant: string; outlet: string } }>("/v1/cafes/:tenant/:outlet/orders", async (req, reply) => {
+  app.post<{ Params: { tenant: string; outlet: string } }>("/v1/cafes/:tenant/:outlet/orders", perMinute(10), async (req, reply) => {
     const body = parse(CreateOrderRequest, req.body);
     const key = String(req.headers["idempotency-key"] ?? "");
     const res = await createOnlineOrder(ctx, req.params.tenant, req.params.outlet, body, key);
     return reply.status(201).send(res);
   });
 
-  app.get<{ Params: { token: string } }>("/v1/track/:token", async (req) => {
+  app.get<{ Params: { token: string } }>("/v1/track/:token", perMinute(120), async (req) => {
     const [o] = await deps.db.select({ id: orders.id }).from(orders).where(eq(orders.trackingToken, req.params.token));
     if (!o) throw notFound("Order");
     return deps.db.transaction((tx) => orderView(tx, o.id));
@@ -183,7 +222,7 @@ export async function buildApp(deps: AppDeps) {
     sse.onClose(off);
   });
 
-  app.post<{ Params: { token: string } }>("/v1/track/:token/pay", async (req) => retryPayment(ctx, req.params.token));
+  app.post<{ Params: { token: string } }>("/v1/track/:token/pay", perMinute(10), async (req) => retryPayment(ctx, req.params.token));
 
   app.post<{ Params: { token: string; id: string } }>("/v1/track/:token/adjustments/:id/resolve", async (req) =>
     resolveCustomerAdjustment(ctx, req.params.token, req.params.id, parse(ResolveAdjustmentRequest, req.body)),
@@ -217,7 +256,12 @@ export async function buildApp(deps: AppDeps) {
   // ---------- Staff ----------
   app.get<{ Params: { tenant: string } }>("/v1/staff/:tenant/users", async (req) => listStaffUsers(deps.db, req.params.tenant));
 
-  app.post("/v1/staff/login", async (req) => login(deps.db, tokens, limiter, parse(StaffLoginRequest, req.body), req.ip));
+  app.post("/v1/staff/login", perMinute(30), async (req) => {
+    const session = await login(deps.db, tokens, limiter, parse(StaffLoginRequest, req.body), req.ip);
+    const claims = await tokens.verify(session.token);
+    await audit.recordAudit(deps.db, { tenantId: claims.tenantId, actorId: claims.sub, actorName: claims.name, action: "staff.sign_in", summary: "Signed in", ip: req.ip }).catch((err) => req.log.error({ err }, "audit write failed"));
+    return session;
+  });
 
   app.get<{ Querystring: { outletId: string; scope?: "live" | "today" } }>("/v1/staff/orders", async (req) =>
     listOutletOrders(deps.db, await staff(req), req.query.outletId, req.query.scope === "today" ? "today" : "live"),
@@ -261,6 +305,9 @@ export async function buildApp(deps: AppDeps) {
   // ---------- Owner admin (D-17) ----------
   type IdParams = { Params: { id: string } };
   app.get("/v1/admin/setup", async (req) => admin.getSetup(deps.db, await staff(req)));
+  app.get<{ Querystring: { limit?: string; before?: string; outletId?: string } }>("/v1/admin/activity", async (req) =>
+    audit.listActivity(deps.db, await staff(req), { limit: Number(req.query.limit) || undefined, before: Number(req.query.before) || undefined, outletId: req.query.outletId }),
+  );
   app.put("/v1/admin/settings", async (req) => admin.updateSettings(deps.db, await staff(req), parse(AdminSettingsRequest, req.body)));
   app.post("/v1/admin/outlets", async (req, reply) => reply.status(201).send(await admin.createOutlet(deps.db, await staff(req), parse(CreateOutletRequest, req.body))));
   app.patch<IdParams>("/v1/admin/outlets/:id", async (req) => admin.updateOutlet(deps.db, await staff(req), req.params.id, parse(UpdateOutletRequest, req.body)));

@@ -297,3 +297,22 @@ export const outbox = pgTable(
   },
   (t) => [index("outbox_pending").on(t.processedAt, t.availableAt)],
 );
+
+/** Who changed what (staff actions on orders and stock, every owner setup change, sign-ins). */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    tenantId: uuid("tenant_id").notNull(),
+    outletId: uuid("outlet_id"),
+    actorId: uuid("actor_id"),
+    actorName: text("actor_name").notNull(),
+    action: text("action").notNull(),
+    summary: text("summary").notNull(),
+    targetId: text("target_id"),
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
+    ip: text("ip"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("audit_tenant_time").on(t.tenantId, t.createdAt)],
+);

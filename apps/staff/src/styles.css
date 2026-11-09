@@ -1090,3 +1090,9 @@ a.btn {
   max-width: 100%;
   text-overflow: ellipsis;
 }
+.nowrap {
+  white-space: nowrap;
+}
+.activity select {
+  width: auto;
+}

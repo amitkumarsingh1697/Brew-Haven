@@ -53,6 +53,15 @@ export interface StockRow {
   stockCount: number | null;
 }
 
+export interface ActivityEntry {
+  id: number;
+  at: string;
+  actor: string;
+  action: string;
+  summary: string;
+  outlet: string | null;
+}
+
 export const api = {
   users: () => call<{ tenant: { name: string }; users: Array<{ id: string; name: string; role: string }> }>(`/v1/staff/${TENANT}/users`),
   login: (staffUserId: string, pin: string) => post<StaffSession>("/v1/staff/login", { tenantSlug: TENANT, staffUserId, pin }),
@@ -69,6 +78,12 @@ export const api = {
   outlets: () => call<OutletWithStations[]>("/v1/staff/outlets"),
   admin: {
     setup: () => call<AdminSetup>("/v1/admin/setup"),
+    activity: (q: { outletId?: string; before?: number }) => {
+      const p = new URLSearchParams({ limit: "50" });
+      if (q.outletId) p.set("outletId", q.outletId);
+      if (q.before) p.set("before", String(q.before));
+      return call<{ entries: ActivityEntry[]; nextBefore: number | null }>(`/v1/admin/activity?${p}`);
+    },
     settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),
     createOutlet: (b: { name: string; pickupPrefix: string; address?: string }) => post<OutletWithStations>("/v1/admin/outlets", b),
     updateOutlet: (id: string, b: { name?: string; pickupPrefix?: string; address?: string; isOpen?: boolean }) => send<OutletWithStations>("PATCH", `/v1/admin/outlets/${id}`, b),

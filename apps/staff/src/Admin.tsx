@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import type { AdminSetup, OutletWithStations } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
-import { ApiError, CUSTOMER_URL, TENANT, api, type AdminItem, type ItemInput } from "./api";
+import { ApiError, CUSTOMER_URL, TENANT, api, type ActivityEntry, type AdminItem, type ItemInput } from "./api";
 
 /** Owner self-service (D-17): cafés, kitchens, menu, staff, settings and QR codes. */
-type Section = "cafes" | "menu" | "staff" | "settings";
+type Section = "cafes" | "menu" | "staff" | "settings" | "activity";
 
 export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
   const [setup, setSetup] = useState<AdminSetup | null>(null);
@@ -49,6 +49,7 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
             ["menu", "Menu"],
             ["staff", "Staff"],
             ["settings", "Café settings"],
+            ["activity", "Activity"],
           ] as const
         ).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={section === id} className={section === id ? "chip chip-on" : "chip"} onClick={() => setSection(id)}>
@@ -70,6 +71,7 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
       {section === "menu" && <MenuAdmin setup={setup} act={act} />}
       {section === "staff" && <StaffAdmin setup={setup} act={act} />}
       {section === "settings" && <Settings setup={setup} act={act} />}
+      {section === "activity" && <Activity setup={setup} />}
     </div>
   );
 }
@@ -767,5 +769,83 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
         Save settings
       </button>
     </form>
+  );
+}
+
+// ---------- Activity: who changed what ----------
+
+function Activity({ setup }: { setup: AdminSetup }) {
+  const [outletId, setOutletId] = useState("");
+  const [rows, setRows] = useState<ActivityEntry[]>([]);
+  const [next, setNext] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async (before?: number) => {
+    setLoading(true);
+    try {
+      const r = await api.admin.activity({ outletId: outletId || undefined, before });
+      setRows((prev) => (before ? [...prev, ...r.entries] : r.entries));
+      setNext(r.nextBefore);
+      setError(null);
+    } catch (e) {
+      setError((e as ApiError).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => void load(), [outletId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const when = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  return (
+    <section className="panel activity">
+      <header className="items-head">
+        <h3>Activity</h3>
+        <select value={outletId} onChange={(e) => setOutletId(e.target.value)} aria-label="Filter by café">
+          <option value="">All cafés</option>
+          {setup.outlets.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+      </header>
+      <p className="muted small">Every change by your team and you: order actions, stock, menu, cafés, staff and sign-ins.</p>
+      {error && <p className="error">{error}</p>}
+      <div className="table-wrap">
+        <table className="items-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Who</th>
+              <th>What</th>
+              <th>Café</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td className="nowrap">{when(r.at)}</td>
+                <td>{r.actor}</td>
+                <td>{r.summary}</td>
+                <td>{r.outlet ?? "—"}</td>
+              </tr>
+            ))}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={4} className="muted">
+                  Nothing recorded yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {next && (
+        <button className="btn btn-ghost" disabled={loading} onClick={() => load(next)}>
+          {loading ? "Loading…" : "Show older"}
+        </button>
+      )}
+    </section>
   );
 }
