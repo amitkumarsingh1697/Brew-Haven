@@ -1,0 +1,44 @@
+/* Brew Haven tokens (ADR-0006). Keep in sync with index.ts; contrast is tested there. */
+:root {
+  --bh-espresso: #120d0a;
+  --bh-walnut: #241810;
+  --bh-roasted: #57331f;
+  --bh-brass: #d9ad70;
+  --bh-parchment: #f1e4cc;
+  --bh-cream: #fbf6ec;
+  --bh-warm-grey: #b8a48b;
+  --bh-ink: #2a1c14;
+  --bh-ink-muted: #6b5546;
+  --bh-leaf: #6f8f5a;
+  --bh-leaf-text: #46633a;
+  --bh-mint: #d7eedc;
+  --bh-danger: #a3361f;
+  --bh-warning: #8a5a00;
+
+  --bh-font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --bh-font-script: "Great Vibes", cursive;
+  --bh-font-ui: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --bh-radius-sm: 8px;
+  --bh-radius: 14px;
+  --bh-radius-lg: 22px;
+  --bh-shadow: 0 6px 24px rgb(18 13 10 / 0.12);
+  --bh-shadow-lg: 0 18px 48px rgb(18 13 10 / 0.22);
+  --bh-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --bh-fast: 160ms;
+  --bh-med: 240ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --bh-fast: 0ms;
+    --bh-med: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

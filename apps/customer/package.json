@@ -1,0 +1,27 @@
+{
+  "name": "@brew-haven/customer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'covered by e2e'"
+  },
+  "dependencies": {
+    "@brew-haven/contracts": "workspace:*",
+    "@brew-haven/domain": "workspace:*",
+    "@brew-haven/ui-tokens": "workspace:*",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "wouter": "^3.13.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "vite": "^6.4.6"
+  }
+}

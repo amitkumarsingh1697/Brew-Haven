@@ -1,0 +1,30 @@
+{
+  "name": "@brew-haven/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/scripts/migrate.ts",
+    "db:seed": "tsx src/scripts/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@brew-haven/contracts": "workspace:*",
+    "@brew-haven/domain": "workspace:*",
+    "@fastify/cors": "^11.4.1",
+    "drizzle-orm": "~0.44.7",
+    "fastify": "^5.12.8",
+    "jose": "^6.2.16",
+    "pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "~0.31.11"
+  }
+}
