@@ -164,12 +164,47 @@ h3 {
   width: 100%;
   max-width: 520px;
 }
+.scene-stack {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  border-radius: var(--bh-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--bh-shadow-lg);
+  background: #1a110b;
+  isolation: isolate;
+}
 .cafe-scene {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
-  border-radius: var(--bh-radius-lg);
-  box-shadow: var(--bh-shadow-lg);
+  transition: opacity 600ms var(--bh-ease);
+}
+.cafe3d {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 600ms var(--bh-ease);
+  touch-action: pan-y;
+}
+.scene-stack.is-3d .cafe3d {
+  opacity: 1;
+}
+.scene-stack.is-3d .cafe-scene {
+  opacity: 0;
+}
+/* In 3D the bubble sits over the counter front so it doesn't hide the menu board. */
+.scene-stack.is-3d + .bubble {
+  top: auto;
+  bottom: 5%;
+  left: 3%;
+  max-width: 40%;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  padding: 0.45rem 0.65rem;
+  border-radius: 12px 12px 12px 4px;
+}
+.scene-stack.is-3d + .bubble strong {
+  font-size: 0.66rem;
 }
 .bubble {
   position: absolute;
@@ -359,10 +394,43 @@ h3 {
   font-size: 0.8rem;
   white-space: nowrap;
 }
+.veg-toggle {
+  min-height: 44px;
+  padding: 0 4px;
+  cursor: pointer;
+  user-select: none;
+}
+/* Veg only: a switch, not a bare checkbox, so it reads clearly on the dark header */
 .veg-toggle input {
-  accent-color: var(--bh-leaf);
-  width: 18px;
-  height: 18px;
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.18);
+  border: 1.5px solid rgb(255 255 255 / 0.35);
+  cursor: pointer;
+  transition: background var(--bh-fast) var(--bh-ease), border-color var(--bh-fast) var(--bh-ease);
+}
+.veg-toggle input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--bh-cream);
+  transition: transform var(--bh-fast) var(--bh-ease);
+}
+.veg-toggle input:checked {
+  background: var(--bh-leaf);
+  border-color: var(--bh-leaf);
+}
+.veg-toggle input:checked::after {
+  transform: translateX(16px);
 }
 .cat-chips {
   display: flex;

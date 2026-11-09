@@ -1,9 +1,78 @@
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+
+const Cafe3D = lazy(() => import("./Cafe3D"));
+
 /**
- * The 2D café (ADR-CX-05: the 2D path is first-class). The 3D scene in ADR-0003
- * layers on top of this later; this stays as the fallback and the poster image.
+ * Should this device get the 3D café? ADR-0003: the 2D scene is first-class, 3D is an
+ * enhancement. `?scene=2d` or `?scene=3d` in the URL forces either (useful for demos).
+ */
+function want3D(): boolean {
+  try {
+    const forced = new URLSearchParams(location.search).get("scene");
+    if (forced === "2d") return false;
+    if (forced === "3d") return true;
+    const nav = navigator as Navigator & { connection?: { saveData?: boolean }; deviceMemory?: number };
+    if (nav.connection?.saveData) return false;
+    if (nav.deviceMemory !== undefined && nav.deviceMemory < 3) return false;
+    const gl = document.createElement("canvas").getContext("webgl2");
+    return Boolean(gl);
+  } catch {
+    return false;
+  }
+}
+
+/** Any error inside the 3D scene leaves the 2D café showing. */
+class Quiet extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {
+    this.props.onError();
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+/**
+ * The café scene. The 2D illustration paints first (it is the poster and the LCP element),
+ * then the 3D café loads in the background and fades in over it when its first frame is ready.
+ */
+export function CafeScene({ cafeName, managerName, favourites = [] }: { cafeName: string; managerName: string; favourites?: Array<{ name: string; price: string }> }) {
+  const [use3D, setUse3D] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [still, setStill] = useState(false);
+  useEffect(() => {
+    setStill(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
+    // Let the page settle before pulling in the 3D bundle.
+    const id = window.setTimeout(() => setUse3D(want3D()), 150);
+    return () => window.clearTimeout(id);
+  }, []);
+  const giveUp = () => {
+    setUse3D(false);
+    setReady(false);
+  };
+  return (
+    <div className={ready ? "scene-stack is-3d" : "scene-stack"}>
+      <CafeScene2D cafeName={cafeName} managerName={managerName} />
+      {use3D && (
+        <Quiet onError={giveUp}>
+          <Suspense fallback={null}>
+            <Cafe3D cafeName={cafeName} favourites={favourites} still={still} onReady={() => setReady(true)} onTooSlow={giveUp} />
+          </Suspense>
+        </Quiet>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The 2D café (ADR-CX-05: the 2D path is first-class). It is the poster while 3D loads
+ * and the whole scene on devices that don't get 3D.
  * Branding (name, apron initial) comes from tenant config so other cafés can reuse it.
  */
-export function CafeScene({ cafeName, managerName }: { cafeName: string; managerName: string }) {
+function CafeScene2D({ cafeName, managerName }: { cafeName: string; managerName: string }) {
   const initial = cafeName.trim().charAt(0).toUpperCase();
   return (
     <svg className="cafe-scene" viewBox="0 0 360 240" role="img" aria-label={`Inside ${cafeName}. ${managerName}, the café manager, waves hello from behind the counter.`}>
@@ -38,7 +107,7 @@ export function CafeScene({ cafeName, managerName }: { cafeName: string; manager
       </g>
       {/* chalkboard sign */}
       <rect x="128" y="18" width="104" height="40" rx="6" fill="#120D0A" stroke="#D9AD70" strokeWidth="2" />
-      <text x="180" y="44" textAnchor="middle" fill="#F1E4CC" fontFamily="Cormorant Garamond, Georgia, serif" fontSize="15" fontWeight="600">
+      <text x="180" y="44" textAnchor="middle" fill="#F1E4CC" fontFamily="Cormorant Garamond, Georgia, serif" fontSize="15" fontWeight="600" style={{ fontVariantNumeric: "lining-nums" }}>
         {cafeName.length > 18 ? cafeName.slice(0, 17) + "…" : cafeName}
       </text>
       {/* pendant lamps */}

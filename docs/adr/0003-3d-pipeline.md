@@ -32,3 +32,13 @@ Blender modelling, UV and lightmap baking; character rigging and animation retar
 
 * Utsubo, "100 Three.js Tips That Actually Improve Performance (2026)": https://www.utsubo.com/blog/threejs-best-practices-100-tips
 * MessyPoly, "How to Optimize 3D Models in React Three Fiber": https://www.messypoly.com/learn/optimize-react-three-fiber-models
+
+## First cut (Sprint 1, 09 Nov 2026)
+
+* The scene is procedural in code (`apps/customer/src/components/Cafe3D.tsx`): no model files, so it costs no extra downloads. It is a lazily loaded chunk of 244 KB gzipped, fetched after the 2D poster has painted.
+* Measured: 80 draw calls and about 12k triangles, inside the budgets above.
+* Branding comes from tenant data: the sign shows the café name, the apron shows its initial, and the chalkboard lists the menu's bestsellers with live prices.
+* The barista follows the visitor's finger or cursor, blinks, and waves on arrival, every so often, and when tapped.
+* Falls back to the 2D scene when WebGL 2 is missing, Save-Data is on, device memory is under 3 GB, the scene errors, or `PerformanceMonitor` reports a sustained low frame rate. Reduced motion gets a still 3D frame. `?scene=2d` and `?scene=3d` force either path for demos.
+* Rendering stops when the scene is off screen or the tab is hidden.
+* Still to do for the saleable version: replace the procedural barista with the rigged character and baked café model from the Blender pipeline above, after the 3D artist's polish pass.
