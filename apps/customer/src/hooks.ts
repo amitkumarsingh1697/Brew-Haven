@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MenuResponse, OrderView } from "@brew-haven/contracts";
+import { saved, useOnReconnect } from "@brew-haven/pwa";
 import { ApiError, api } from "./api";
 
 const menuCache = new Map<string, MenuResponse>();
+type SavedMenu = { menu: MenuResponse; at: string };
+const storeKey = (key: string) => `bh.menu.${key}`;
 
+/**
+ * The café menu. The last good copy is kept on the device, so the menu still shows with no
+ * connection; `savedAt` is set while that copy is what's on screen. Prices are always
+ * re-checked by the server when an order is placed, so an old copy can't charge the wrong amount.
+ */
 export function useMenu(tenant: string, outlet: string) {
   const key = `${tenant}/${outlet}`;
-  const [menu, setMenu] = useState<MenuResponse | null>(menuCache.get(key) ?? null);
+  const initial = () => menuCache.get(key) ?? saved.get<SavedMenu>(storeKey(key))?.menu ?? null;
+  const [menu, setMenu] = useState<MenuResponse | null>(initial);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const reload = useCallback(() => {
     setError(null);
@@ -14,15 +24,24 @@ export function useMenu(tenant: string, outlet: string) {
       .menu(tenant, outlet)
       .then((m) => {
         menuCache.set(key, m);
+        saved.set(storeKey(key), { menu: m, at: new Date().toISOString() } satisfies SavedMenu);
         setMenu(m);
+        setSavedAt(null);
       })
-      .catch((e: ApiError) => setError(e.message));
+      .catch((e: ApiError) => {
+        const copy = menuCache.has(key) ? null : saved.get<SavedMenu>(storeKey(key));
+        if (copy) {
+          setMenu(copy.menu);
+          setSavedAt(copy.at);
+        } else if (!menuCache.has(key)) setError(e.message);
+      });
   }, [tenant, outlet, key]);
   useEffect(() => {
-    setMenu(menuCache.get(key) ?? null);
+    setMenu(initial());
     reload();
-  }, [key, reload]);
-  return { menu, error, reload };
+  }, [key, reload]); // eslint-disable-line react-hooks/exhaustive-deps
+  useOnReconnect(reload);
+  return { menu, error, reload, savedAt };
 }
 
 /** Live order status: SSE first, with polling as the fallback (REST stays authoritative). */
@@ -66,6 +85,7 @@ export function useOrder(token: string) {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [token, refresh]);
+  useOnReconnect(refresh);
 
   return { order, setOrder, error, live, refresh };
 }

@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { MenuResponse, OutletWithStations, StaffRole, StaffSession } from "@brew-haven/contracts";
+import { registerServiceWorker, useOnline } from "@brew-haven/pwa";
 import "@brew-haven/ui-tokens/tokens.css";
 import "./styles.css";
 import { api, setSessionToken } from "./api";
@@ -93,6 +94,7 @@ function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () 
 
   return (
     <div className="shell">
+      <OfflineBanner />
       <header className="topbar">
         <span className="brand">Brew Haven</span>
         <span className="cafe">{session.tenant.name}</span>
@@ -137,6 +139,17 @@ function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () 
     </div>
   );
 }
+
+function OfflineBanner() {
+  if (useOnline()) return null;
+  return (
+    <p className="offline-banner" role="alert">
+      No internet connection. New orders won't show up until it's back, and changes can't be saved.
+    </p>
+  );
+}
+
+registerServiceWorker(import.meta.env.PROD);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -6,7 +6,7 @@ import { ErrorNote, ItemArt, Rs, Sheet, Spinner, Stepper, VegMark } from "../com
 import { useMenu } from "../hooks";
 
 export function Menu({ tenant, outlet }: { tenant: string; outlet: string }) {
-  const { menu, error, reload } = useMenu(tenant, outlet);
+  const { menu, error, reload, savedAt } = useMenu(tenant, outlet);
   const { count, previewPaise } = useBasket();
   const [active, setActive] = useState<string | null>(null);
   const [vegOnly, setVegOnly] = useState(false);
@@ -69,6 +69,11 @@ export function Menu({ tenant, outlet }: { tenant: string; outlet: string }) {
           ))}
         </nav>
       </header>
+      {savedAt && (
+        <p className="saved-note" role="status">
+          Showing the menu saved on {new Date(savedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}. Prices are checked again when you order.
+        </p>
+      )}
 
       {categories.map((c) => (
         <section

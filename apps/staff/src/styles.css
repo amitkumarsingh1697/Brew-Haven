@@ -1214,3 +1214,16 @@ a.btn {
   .reports .report-controls { justify-content: flex-start; }
   .report-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---------- Offline (PWA) ---------- */
+.offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  margin: 0;
+  padding: 10px 16px;
+  background: var(--bh-danger);
+  color: #fff;
+  font-weight: 600;
+  text-align: center;
+}

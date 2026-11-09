@@ -80,10 +80,19 @@ export function useLiveOrders(outletId: string, opts: { sound?: boolean } = {}) 
     };
     connect();
     const poll = window.setInterval(refresh, 20_000);
+    // Back online: reconnect now instead of waiting out the backoff.
+    const onOnline = () => {
+      if (es && es.readyState !== EventSource.CLOSED) return;
+      window.clearTimeout(retry);
+      attempt = 0;
+      connect();
+    };
+    window.addEventListener("online", onOnline);
     return () => {
       es?.close();
       window.clearTimeout(retry);
       window.clearInterval(poll);
+      window.removeEventListener("online", onOnline);
     };
   }, [outletId, refresh, upsert]);
 
