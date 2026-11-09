@@ -1,4 +1,4 @@
-import type { AdminSetup, DaySummary, MenuResponse, OrderView, OutletWithStations, StaffSession } from "@brew-haven/contracts";
+import type { AdminSetup, DaySummary, MenuResponse, OrderView, OutletWithStations, ReceiptView, StaffSession } from "@brew-haven/contracts";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:8080";
 export const CUSTOMER_URL = (import.meta.env.VITE_CUSTOMER_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5173";
@@ -101,6 +101,7 @@ export const api = {
     post<OrderView>("/v1/staff/orders/walk-in", body),
   stock: (outletId: string) => call<StockRow[]>(`/v1/staff/stock?outletId=${outletId}`),
   setStock: (body: { outletId: string; itemId: string; available: boolean; stockCount?: number | null }) => call<StockRow>("/v1/staff/stock", { method: "PUT", body: JSON.stringify(body) }),
+  receipt: (orderId: string) => call<ReceiptView>(`/v1/staff/orders/${orderId}/receipt`),
   closeInfo: (outletId: string) => call<{ summary: DaySummary; cash: { takenPaise: number; refundedPaise: number }; close: DayClose | null }>(`/v1/staff/close?outletId=${outletId}`),
   closeDay: (b: { outletId: string; openingFloatPaise: number; countedCashPaise: number; note?: string }) => post<DayClose>("/v1/staff/close", b),
   summary: (outletId: string) => call<DaySummary>(`/v1/staff/summary?outletId=${outletId}`),
@@ -125,7 +126,7 @@ export const api = {
       if (q.before) p.set("before", String(q.before));
       return call<{ entries: ActivityEntry[]; nextBefore: number | null }>(`/v1/admin/activity?${p}`);
     },
-    settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),
+    settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number; billing?: { legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string } }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),
     createOutlet: (b: { name: string; pickupPrefix: string; address?: string }) => post<OutletWithStations>("/v1/admin/outlets", b),
     updateOutlet: (id: string, b: { name?: string; pickupPrefix?: string; address?: string; isOpen?: boolean }) => send<OutletWithStations>("PATCH", `/v1/admin/outlets/${id}`, b),
     addStation: (outletId: string, name: string) => post<OutletWithStations>(`/v1/admin/outlets/${outletId}/stations`, { name }),

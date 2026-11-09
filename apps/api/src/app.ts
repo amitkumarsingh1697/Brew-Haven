@@ -50,6 +50,7 @@ import {
   type Ctx,
 } from "./services/flows.js";
 import { orderView } from "./services/orders.js";
+import { receiptByToken, receiptForStaff } from "./services/receipts.js";
 import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login, stockList, updateStock } from "./services/staff.js";
 import * as admin from "./services/admin.js";
 import * as audit from "./services/audit.js";
@@ -222,6 +223,8 @@ export async function buildApp(deps: AppDeps) {
     return deps.db.transaction((tx) => orderView(tx, o.id));
   });
 
+  app.get<{ Params: { token: string } }>("/v1/track/:token/receipt", perMinute(60), async (req) => receiptByToken(deps.db, req.params.token));
+
   app.get<{ Params: { token: string } }>("/v1/track/:token/stream", async (req, reply) => {
     const [o] = await deps.db.select({ id: orders.id }).from(orders).where(eq(orders.trackingToken, req.params.token));
     if (!o) throw notFound("Order");
@@ -294,6 +297,7 @@ export async function buildApp(deps: AppDeps) {
     sse.onClose(off);
   });
 
+  app.get<{ Params: { id: string } }>("/v1/staff/orders/:id/receipt", async (req) => receiptForStaff(deps.db, await staff(req), req.params.id));
   app.post<{ Params: { id: string } }>("/v1/staff/orders/:id/actions", async (req) =>
     staffAction(ctx, await staff(req), req.params.id, parse(StaffActionRequest, req.body).action),
   );

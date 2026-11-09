@@ -27,6 +27,8 @@ export const tenants = pgTable("tenants", {
   name: text("name").notNull(),
   taxRateBps: integer("tax_rate_bps").notNull().default(500),
   branding: jsonb("branding").$type<Record<string, unknown>>().notNull().default({}),
+  /** Seller details printed on receipts: legal name, GSTIN, FSSAI licence, footer. */
+  billing: jsonb("billing").$type<{ legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string }>().notNull().default({}),
   demoData: boolean("demo_data").notNull().default(false),
   createdAt: createdAt(),
 });
@@ -160,6 +162,8 @@ export const orders = pgTable(
     state: text("state").notNull(),
     resumeState: text("resume_state"),
     pickupCode: text("pickup_code"),
+    /** Receipt number, e.g. A2627-00042: per café, consecutive within an April–March financial year. */
+    invoiceNo: text("invoice_no"),
     businessDate: date("business_date"),
     totalPaise: integer("total_paise").notNull(),
     taxPaise: integer("tax_paise").notNull(),
@@ -175,6 +179,7 @@ export const orders = pgTable(
   },
   (t) => [
     uniqueIndex("orders_tenant_idem").on(t.tenantId, t.idempotencyKey),
+    uniqueIndex("orders_tenant_invoice").on(t.tenantId, t.invoiceNo),
     index("orders_outlet_state").on(t.outletId, t.state),
   ],
 );
@@ -217,6 +222,17 @@ export const dailyCounters = pgTable(
     lastSeq: integer("last_seq").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.outletId, t.businessDate] })],
+);
+
+/** Receipt numbering: one sequence per café per financial year (e.g. "2627" for Apr 2026 to Mar 2027). */
+export const invoiceCounters = pgTable(
+  "invoice_counters",
+  {
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    financialYear: text("financial_year").notNull(),
+    lastSeq: integer("last_seq").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.outletId, t.financialYear] })],
 );
 
 export const adjustments = pgTable("adjustments", {

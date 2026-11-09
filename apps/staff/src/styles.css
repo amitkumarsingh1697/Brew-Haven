@@ -1245,3 +1245,8 @@ a.btn {
   font-family: inherit;
   font-size: 1.17em;
 }
+
+/* ---------- Receipts ---------- */
+.receipt-modal { max-width: 420px; background: var(--bh-parchment); }
+.receipt-modal .bh-receipt { box-shadow: var(--bh-shadow); }
+.receipt-modal .row-btns { justify-content: center; margin-top: 12px; }

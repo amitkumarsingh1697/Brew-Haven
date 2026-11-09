@@ -99,6 +99,11 @@ export function Track({ token }: { token: string }) {
           <Rs paise={order.paidPaise} />
         </div>
         {order.state !== "CANCELLED" && <RefundSummary order={order} />}
+        {order.pickupCode && (
+          <Link className="link-btn receipt-link" href={`/order/${token}/receipt`}>
+            View receipt
+          </Link>
+        )}
       </section>
     </main>
   );

@@ -732,6 +732,11 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
   const [greeting, setGreeting] = useState(b.greeting ?? "");
   const [managerName, setManagerName] = useState(b.managerName ?? "");
   const [gst, setGst] = useState(String(setup.tenant.taxRateBps / 100));
+  const bill = setup.tenant.billing;
+  const [legalName, setLegalName] = useState(bill.legalName ?? "");
+  const [gstin, setGstin] = useState(bill.gstin ?? "");
+  const [fssai, setFssai] = useState(bill.fssaiLicence ?? "");
+  const [footer, setFooter] = useState(bill.footer ?? "");
   return (
     <form
       className="panel settings"
@@ -745,6 +750,7 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
               greeting: greeting.trim() || undefined,
               managerName: managerName.trim() || undefined,
               taxRateBps: Math.round(Number(gst) * 100),
+              billing: { legalName: legalName.trim(), gstin: gstin.trim().toUpperCase(), fssaiLicence: fssai.trim(), footer: footer.trim() },
             }),
           "Settings saved. Customers see them straight away.",
         );
@@ -772,6 +778,25 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
         GST rate included in menu prices (%)
         <input value={gst} onChange={(e) => setGst(e.target.value)} inputMode="decimal" />
         <small className="muted">Confirm the right rate with your accountant. Restaurants without input tax credit usually use 5%.</small>
+      </label>
+      <h2>On the receipt</h2>
+      <p className="muted small">With a GSTIN saved, receipts become tax invoices showing CGST and SGST. Leave it empty if the café isn't registered for GST.</p>
+      <label>
+        Registered business name
+        <input value={legalName} onChange={(e) => setLegalName(e.target.value)} maxLength={100} placeholder="e.g. 400 Coffee Private Limited" />
+      </label>
+      <label>
+        GSTIN
+        <input value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} maxLength={15} placeholder="15 characters, e.g. 29ABCDE1234F1Z5" autoCapitalize="characters" spellCheck={false} />
+      </label>
+      <label>
+        FSSAI licence number
+        <input value={fssai} onChange={(e) => setFssai(e.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={14} placeholder="14 digits" />
+        <small className="muted">Food businesses must print this on bills.</small>
+      </label>
+      <label>
+        Thank-you line
+        <input value={footer} onChange={(e) => setFooter(e.target.value)} maxLength={140} placeholder="e.g. Thank you! See you tomorrow." />
       </label>
       <button className="btn btn-primary" type="submit">
         Save settings

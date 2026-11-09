@@ -1043,3 +1043,21 @@ h3 {
   color: var(--bh-warning);
   font-size: 0.85rem;
 }
+
+/* ---------- Receipt ---------- */
+.receipt-link {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--bh-roasted);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.receipt-page .bh-receipt {
+  margin: 8px auto 16px;
+  box-shadow: var(--bh-shadow);
+}

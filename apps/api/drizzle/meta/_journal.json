@@ -36,6 +36,13 @@
       "when": 1794251168846,
       "tag": "0004_shift_closes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794252940537,
+      "tag": "0005_receipts",
+      "breakpoints": true
     }
   ]
 }

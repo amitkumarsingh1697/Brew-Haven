@@ -81,6 +81,7 @@ export async function getSetup(db: Db, staff: StaffClaims): Promise<AdminSetup> 
       name: tenant!.name,
       taxRateBps: tenant!.taxRateBps,
       branding: { displayName: b.displayName ?? tenant!.name, tagline: b.tagline, greeting: b.greeting, managerName: b.managerName, logoUrl: b.logoUrl ?? null },
+      billing: tenant!.billing,
     },
     outlets: os,
     categories: cats.map((c) => ({ id: c.id, name: c.name, sort: c.sort, active: c.active })),
@@ -115,7 +116,8 @@ export async function updateSettings(db: Db, staff: StaffClaims, body: z.output<
   assertAdmin(staff);
   const [tenant] = await db.select().from(tenants).where(eq(tenants.id, staff.tenantId));
   const branding = { ...(tenant!.branding as Record<string, unknown>), displayName: body.displayName, tagline: body.tagline, greeting: body.greeting, managerName: body.managerName };
-  await db.update(tenants).set({ branding, taxRateBps: body.taxRateBps }).where(eq(tenants.id, staff.tenantId));
+  const billing = body.billing ? Object.fromEntries(Object.entries({ ...tenant!.billing, ...body.billing }).filter(([, v]) => v)) : tenant!.billing;
+  await db.update(tenants).set({ branding, taxRateBps: body.taxRateBps, billing }).where(eq(tenants.id, staff.tenantId));
   return getSetup(db, staff);
 }
 

@@ -1,0 +1,50 @@
+/* Till-slip receipt shared by the customer and staff apps. */
+.bh-receipt {
+  max-width: 360px;
+  margin: 0 auto;
+  padding: 20px 18px;
+  background: #fff;
+  color: #1b1410;
+  font-family: var(--bh-font-ui, system-ui, sans-serif);
+  font-size: 14px;
+  line-height: 1.4;
+  font-variant-numeric: lining-nums tabular-nums;
+  border-radius: 6px;
+}
+.bh-receipt header { text-align: center; }
+.bh-receipt h2 { margin: 0 0 4px; font-family: var(--bh-font-display, Georgia, serif); font-size: 22px; }
+.bh-receipt header p, .bh-receipt footer p { margin: 0; font-size: 12px; }
+.bh-receipt-kind {
+  margin: 12px 0 8px;
+  padding: 4px 0;
+  border-block: 1px dashed #8a7a6a;
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+.bh-receipt dl { margin: 0; }
+.bh-receipt dl > div { display: flex; justify-content: space-between; gap: 12px; }
+.bh-receipt dt { color: #5c4d40; }
+.bh-receipt dd { margin: 0; text-align: right; }
+.bh-receipt-lines { width: 100%; margin: 10px 0; border-collapse: collapse; }
+.bh-receipt-lines th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; text-align: left; border-bottom: 1px dashed #8a7a6a; padding: 4px 0; }
+.bh-receipt-lines td { padding: 5px 0; vertical-align: top; }
+.bh-receipt-lines small { display: block; color: #5c4d40; font-size: 12px; }
+.bh-receipt-lines .n { text-align: right; padding-left: 8px; white-space: nowrap; }
+.bh-receipt-totals { border-top: 1px dashed #8a7a6a; padding-top: 6px; }
+.bh-receipt-totals .grand { margin: 4px 0; padding: 4px 0; border-block: 1px solid #1b1410; font-weight: 700; font-size: 16px; }
+.bh-receipt-totals .grand dt { color: inherit; }
+.bh-receipt footer { margin-top: 12px; text-align: center; color: #5c4d40; }
+
+@media print {
+  @page { margin: 6mm; }
+  html, body { background: #fff !important; }
+  .print-receipt .bh-receipt { box-shadow: none !important; }
+  body * { visibility: hidden; }
+  .print-receipt, .print-receipt * { visibility: visible; }
+  .print-receipt { position: absolute; inset: 0 auto auto 0; width: 100%; }
+  .print-receipt .bh-receipt { max-width: 72mm; margin: 0; padding: 0; border-radius: 0; font-size: 12px; }
+  .no-print { display: none !important; }
+}
