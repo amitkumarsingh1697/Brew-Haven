@@ -1,3 +1,4 @@
+import { useDialog } from "@brew-haven/ui-react";
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import type { AdminSetup, OutletWithStations } from "@brew-haven/contracts";
@@ -129,7 +130,7 @@ function NewCafe({ defaultLetter, onCreate, onCancel }: { defaultLetter: string;
         onCreate({ name: name.trim(), pickupPrefix: letter.trim().toUpperCase(), ...(address.trim() ? { address: address.trim() } : {}) });
       }}
     >
-      <h3>New café</h3>
+      <h2>New café</h2>
       <label>
         Name
         <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Tower C" maxLength={60} />
@@ -169,7 +170,7 @@ function CafeCard({ outlet, act, onQr, onOutletsChanged }: { outlet: OutletWithS
         {editing ? (
           <input className="title-input" value={name} onChange={(e) => setName(e.target.value)} aria-label="Café name" />
         ) : (
-          <h3>{outlet.name}</h3>
+          <h2>{outlet.name}</h2>
         )}
         <button
           className={outlet.isOpen ? "toggle on" : "toggle"}
@@ -225,7 +226,7 @@ function CafeCard({ outlet, act, onQr, onOutletsChanged }: { outlet: OutletWithS
           </dd>
         </dl>
       )}
-      <h4>Kitchens</h4>
+      <h3>Kitchens</h3>
       <ul className="stations">
         {outlet.stations.map((s) => (
           <li key={s.id}>
@@ -282,9 +283,10 @@ function QrPoster({ outlet, cafeName, onClose }: { outlet: OutletWithStations; c
     void QRCode.toString(link, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#120D0A", light: "#FBF6EC" } }).then(setSvg);
     void QRCode.toDataURL(link, { margin: 2, width: 1200, errorCorrectionLevel: "M", color: { dark: "#120D0A", light: "#FFFFFF" } }).then(setPng);
   }, [link]);
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
   return (
     <div className="modal-backdrop qr-backdrop" onClick={onClose}>
-      <div className="modal qr-modal" role="dialog" aria-modal="true" aria-label={`QR code for ${outlet.name}`} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className="modal qr-modal" role="dialog" aria-modal="true" aria-label={`QR code for ${outlet.name}`} onClick={(e) => e.stopPropagation()}>
         <div className="poster" id="qr-poster">
           <span className="poster-brand">Brew Haven</span>
           <h2>{cafeName}</h2>
@@ -330,7 +332,7 @@ function MenuAdmin({ setup, act }: { setup: AdminSetup; act: Act }) {
   return (
     <div className="menu-admin">
       <aside className="panel cats">
-        <h3>Menu sections</h3>
+        <h2>Menu sections</h2>
         <ul>
           {setup.categories.map((c) => (
             <li key={c.id}>
@@ -359,7 +361,7 @@ function MenuAdmin({ setup, act }: { setup: AdminSetup; act: Act }) {
         {cat ? (
           <>
             <header className="items-head">
-              <h3>{cat.name}</h3>
+              <h2>{cat.name}</h2>
               <button
                 className="link-btn"
                 onClick={() => {
@@ -388,14 +390,14 @@ function MenuAdmin({ setup, act }: { setup: AdminSetup; act: Act }) {
                         {o.name}
                       </th>
                     ))}
-                    <th />
+                    <th><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((i) => (
                     <tr key={i.id} className={i.active ? "" : "off"}>
                       <td>
-                        <span className={`dot ${i.isVeg ? "veg" : "nonveg"}`} aria-label={i.isVeg ? "Veg" : "Non-veg"} /> {i.name}
+                        <span className={`dot ${i.isVeg ? "veg" : "nonveg"}`} role="img" aria-label={i.isVeg ? "Veg" : "Non-veg"} /> {i.name}
                         {!i.active && <small> · not on sale</small>}
                         {i.modifierGroups.length > 0 && <small className="muted"> · {i.modifierGroups.map((g) => g.name).join(", ")}</small>}
                       </td>
@@ -515,9 +517,11 @@ function ItemEditor({
 
   const setGroup = (i: number, patch: Partial<GroupDraft>) => setGroups((gs) => gs.map((g, j) => (j === i ? { ...g, ...patch } : g)));
 
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal item-modal" role="dialog" aria-modal="true" aria-label={item ? `Edit ${item.name}` : "New item"} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className="modal item-modal" role="dialog" aria-modal="true" aria-label={item ? `Edit ${item.name}` : "New item"} onClick={(e) => e.stopPropagation()}>
         <h2>{item ? `Edit ${item.name}` : "New menu item"}</h2>
         <div className="form-grid two">
           <label>
@@ -635,7 +639,7 @@ function StaffAdmin({ setup, act }: { setup: AdminSetup; act: Act }) {
   return (
     <div className="staff-admin">
       <section className="panel">
-        <h3>Team</h3>
+        <h2>Team</h2>
         <div className="table-wrap">
           <table>
             <thead>
@@ -644,7 +648,7 @@ function StaffAdmin({ setup, act }: { setup: AdminSetup; act: Act }) {
                 <th>Role</th>
                 <th>Cafés</th>
                 <th>Status</th>
-                <th />
+                <th><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
@@ -684,7 +688,7 @@ function StaffAdmin({ setup, act }: { setup: AdminSetup; act: Act }) {
           }
         }}
       >
-        <h3>Add a team member</h3>
+        <h2>Add a team member</h2>
         <label>
           Name shown at sign-in
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ravi · Tower C" maxLength={60} />
@@ -746,7 +750,7 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
         );
       }}
     >
-      <h3>What customers see</h3>
+      <h2>What customers see</h2>
       <label>
         Café name
         <input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} />
@@ -763,7 +767,7 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
         Welcome line
         <input value={greeting} onChange={(e) => setGreeting(e.target.value)} maxLength={140} />
       </label>
-      <h3>Tax</h3>
+      <h2>Tax</h2>
       <label>
         GST rate included in menu prices (%)
         <input value={gst} onChange={(e) => setGst(e.target.value)} inputMode="decimal" />
@@ -804,7 +808,7 @@ function Activity({ setup }: { setup: AdminSetup }) {
   return (
     <section className="panel activity">
       <header className="items-head">
-        <h3>Activity</h3>
+        <h2>Activity</h2>
         <select value={outletId} onChange={(e) => setOutletId(e.target.value)} aria-label="Filter by café">
           <option value="">All cafés</option>
           {setup.outlets.map((o) => (
@@ -868,7 +872,7 @@ function Messages() {
   return (
     <section className="panel activity">
       <header className="items-head">
-        <h3>Customer messages</h3>
+        <h2>Customer messages</h2>
       </header>
       {data && !data.delivers && (
         <p className="banner-inline note">
@@ -993,7 +997,7 @@ function Reports({ setup }: { setup: AdminSetup }) {
   return (
     <section className="panel reports">
       <header className="items-head">
-        <h3>Reports</h3>
+        <h2>Reports</h2>
         <div className="report-controls">
           {(["today", "7", "30"] as const).map((p) => (
             <button key={p} className={preset === p ? "chip chip-on" : "chip"} onClick={() => choose(p)}>
@@ -1031,7 +1035,7 @@ function Reports({ setup }: { setup: AdminSetup }) {
 
           <div className="report-grid">
             <article className="report-card wide">
-              <h4>Sales by day</h4>
+              <h3>Sales by day</h3>
               {r.byDay.length === 0 ? (
                 <p className="muted">No sales in this period.</p>
               ) : (
@@ -1047,7 +1051,7 @@ function Reports({ setup }: { setup: AdminSetup }) {
             </article>
 
             <article className="report-card">
-              <h4>By café</h4>
+              <h3>By café</h3>
               <table className="items-table compact">
                 <thead>
                   <tr>
@@ -1073,7 +1077,7 @@ function Reports({ setup }: { setup: AdminSetup }) {
             </article>
 
             <article className="report-card">
-              <h4>How customers paid</h4>
+              <h3>How customers paid</h3>
               <ul className="method-list">
                 {Object.entries(r.byMethod)
                   .sort((a, b) => b[1] - a[1])
@@ -1091,7 +1095,7 @@ function Reports({ setup }: { setup: AdminSetup }) {
             </article>
 
             <article className="report-card">
-              <h4>Top items</h4>
+              <h3>Top items</h3>
               <ol className="top-items">
                 {r.topItems.map((i) => (
                   <li key={i.name}>
@@ -1105,7 +1109,7 @@ function Reports({ setup }: { setup: AdminSetup }) {
             </article>
 
             <article className="report-card">
-              <h4>Busiest hours</h4>
+              <h3>Busiest hours</h3>
               <ul className="hours">
                 {r.busiestHours.map((h) => (
                   <li key={h.hour}>
@@ -1121,7 +1125,7 @@ function Reports({ setup }: { setup: AdminSetup }) {
             </article>
 
             <article className="report-card wide">
-              <h4>Day closes</h4>
+              <h3>Day closes</h3>
               {r.closes.length === 0 ? (
                 <p className="muted">No days closed in this period. The cashier closes the day from the Today tab.</p>
               ) : (

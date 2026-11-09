@@ -1,3 +1,4 @@
+import { useDialog } from "@brew-haven/ui-react";
 import type { ReactNode } from "react";
 import { formatInr } from "@brew-haven/domain";
 
@@ -54,9 +55,10 @@ export function ErrorNote({ message, onRetry }: { message: string; onRetry?: () 
 }
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const ref = useDialog<HTMLDivElement>(onClose);
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-handle" aria-hidden="true" />
         <button className="sheet-close" onClick={onClose} aria-label="Close">
           ×

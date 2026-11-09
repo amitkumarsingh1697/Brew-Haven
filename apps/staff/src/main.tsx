@@ -97,7 +97,7 @@ function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () 
       <OfflineBanner />
       <header className="topbar">
         <span className="brand">Brew Haven</span>
-        <span className="cafe">{session.tenant.name}</span>
+        <h1 className="cafe">{session.tenant.name}</h1>
         {list.length > 1 ? (
           <select value={outlet.id} onChange={(e) => setOutletId(e.target.value)} aria-label="Café">
             {list.map((o) => (
@@ -119,13 +119,15 @@ function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () 
           </button>
         </span>
       </header>
-      <nav className="tabs" role="tablist">
+      <nav aria-label="Sections">
+        <div className="tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? "tab on" : "tab"} onClick={() => setTab(t.id)}>
             {t.label}
             {t.id === "orders" && waiting > 0 && <span className="badge">{waiting}</span>}
           </button>
         ))}
+        </div>
       </nav>
       {live.error && <p className="error banner">{live.error}</p>}
       <main className="content">

@@ -56,7 +56,7 @@ export function Login({ onLogin }: { onLogin: (s: StaffSession) => void }) {
             <p>
               Enter your PIN for <strong>{data?.users.find((u) => u.id === user)?.name}</strong>
             </p>
-            <div className="pin-dots" aria-label={`${pin.length} digits entered`}>
+            <div className="pin-dots" role="img" aria-label={`${pin.length} digits entered`}>
               {[0, 1, 2, 3].map((i) => (
                 <span key={i} className={i < pin.length ? "on" : ""} />
               ))}
