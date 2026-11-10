@@ -28,6 +28,7 @@ import {
   refunds,
   tenants,
 } from "../db/schema.js";
+import { consumeIngredients } from "./inventory.js";
 import { AppError, notFound } from "../errors.js";
 import type { EventBus } from "../events.js";
 import type { ResolvedLine } from "./catalog.js";
@@ -127,6 +128,7 @@ export async function placeOrder(tx: Tx, after: After, bus: EventBus, order: Ord
     .returning();
   const lines = await tx.select().from(orderLines).where(and(eq(orderLines.orderId, order.id), eq(orderLines.status, "ACTIVE")));
   for (const l of lines) await takeStock(tx, order.outletId, l.itemId, l.quantity);
+  await consumeIngredients(tx, order, lines);
   await tx
     .update(orders)
     .set({

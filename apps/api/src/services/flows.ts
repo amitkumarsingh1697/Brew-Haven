@@ -14,6 +14,7 @@ import { adjustments, customers, orderEvents, orderLines, orders, outbox, outlet
 import { AppError, notFound } from "../errors.js";
 import type { EventBus } from "../events.js";
 import type { Notifier } from "../notify/provider.js";
+import { consumeIngredients } from "./inventory.js";
 import { notifyCustomer } from "./notifications.js";
 import type { PaymentProvider, WebhookEvent } from "../payments/provider.js";
 import { loadTenantOutlet, resolveLines } from "./catalog.js";
@@ -226,6 +227,7 @@ export async function handleWebhook(ctx: Ctx, event: WebhookEvent): Promise<"pro
     await tx.update(adjustments).set({ status: "RESOLVED", resolvedAt: new Date() }).where(eq(adjustments.id, adj.id));
     const [line] = await tx.select().from(orderLines).where(eq(orderLines.id, adj.replacementLineId!));
     await takeStock(tx, order.outletId, line!.itemId, line!.quantity);
+    await consumeIngredients(tx, order, [line!]);
     await settleIfAllResolved(tx, after, ctx.bus, order.id, "SYSTEM");
     return "processed";
   });
@@ -404,6 +406,7 @@ export async function resolveCustomerAdjustment(ctx: Ctx, trackingToken: string,
         .set({ status: "RESOLVED", choice: "REPLACE", replacementLineId: newLine!.id, refundPaise: outcome.refundPaise, resolvedAt: new Date() })
         .where(eq(adjustments.id, adj.id));
       await takeStock(tx, order.outletId, newLine!.itemId, newLine!.quantity);
+      await consumeIngredients(tx, order, [newLine!]);
       if (outcome.refundPaise > 0) await issueRefund(tx, order, outcome.refundPaise, `Difference for replacing ${line!.name}`, `adj:${adj.id}`);
       await settleIfAllResolved(tx, after, ctx.bus, order.id, "CUSTOMER");
       return orderView(tx, order.id);

@@ -406,3 +406,31 @@ export const ReceiptView = z.object({
   footer: z.string().nullable(),
 });
 export type ReceiptView = z.infer<typeof ReceiptView>;
+
+// ---------- Inventory (backlog S10) ----------
+
+export const InventoryUnit = z.enum(["g", "ml", "pc"]);
+const WholeAmount = z.number().int().min(1).max(10_000_000);
+export const IngredientInput = z.object({ name: Name, unit: InventoryUnit });
+export const IngredientUpdate = z.object({ name: Name.optional(), active: z.boolean().optional() });
+export const RecipeInput = z.object({
+  rows: z
+    .array(
+      z.object({
+        groupName: z.string().trim().min(1).max(60).optional(),
+        optionName: z.string().trim().min(1).max(60).optional(),
+        ingredientId: Id,
+        quantity: z.number().int().min(-100_000).max(100_000).refine((n) => n !== 0, "Use a quantity other than 0"),
+      }),
+    )
+    .max(60)
+    .refine((rows) => rows.every((r) => (r.groupName ? !!r.optionName : !r.optionName)), "A choice needs both its group and option")
+    .refine((rows) => rows.every((r) => r.groupName || r.quantity > 0), "The base recipe can't use a negative amount"),
+});
+/** RECEIVE: a delivery (adds). WASTE: spilt or spoilt (takes away). COUNT: what's actually on the shelf now. */
+export const StockMovementInput = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("RECEIVE"), outletId: Id, ingredientId: Id, quantity: WholeAmount, note: z.string().trim().max(140).optional() }),
+  z.object({ kind: z.literal("WASTE"), outletId: Id, ingredientId: Id, quantity: WholeAmount, note: z.string().trim().max(140).optional() }),
+  z.object({ kind: z.literal("COUNT"), outletId: Id, ingredientId: Id, quantity: z.number().int().min(0).max(10_000_000), note: z.string().trim().max(140).optional() }),
+]);
+export const LowStockInput = z.object({ outletId: Id, ingredientId: Id, lowAt: z.number().int().min(0).max(10_000_000).nullable() });

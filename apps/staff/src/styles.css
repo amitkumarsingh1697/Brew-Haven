@@ -1250,3 +1250,70 @@ a.btn {
 .receipt-modal { max-width: 420px; background: var(--bh-parchment); }
 .receipt-modal .bh-receipt { box-shadow: var(--bh-shadow); }
 .receipt-modal .row-btns { justify-content: center; margin-top: 12px; }
+
+/* ingredient stock */
+.ingredients {
+  max-width: 760px;
+  margin-top: 24px;
+  display: grid;
+  gap: 12px;
+}
+.ingredients h2,
+.ingredients h3 {
+  margin: 0;
+}
+.stock-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  align-items: end;
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px;
+}
+.stock-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.stock-form select,
+.stock-form input {
+  min-height: 44px;
+  width: 100%;
+}
+.stock .stock-form input {
+  width: 100%;
+}
+.moves {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+.pill-low {
+  background: #fff6e0;
+  color: var(--bh-warning);
+}
+.num-input {
+  width: 90px;
+  min-height: 36px;
+}
+.inventory-admin {
+  display: grid;
+  gap: 14px;
+}
+.items-table tr.off td:first-child {
+  color: var(--bh-ink-muted);
+}
+.inventory-admin .inline-add select,
+.inventory-admin .items-head select {
+  flex: 0 0 auto;
+  width: auto;
+}
+.inventory-admin .inline-add input {
+  flex: 1 1 240px;
+  min-height: 44px;
+}

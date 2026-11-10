@@ -33,7 +33,7 @@ async function audit(p, name) {
   for (const d of '1111') await s.click(`.pinpad button[aria-label="${d}"]`); await s.waitForSelector('.topbar');
   await audit(s, 'staff orders');
   for (const tab of ['Kitchen display', 'New counter order', 'Stock', 'Today', 'Setup']) { await s.click(`.tab:has-text("${tab}")`); await audit(s, 'staff ' + tab); }
-  for (const sub of ['Cafés & kitchens', 'Menu', 'Staff', 'Café settings', 'Customer messages', 'Activity']) { await s.click(`.subtabs button:has-text("${sub}")`); await audit(s, 'admin ' + sub); }
+  for (const sub of ['Payment checks', 'Inventory', 'Cafés & kitchens', 'Menu', 'Staff', 'Café settings', 'Customer messages', 'Activity']) { await s.click(`.subtabs button:has-text("${sub}")`); await audit(s, 'admin ' + sub); }
   if (!results.length) console.log('No WCAG 2.2 AA or best-practice issues found on', audited, 'screens.');
   const byRule = {};
   for (const r of results) (byRule[r.id] ??= { impact: r.impact, help: r.help, pages: [], n: 0, sample: r.sample }).pages.push(r.page), byRule[r.id].n += r.n;

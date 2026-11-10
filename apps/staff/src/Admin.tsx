@@ -3,10 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import type { AdminSetup, OutletWithStations } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
+import { InventoryAdmin } from "./Inventory";
 import { ApiError, CUSTOMER_URL, TENANT, api, type ActivityEntry, type AdminItem, type ItemInput, type SalesReport } from "./api";
 
 /** Owner self-service (D-17): cafés, kitchens, menu, staff, settings and QR codes. */
-type Section = "reports" | "checks" | "cafes" | "menu" | "staff" | "settings" | "messages" | "activity";
+type Section = "reports" | "checks" | "inventory" | "cafes" | "menu" | "staff" | "settings" | "messages" | "activity";
 
 export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
   const [setup, setSetup] = useState<AdminSetup | null>(null);
@@ -48,6 +49,7 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
           [
             ["reports", "Reports"],
             ["checks", "Payment checks"],
+            ["inventory", "Inventory"],
             ["cafes", `Cafés & kitchens (${setup.outlets.length})`],
             ["menu", "Menu"],
             ["staff", "Staff"],
@@ -73,6 +75,7 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
       )}
       {section === "reports" && <Reports setup={setup} />}
       {section === "checks" && <PaymentChecks setup={setup} />}
+      {section === "inventory" && <InventoryAdmin setup={setup} act={act} />}
       {section === "cafes" && <Cafes setup={setup} act={act} onOutletsChanged={onOutletsChanged} />}
       {section === "menu" && <MenuAdmin setup={setup} act={act} />}
       {section === "staff" && <StaffAdmin setup={setup} act={act} />}

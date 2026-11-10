@@ -2,6 +2,7 @@ import { useDialog } from "@brew-haven/ui-react";
 import { useEffect, useMemo, useState } from "react";
 import type { DaySummary, MenuItemDto, MenuResponse, OrderView, StaffRole } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
+import { IngredientStockPanel } from "./Inventory";
 import { ApiError, api, type DayClose, type StockRow } from "./api";
 import { ReceiptModal } from "./ReceiptModal";
 import { OrderCard } from "./OrderCard";
@@ -333,6 +334,7 @@ export function Stock({ outletId, role }: { outletId: string; role: StaffRole })
           ))}
         </tbody>
       </table>
+      <IngredientStockPanel outletId={outletId} role={role} />
     </div>
   );
 }

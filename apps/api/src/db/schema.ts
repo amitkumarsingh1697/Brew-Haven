@@ -383,3 +383,70 @@ export const shiftCloses = pgTable(
   },
   (t) => [uniqueIndex("shift_closes_outlet_day").on(t.outletId, t.businessDate)],
 );
+
+// ---------- Inventory foundation (backlog S10) ----------
+
+/** Something the café buys and uses up: coffee beans, milk, cups. Counted in whole g, ml or pieces. */
+export const ingredients = pgTable(
+  "ingredients",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    name: text("name").notNull(),
+    unit: text("unit", { enum: ["g", "ml", "pc"] }).notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("ingredients_tenant_name").on(t.tenantId, t.name)],
+);
+
+/**
+ * What one serving uses. A row with no option is the item's base recipe; a row with a group and
+ * option name applies when that choice is picked (by name, so it survives menu edits, which
+ * recreate the choice rows). Quantities on a choice may be negative to swap an ingredient.
+ */
+export const recipeRows = pgTable(
+  "recipe_rows",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    itemId: uuid("item_id").notNull().references(() => menuItems.id),
+    groupName: text("group_name"),
+    optionName: text("option_name"),
+    ingredientId: uuid("ingredient_id").notNull().references(() => ingredients.id),
+    quantity: integer("quantity").notNull(),
+  },
+  (t) => [index("recipe_rows_item").on(t.itemId)],
+);
+
+/** Per café: when to warn that an ingredient is running low. */
+export const outletIngredients = pgTable(
+  "outlet_ingredients",
+  {
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    ingredientId: uuid("ingredient_id").notNull().references(() => ingredients.id),
+    lowAt: integer("low_at"),
+  },
+  (t) => [primaryKey({ columns: [t.outletId, t.ingredientId] })],
+);
+
+/**
+ * Every change to what a café has on hand. On hand = the sum of quantities. RECEIVE (deliveries)
+ * and positive COUNT corrections add; SALE (written when an order is placed) and WASTE take away.
+ */
+export const stockMovements = pgTable(
+  "stock_movements",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    tenantId: tenantId(),
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    ingredientId: uuid("ingredient_id").notNull().references(() => ingredients.id),
+    kind: text("kind", { enum: ["RECEIVE", "SALE", "WASTE", "COUNT"] }).notNull(),
+    quantity: integer("quantity").notNull(),
+    orderId: uuid("order_id").references(() => orders.id),
+    note: text("note"),
+    staffId: uuid("staff_id").references(() => staffUsers.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("stock_movements_outlet_ingredient").on(t.outletId, t.ingredientId), index("stock_movements_created").on(t.outletId, t.createdAt)],
+);
