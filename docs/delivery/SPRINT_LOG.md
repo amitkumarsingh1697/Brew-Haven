@@ -27,8 +27,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 |---|---|
 | Receipts and GST tax invoices: per-café numbering per financial year, CGST/SGST split, GSTIN, legal name and FSSAI licence in Café settings, customer receipt page, counter print (80 mm or A4) | Merged (#13) |
 | Counter UPI reference check (blocks a reused UTR across all cafés; optional for now, can be made required) and owner "Payment checks": failed or stuck refunds, paid-but-not-served, UPI without reference | Merged (#14) |
-| Production readiness: `/health/ready`, chat-webhook alerts for server errors and failed jobs, request references, backup script and restore drill. See OPERATIONS.md | In review |
-| Inventory foundation: ingredients, recipes and stock movements | Planned |
+| Production readiness: `/health/ready`, chat-webhook alerts for server errors and failed jobs, request references, backup script and restore drill. See OPERATIONS.md | Merged (#15) |
+| Inventory: ingredients, recipes (with choices such as oat milk), automatic use on every order, deliveries, waste and shelf counts at the café, low-stock levels and an owner overview. See INVENTORY.md | In review |
 
 ## Waiting on Amit
 

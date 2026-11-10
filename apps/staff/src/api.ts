@@ -90,6 +90,43 @@ export interface SalesReport {
   closes: Array<DayClose & { outlet: string }>;
 }
 
+export type Unit = "g" | "ml" | "pc";
+export interface IngredientStock {
+  id: string;
+  name: string;
+  unit: Unit;
+  active: boolean;
+  onHand: number;
+  lowAt: number | null;
+  tracked: boolean;
+  status: "OK" | "LOW" | "OUT" | "UNTRACKED";
+  usedLast7Days: number;
+  usedIn: number;
+}
+export interface StockMove {
+  id: number;
+  at: string;
+  ingredient: string;
+  unit: Unit;
+  kind: "RECEIVE" | "SALE" | "WASTE" | "COUNT";
+  quantity: number;
+  note: string | null;
+  by: string | null;
+}
+export interface RecipeLine {
+  groupName: string | null;
+  optionName: string | null;
+  ingredientId: string;
+  quantity: number;
+}
+export interface RecipeItem {
+  id: string;
+  name: string;
+  active: boolean;
+  choices: Array<{ group: string; option: string }>;
+  rows: RecipeLine[];
+}
+
 export const api = {
   users: () => call<{ tenant: { name: string }; users: Array<{ id: string; name: string; role: string }> }>(`/v1/staff/${TENANT}/users`),
   login: (staffUserId: string, pin: string) => post<StaffSession>("/v1/staff/login", { tenantSlug: TENANT, staffUserId, pin }),
@@ -101,6 +138,10 @@ export const api = {
     post<OrderView>("/v1/staff/orders/walk-in", body),
   stock: (outletId: string) => call<StockRow[]>(`/v1/staff/stock?outletId=${outletId}`),
   setStock: (body: { outletId: string; itemId: string; available: boolean; stockCount?: number | null }) => call<StockRow>("/v1/staff/stock", { method: "PUT", body: JSON.stringify(body) }),
+  inventory: (outletId: string) => call<{ ingredients: IngredientStock[] }>(`/v1/staff/inventory?outletId=${outletId}`),
+  stockHistory: (outletId: string, ingredientId?: string) => call<StockMove[]>(`/v1/staff/inventory/history?outletId=${outletId}${ingredientId ? `&ingredientId=${ingredientId}` : ""}`),
+  recordStock: (b: { outletId: string; ingredientId: string; kind: "RECEIVE" | "WASTE" | "COUNT"; quantity: number; note?: string }) =>
+    post<{ onHand: number; change: number; ingredient: string; unit: Unit }>("/v1/staff/inventory/movements", b),
   receipt: (orderId: string) => call<ReceiptView>(`/v1/staff/orders/${orderId}/receipt`),
   closeInfo: (outletId: string) => call<{ summary: DaySummary; cash: { takenPaise: number; refundedPaise: number }; close: DayClose | null }>(`/v1/staff/close?outletId=${outletId}`),
   closeDay: (b: { outletId: string; openingFloatPaise: number; countedCashPaise: number; note?: string }) => post<DayClose>("/v1/staff/close", b),
@@ -131,6 +172,12 @@ export const api = {
       return call<{ entries: ActivityEntry[]; nextBefore: number | null }>(`/v1/admin/activity?${p}`);
     },
     settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number; billing?: { legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string } }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),
+    createIngredient: (b: { name: string; unit: Unit }) => post<{ id: string }>("/v1/admin/ingredients", b),
+    updateIngredient: (id: string, b: { name?: string; active?: boolean }) => send<{ id: string }>("PATCH", `/v1/admin/ingredients/${id}`, b),
+    recipes: () => call<{ items: RecipeItem[] }>("/v1/admin/recipes"),
+    setRecipe: (itemId: string, rows: Array<{ groupName?: string; optionName?: string; ingredientId: string; quantity: number }>) => send<unknown>("PUT", `/v1/admin/recipes/${itemId}`, { rows }),
+    setLowStock: (b: { outletId: string; ingredientId: string; lowAt: number | null }) => send<unknown>("PUT", "/v1/admin/low-stock", b),
+    lowStock: () => call<{ items: Array<{ outlet: string; ingredient: string; unit: Unit; onHand: number; lowAt: number | null; status: "LOW" | "OUT" }> }>("/v1/admin/low-stock"),
     createOutlet: (b: { name: string; pickupPrefix: string; address?: string }) => post<OutletWithStations>("/v1/admin/outlets", b),
     updateOutlet: (id: string, b: { name?: string; pickupPrefix?: string; address?: string; isOpen?: boolean }) => send<OutletWithStations>("PATCH", `/v1/admin/outlets/${id}`, b),
     addStation: (outletId: string, name: string) => post<OutletWithStations>(`/v1/admin/outlets/${outletId}/stations`, { name }),

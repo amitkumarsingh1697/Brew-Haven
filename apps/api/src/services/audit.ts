@@ -88,6 +88,20 @@ export async function describe(
       const diff = v === 0 ? "cash matched" : v < 0 ? `cash short by ${r(v)}` : `cash over by ${r(v)}`;
       return { action: "day.close", summary: `Closed the day: counted ${r(Number(result.countedCashPaise ?? 0))}, ${diff}`, targetId: str(result.id), outletId: str(body.outletId) };
     }
+    case "POST /v1/staff/inventory/movements": {
+      const amount = `${Math.abs(Number(result.change ?? 0))} ${str(result.unit)}`;
+      const what = body.kind === "RECEIVE" ? `Received ${amount} of` : body.kind === "WASTE" ? `Wasted ${amount} of` : `Counted`;
+      const tail = body.kind === "COUNT" ? `: ${Number(result.onHand ?? 0)} ${str(result.unit)} on the shelf` : "";
+      return { action: `inventory.${str(body.kind).toLowerCase()}`, summary: `${what} ${str(result.ingredient)}${tail}`, targetId: str(body.ingredientId), outletId: str(body.outletId) };
+    }
+    case "POST /v1/admin/ingredients":
+      return { action: "ingredient.create", summary: `Added ingredient ${str(result.name)}`, targetId: str(result.id) };
+    case "PATCH /v1/admin/ingredients/:id":
+      return { action: "ingredient.update", summary: `${body.active === false ? "Retired" : "Edited"} ingredient ${str(result.name)}`, targetId: id };
+    case "PUT /v1/admin/recipes/:itemId":
+      return { action: "recipe.update", summary: `Updated the recipe for ${str(result.name)}`, targetId: str(params.itemId) };
+    case "PUT /v1/admin/low-stock":
+      return { action: "inventory.low_level", summary: "Changed a low-stock level", targetId: str(body.ingredientId), outletId: str(body.outletId) };
     case "PUT /v1/admin/settings":
       return { action: "settings.update", summary: "Updated café settings" };
     case "POST /v1/admin/outlets":

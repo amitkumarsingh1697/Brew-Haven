@@ -19,6 +19,11 @@ import {
   UpdateOutletRequest,
   UpdateStaffUserRequest,
   FlagUnavailableRequest,
+  IngredientInput,
+  IngredientUpdate,
+  LowStockInput,
+  RecipeInput,
+  StockMovementInput,
   QuoteRequest,
   RejectRequest,
   ResolveAdjustmentRequest,
@@ -58,6 +63,7 @@ import { receiptByToken, receiptForStaff } from "./services/receipts.js";
 import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login, stockList, updateStock } from "./services/staff.js";
 import * as admin from "./services/admin.js";
 import * as audit from "./services/audit.js";
+import * as inventory from "./services/inventory.js";
 import { listNotifications } from "./services/notifications.js";
 import { closeDay, getClose, salesReport } from "./services/reports.js";
 import { LogNotifier, MetaWhatsAppNotifier, type Notifier } from "./notify/provider.js";
@@ -346,6 +352,11 @@ export async function buildApp(deps: AppDeps) {
   );
   app.get<{ Querystring: { outletId: string } }>("/v1/staff/stock", async (req) => stockList(deps.db, await staff(req), req.query.outletId));
   app.put("/v1/staff/stock", async (req) => updateStock(deps.db, await staff(req), parse(StockUpdateRequest, req.body)));
+  app.get<{ Querystring: { outletId: string } }>("/v1/staff/inventory", async (req) => inventory.inventoryFor(deps.db, await staff(req), req.query.outletId));
+  app.get<{ Querystring: { outletId: string; ingredientId?: string } }>("/v1/staff/inventory/history", async (req) =>
+    inventory.stockHistory(deps.db, await staff(req), req.query.outletId, req.query.ingredientId || undefined),
+  );
+  app.post("/v1/staff/inventory/movements", async (req, reply) => reply.status(201).send(await inventory.recordStock(deps.db, await staff(req), parse(StockMovementInput, req.body))));
   app.get<{ Querystring: { outletId: string; date?: string } }>("/v1/staff/summary", async (req) =>
     daySummary(deps.db, await staff(req), req.query.outletId, req.query.date),
   );
@@ -363,6 +374,12 @@ export async function buildApp(deps: AppDeps) {
   app.get<{ Querystring: { limit?: string; before?: string; outletId?: string } }>("/v1/admin/activity", async (req) =>
     audit.listActivity(deps.db, await staff(req), { limit: Number(req.query.limit) || undefined, before: Number(req.query.before) || undefined, outletId: req.query.outletId }),
   );
+  app.post("/v1/admin/ingredients", async (req, reply) => reply.status(201).send(await inventory.createIngredient(deps.db, await staff(req), parse(IngredientInput, req.body))));
+  app.patch<IdParams>("/v1/admin/ingredients/:id", async (req) => inventory.updateIngredient(deps.db, await staff(req), req.params.id, parse(IngredientUpdate, req.body)));
+  app.get("/v1/admin/recipes", async (req) => inventory.recipeBook(deps.db, await staff(req)));
+  app.put<{ Params: { itemId: string } }>("/v1/admin/recipes/:itemId", async (req) => inventory.setRecipe(deps.db, await staff(req), req.params.itemId, parse(RecipeInput, req.body)));
+  app.put("/v1/admin/low-stock", async (req) => inventory.setLowStock(deps.db, await staff(req), parse(LowStockInput, req.body)));
+  app.get("/v1/admin/low-stock", async (req) => ({ items: await inventory.lowStockAcrossCafes(deps.db, await staff(req)) }));
   app.put("/v1/admin/settings", async (req) => admin.updateSettings(deps.db, await staff(req), parse(AdminSettingsRequest, req.body)));
   app.post("/v1/admin/outlets", async (req, reply) => reply.status(201).send(await admin.createOutlet(deps.db, await staff(req), parse(CreateOutletRequest, req.body))));
   app.patch<IdParams>("/v1/admin/outlets/:id", async (req) => admin.updateOutlet(deps.db, await staff(req), req.params.id, parse(UpdateOutletRequest, req.body)));
