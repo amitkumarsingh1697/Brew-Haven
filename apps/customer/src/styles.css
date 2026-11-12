@@ -186,6 +186,14 @@ h3 {
   transition: opacity 600ms var(--bh-ease);
   touch-action: pan-y;
 }
+/* A soft vignette draws the eye to the barista; it costs the GPU nothing. */
+.cafe3d::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 75% 70% at 50% 42%, transparent 55%, rgba(12, 7, 4, 0.45) 100%);
+}
 .scene-stack.is-3d .cafe3d {
   opacity: 1;
 }
