@@ -470,6 +470,6 @@ export const SignupRequest = z.object({
     .transform((v) => v.replace(/[\s-]/g, ""))
     .pipe(z.string().regex(/^(\+91)?[6-9]\d{9}$/, "Enter a 10-digit Indian mobile number")),
   sampleMenu: z.boolean().default(true),
-  acceptTerms: z.literal(true, { errorMap: () => ({ message: "Please accept the terms to continue" }) }),
+  acceptTerms: z.literal(true, { error: "Please accept the terms to continue" }),
 });
 export type SignupRequest = z.input<typeof SignupRequest>;

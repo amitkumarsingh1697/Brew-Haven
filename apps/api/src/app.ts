@@ -108,6 +108,11 @@ export function createNotifier(config: Config): Notifier {
   return new LogNotifier();
 }
 
+/** A request URL fit for logs: customer order links and staff tokens in the query are hidden. */
+export function safeUrl(url: string): string {
+  return url.replace(/\/track\/[^/?#]+/g, "/track/[link]").replace(/([?&](?:token|access_token)=)[^&#]*/g, "$1[hidden]");
+}
+
 export interface AppDeps {
   config: Config;
   db: Db;
@@ -121,7 +126,15 @@ export interface AppDeps {
 
 export async function buildApp(deps: AppDeps) {
   const app = Fastify({
-    logger: process.env.NODE_ENV === "test" ? false : { level: process.env.LOG_LEVEL ?? "info", redact: ["req.headers.authorization"] },
+    logger:
+      process.env.NODE_ENV === "test"
+        ? false
+        : {
+            level: process.env.LOG_LEVEL ?? "info",
+            redact: ["req.headers.authorization"],
+            // Order links and the live-board token are secrets: keep them out of the logs.
+            serializers: { req: (req: { method: string; url: string; id: string }) => ({ method: req.method, url: safeUrl(req.url), id: req.id }) },
+          },
     trustProxy: true,
     bodyLimit: 64 * 1024,
     // Short ids, echoed back as X-Request-Id, so a staff member can quote one from an error.

@@ -12,13 +12,17 @@ const SOLD = ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY", "COLLECTED"];
 export async function platformLogin(db: Db, tokens: PlatformTokens, limiter: AttemptLimiter, input: { email: string; password: string }, ip: string) {
   const email = input.email.trim().toLowerCase();
   const key = `platform|${email}|${ip}`;
+  const personKey = `platform|${email}`;
   limiter.check(key);
+  limiter.check(personKey, Date.now(), 20);
   const [admin] = await db.select().from(platformAdmins).where(and(eq(platformAdmins.email, email), eq(platformAdmins.active, true)));
   if (!admin || !(await verifyPin(input.password, admin.passwordHash))) {
     limiter.fail(key);
+    limiter.fail(personKey, Date.now(), 60 * 60 * 1000);
     throw new AppError("UNAUTHORIZED", "That email or password is not right");
   }
   limiter.reset(key);
+  limiter.reset(personKey);
   const token = await tokens.issue({ sub: admin.id, email: admin.email, name: admin.name });
   return { token, name: admin.name, email: admin.email };
 }

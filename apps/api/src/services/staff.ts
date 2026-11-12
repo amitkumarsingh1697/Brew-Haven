@@ -25,7 +25,10 @@ export async function login(
   ip: string,
 ): Promise<StaffSession> {
   const key = `${input.staffUserId}|${ip}`;
+  // Also per person across all addresses (20 wrong PINs an hour), so a 4-digit PIN can't be guessed from many IPs.
+  const personKey = `person|${input.staffUserId}`;
   limiter.check(key);
+  limiter.check(personKey, Date.now(), 20);
   const [row] = await db
     .select({ user: staffUsers, tenant: tenants })
     .from(staffUsers)
@@ -33,9 +36,11 @@ export async function login(
     .where(and(eq(staffUsers.id, input.staffUserId), eq(tenants.slug, input.tenantSlug), eq(staffUsers.active, true)));
   if (!row || !(await verifyPin(input.pin, row.user.pinHash))) {
     limiter.fail(key);
+    limiter.fail(personKey, Date.now(), 60 * 60 * 1000);
     throw new AppError("UNAUTHORIZED", "That PIN is not right");
   }
   limiter.reset(key);
+  limiter.reset(personKey);
   const outletRows =
     row.user.role === "ADMIN"
       ? await db.select().from(outlets).where(eq(outlets.tenantId, row.tenant.id)).orderBy(asc(outlets.name))
