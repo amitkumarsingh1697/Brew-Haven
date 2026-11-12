@@ -956,6 +956,14 @@ const METHOD_LABEL: Record<string, string> = { ONLINE: "Paid online", CASH: "Cas
 
 /** Business dates are Asia/Kolkata, same as the API. */
 const istDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
+type ExportKind = Parameters<typeof api.admin.exportCsv>[0];
+const EXPORTS: Array<[ExportKind, string]> = [
+  ["orders", "Orders"],
+  ["items", "Items sold"],
+  ["payments", "Payments & refunds"],
+  ["closes", "Day closes"],
+  ["stock", "Stock movements"],
+];
 const daysAgo = (n: number) => istDate(new Date(Date.now() - n * 86_400_000));
 const shortDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 const hourLabel = (h: number) => `${h % 12 || 12} ${h < 12 ? "am" : "pm"}`;
@@ -1011,6 +1019,7 @@ function Reports({ setup }: { setup: AdminSetup }) {
     };
   }, [from, to, outletId]);
 
+  const [exporting, setExporting] = useState<ExportKind | null>(null);
   const download = () => {
     if (!report) return;
     const url = URL.createObjectURL(new Blob([reportCsv(report)], { type: "text/csv" }));
@@ -1048,10 +1057,33 @@ function Reports({ setup }: { setup: AdminSetup }) {
             ))}
           </select>
           <button className="btn btn-ghost" onClick={download} disabled={!r}>
-            Download CSV
+            Summary CSV
           </button>
         </div>
       </header>
+      <div className="export-row" role="group" aria-label="Download for your accountant">
+        <span className="muted small">Download for your accountant, same dates and café:</span>
+        {EXPORTS.map(([kind, label]) => (
+          <button
+            key={kind}
+            className="chip"
+            disabled={exporting !== null}
+            onClick={async () => {
+              setExporting(kind);
+              setError(null);
+              try {
+                await api.admin.exportCsv(kind, { from, to, outletId: outletId || undefined });
+              } catch (e) {
+                setError((e as ApiError).message);
+              } finally {
+                setExporting(null);
+              }
+            }}
+          >
+            {exporting === kind ? "Preparing…" : label}
+          </button>
+        ))}
+      </div>
       {error && <p className="error">{error}</p>}
       {!r && !error && <p className="muted">Loading…</p>}
       {r && (

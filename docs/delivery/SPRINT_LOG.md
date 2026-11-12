@@ -34,8 +34,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 
 | Item | Status |
 |---|---|
-| Stock report per café: opening, received, used by sales, wasted, count difference (variance) and closing, with CSV download. See INVENTORY.md | In review |
-| CSV exports: orders, payments and refunds, day closes, stock movements | Planned |
+| Stock report per café: opening, received, used by sales, wasted, count difference (variance) and closing, with CSV download. See INVENTORY.md | Merged (#17) |
+| CSV exports for the accountant: orders, items sold, payments and refunds, day closes, stock movements. See EXPORTS.md | In review |
 | Self-serve sign-up for a new café business | Planned |
 | Plans and limits (placeholder plans until pricing is decided) | Planned |
 

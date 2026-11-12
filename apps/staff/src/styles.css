@@ -1321,3 +1321,9 @@ a.btn {
   color: var(--bh-danger);
   font-weight: 600;
 }
+.export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
