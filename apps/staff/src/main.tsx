@@ -8,6 +8,7 @@ import { api, setSessionToken } from "./api";
 import { useLiveOrders } from "./live";
 import { Admin } from "./Admin";
 import { Login } from "./Login";
+import { Platform } from "./Platform";
 import { Signup } from "./Signup";
 import { Board, Kitchen, NewOrder, Stock, Today } from "./screens";
 
@@ -29,7 +30,13 @@ function loadSession(): StaffSession | null {
   }
 }
 
+const onPlatform = () => /^\/platform\/?$/.test(window.location.pathname);
+
 function App() {
+  return onPlatform() ? <Platform /> : <CafeApp />;
+}
+
+function CafeApp() {
   const [session, setSession] = useState<StaffSession | null>(() => {
     const s = loadSession();
     if (s) setSessionToken(s.token);

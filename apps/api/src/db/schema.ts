@@ -34,6 +34,18 @@ export const tenants = pgTable("tenants", {
   contact: jsonb("contact").$type<{ email?: string; phone?: string }>().notNull().default({}),
   /** Subscription plan id (see PLANS in the domain package). Only its limits are enforced. */
   plan: text("plan").notNull().default("starter"),
+  /** Set when Brew Haven pauses the account (for example, unpaid): no new orders, data kept. */
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
+/** Inferra staff who run Brew Haven itself. Separate from every café's staff; email and password. */
+export const platformAdmins = pgTable("platform_admins", {
+  id: id(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  active: boolean("active").notNull().default(true),
   createdAt: createdAt(),
 });
 

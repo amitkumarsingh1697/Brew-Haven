@@ -74,7 +74,7 @@ export async function createOnlineOrder(ctx: Ctx, tenantSlug: string, outletSlug
   const prior = await replay();
   if (prior) return prior;
 
-  if (!outlet.isOpen) throw new AppError("UNAVAILABLE", `${outlet.name} is not taking orders right now`);
+  if (!outlet.isOpen || tenant.suspendedAt) throw new AppError("UNAVAILABLE", `${outlet.name} is not taking orders right now`);
   const lines = await resolveLines(ctx.db, tenant.id, outlet.id, body.lines, { requireAvailable: true });
   const q = quote(lines, tenant.taxRateBps);
   const trackingToken = newTrackingToken();
@@ -294,6 +294,7 @@ export async function createWalkInOrder(ctx: Ctx, staff: StaffClaims, body: z.ou
   const [outlet] = await ctx.db.select().from(outlets).where(and(eq(outlets.id, body.outletId), eq(outlets.tenantId, staff.tenantId)));
   if (!outlet) throw notFound("Café outlet");
   const [tenant] = await ctx.db.select().from(tenants).where(eq(tenants.id, staff.tenantId));
+  if (tenant!.suspendedAt) throw new AppError("FORBIDDEN", "This account is paused, so new orders can't be taken. Contact Brew Haven support.");
   const lines = await resolveLines(ctx.db, tenant!.id, outlet.id, body.lines, { requireAvailable: true });
   const q = quote(lines, tenant!.taxRateBps);
   return withTx(ctx.db, async (tx, after) => {
