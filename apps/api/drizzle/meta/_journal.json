@@ -78,6 +78,13 @@
       "when": 1794488029239,
       "tag": "0010_platform_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794492629182,
+      "tag": "0011_visit_events",
+      "breakpoints": true
     }
   ]
 }

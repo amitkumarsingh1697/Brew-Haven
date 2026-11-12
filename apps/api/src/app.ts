@@ -63,6 +63,7 @@ import { listPaymentExceptions } from "./services/exceptions.js";
 import { exportCsv } from "./services/exports.js";
 import { gstSummary } from "./services/gst.js";
 import { kitchenSpeed } from "./services/kitchen-speed.js";
+import { orderingFunnel, recordVisitStep } from "./services/funnel.js";
 import * as platform from "./services/platform.js";
 import { assertSignupOpen, signup } from "./services/signup.js";
 import { readiness } from "./services/health.js";
@@ -259,6 +260,11 @@ export async function buildApp(deps: AppDeps) {
   });
 
   // ---------- Customer ----------
+  // Anonymous visit steps for the owner's ordering funnel (no personal data; see services/funnel.ts).
+  app.post<{ Params: { tenant: string; outlet: string } }>("/v1/cafes/:tenant/:outlet/events", perMinute(120), async (req, reply) => {
+    await recordVisitStep(deps.db, req.params.tenant, req.params.outlet, (req.body ?? {}) as Record<string, unknown>);
+    return reply.status(204).send();
+  });
   app.get<{ Params: { tenant: string; outlet: string } }>("/v1/cafes/:tenant/:outlet/menu", async (req, reply) => {
     reply.header("Cache-Control", "public, max-age=15");
     return getMenu(deps.db, req.params.tenant, req.params.outlet);
@@ -426,6 +432,9 @@ export async function buildApp(deps: AppDeps) {
   app.get<{ Querystring: { from?: string; to?: string; outletId?: string } }>("/v1/admin/gst-summary", async (req) => gstSummary(deps.db, await staff(req), { ...req.query, outletId: req.query.outletId || undefined }));
   app.get<{ Querystring: { from?: string; to?: string; outletId?: string; targetMinutes?: string } }>("/v1/admin/kitchen-speed", async (req) =>
     kitchenSpeed(deps.db, await staff(req), { ...req.query, outletId: req.query.outletId || undefined }),
+  );
+  app.get<{ Querystring: { from?: string; to?: string; outletId?: string } }>("/v1/admin/funnel", async (req) =>
+    orderingFunnel(deps.db, await staff(req), { ...req.query, outletId: req.query.outletId || undefined }),
   );
   app.get("/v1/admin/notifications", async (req) => ({ provider: notifier.name, delivers: notifier.delivers, messages: await listNotifications(deps.db, await staff(req)) }));
   app.get<{ Querystring: { limit?: string; before?: string; outletId?: string } }>("/v1/admin/activity", async (req) =>

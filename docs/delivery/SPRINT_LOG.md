@@ -54,6 +54,7 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 |---|---|
 | Terms of service (with data processing terms) and privacy policy pages at `/legal/terms` and `/legal/privacy` on the customer app, marked as a draft until the lawyer signs off; linked from sign-up and checkout. Text in `docs/legal` | Merged (#25) |
 | Staff training guides for cashier, kitchen and owner (`docs/training`), opened from a Help button in the staff app; the owner can read all three to train staff | Merged (#26) |
+| Online ordering funnel in Reports: visits that opened, browsed, added, reached checkout and started paying, and paid orders, from anonymous visit steps with no personal data. See ANALYTICS.md | Merged (#27) |
 | Security review: dependency upgrades (drizzle-orm, zod) clearing `pnpm audit`, order links and tokens kept out of logs, PIN and team sign-in limits across addresses. See SECURITY_REVIEW.md | In review |
 
 ## Waiting on Amit

@@ -1,3 +1,4 @@
+import { track } from "../track";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import type { MenuItemDto } from "@brew-haven/contracts";
@@ -6,6 +7,7 @@ import { ErrorNote, ItemArt, Rs, Sheet, Spinner, Stepper, VegMark } from "../com
 import { useMenu } from "../hooks";
 
 export function Menu({ tenant, outlet }: { tenant: string; outlet: string }) {
+  useEffect(() => track(`${tenant}/${outlet}`, "menu"), [tenant, outlet]);
   const { menu, error, reload, savedAt } = useMenu(tenant, outlet);
   const { count, previewPaise } = useBasket();
   const [active, setActive] = useState<string | null>(null);

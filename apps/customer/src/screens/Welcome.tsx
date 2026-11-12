@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { track } from "../track";
 import { Link, useLocation } from "wouter";
 import { CafeScene } from "../components/CafeScene";
 import { ErrorNote, Spinner } from "../components/ui";
@@ -6,6 +8,7 @@ import { useMenu } from "../hooks";
 import { formatInr } from "@brew-haven/domain";
 
 export function Welcome({ tenant, outlet }: { tenant: string; outlet: string }) {
+  useEffect(() => track(`${tenant}/${outlet}`, "open"), [tenant, outlet]);
   const { menu, error, reload } = useMenu(tenant, outlet);
   const [, navigate] = useLocation();
   const previous = lastOrder.get();
