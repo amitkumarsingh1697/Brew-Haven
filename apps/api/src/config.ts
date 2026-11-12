@@ -5,6 +5,8 @@ export interface Config {
   /** Secret for signing staff session tokens. */
   staffTokenSecret: string;
   corsOrigins: string[];
+  /** Whether anyone can create a new café business at POST /v1/signup. */
+  signupEnabled: boolean;
   /** Per-IP request limits. Only a local load test turns them off (RATE_LIMIT=off); never in production. */
   rateLimits?: boolean;
   payments: {
@@ -57,6 +59,8 @@ export function loadConfig(): Config {
           : undefined,
     },
     runWorker: process.env.RUN_WORKER !== "false",
+    // Off in production unless switched on, so a live deploy never opens sign-up by accident.
+    signupEnabled: process.env.SIGNUP_ENABLED ? process.env.SIGNUP_ENABLED === "true" : !isProd,
     alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || undefined,
     appEnv: process.env.APP_ENV ?? (isProd ? "production" : "dev"),
     notifications: {

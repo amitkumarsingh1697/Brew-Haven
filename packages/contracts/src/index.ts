@@ -434,3 +434,24 @@ export const StockMovementInput = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("COUNT"), outletId: Id, ingredientId: Id, quantity: z.number().int().min(0).max(10_000_000), note: z.string().trim().max(140).optional() }),
 ]);
 export const LowStockInput = z.object({ outletId: Id, ingredientId: Id, lowAt: z.number().int().min(0).max(10_000_000).nullable() });
+
+// ---------- Self-serve sign-up (R2) ----------
+
+export const SignupRequest = z.object({
+  businessName: Name,
+  cafeName: Name,
+  /** Letters before order numbers at the first café; defaults to the café name's first letter. */
+  pickupPrefix: PickupPrefix.optional(),
+  address: OptionalText,
+  ownerName: Name,
+  pin: z.string().regex(/^\d{4}$/, "PIN must be 4 digits"),
+  email: z.string().trim().toLowerCase().email("Enter a valid email address").max(200),
+  phone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s-]/g, ""))
+    .pipe(z.string().regex(/^(\+91)?[6-9]\d{9}$/, "Enter a 10-digit Indian mobile number")),
+  sampleMenu: z.boolean().default(true),
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: "Please accept the terms to continue" }) }),
+});
+export type SignupRequest = z.input<typeof SignupRequest>;

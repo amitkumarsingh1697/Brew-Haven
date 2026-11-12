@@ -30,6 +30,8 @@ export const tenants = pgTable("tenants", {
   /** Seller details printed on receipts: legal name, GSTIN, FSSAI licence, footer. */
   billing: jsonb("billing").$type<{ legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string }>().notNull().default({}),
   demoData: boolean("demo_data").notNull().default(false),
+  /** How to reach the owner, from self-serve sign-up. Never shown to customers. */
+  contact: jsonb("contact").$type<{ email?: string; phone?: string }>().notNull().default({}),
   createdAt: createdAt(),
 });
 

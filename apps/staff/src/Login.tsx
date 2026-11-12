@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import type { StaffSession } from "@brew-haven/contracts";
-import { ApiError, api } from "./api";
+import { ApiError, api, getTenant, setTenant } from "./api";
 
-export function Login({ onLogin }: { onLogin: (s: StaffSession) => void }) {
+export function Login({ onLogin, onSignup }: { onLogin: (s: StaffSession) => void; onSignup: () => void }) {
   const [data, setData] = useState<Awaited<ReturnType<typeof api.users>> | null>(null);
   const [user, setUser] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const [code, setCode] = useState("");
 
   useEffect(() => {
     api.users().then(setData).catch((e: ApiError) => setError(e.message));
@@ -78,6 +80,35 @@ export function Login({ onLogin }: { onLogin: (s: StaffSession) => void }) {
           </>
         )}
         {error && <p className="error" role="alert">{error}</p>}
+        {!user && (
+          <div className="login-links">
+            {changing ? (
+              <form
+                className="inline-add"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const slug = code.trim().toLowerCase().replace(/^.*[?&]business=/, "").replace(/[^a-z0-9-]/g, "");
+                  if (!slug) return;
+                  setTenant(slug);
+                  setChanging(false);
+                  setData(null);
+                  setError(null);
+                  api.users().then(setData).catch((err: ApiError) => setError(err.status === 404 ? `No business with the link "${slug}"` : err.message));
+                }}
+              >
+                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={getTenant()} aria-label="Business link, e.g. blue-door-cafe" autoFocus />
+                <button className="btn btn-primary">Go</button>
+              </form>
+            ) : (
+              <button className="link-btn" onClick={() => setChanging(true)}>
+                Different business?
+              </button>
+            )}
+            <button className="link-btn" onClick={onSignup}>
+              New here? Create a café account
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );

@@ -17,6 +17,7 @@ export const testConfig: Config = {
   corsOrigins: ["http://localhost:5173"],
   payments: { provider: "simulated", simulatedWebhookSecret: "test-webhook-secret" },
   runWorker: false,
+  signupEnabled: true,
 };
 
 export async function resetDatabase() {

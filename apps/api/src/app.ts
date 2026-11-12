@@ -26,6 +26,7 @@ import {
   StockMovementInput,
   QuoteRequest,
   RejectRequest,
+  SignupRequest,
   ResolveAdjustmentRequest,
   SimulatePaymentRequest,
   StaffActionRequest,
@@ -58,6 +59,7 @@ import {
 } from "./services/flows.js";
 import { listPaymentExceptions } from "./services/exceptions.js";
 import { exportCsv } from "./services/exports.js";
+import { assertSignupOpen, signup } from "./services/signup.js";
 import { readiness } from "./services/health.js";
 import { orderView } from "./services/orders.js";
 import { receiptByToken, receiptForStaff } from "./services/receipts.js";
@@ -308,6 +310,22 @@ export async function buildApp(deps: AppDeps) {
       return { result, order: await deps.db.transaction((tx) => orderView(tx, pay.orderId)) };
     });
   }
+
+  // ---------- Self-serve sign-up ----------
+  const perHour = (max: number) => (limits ? { config: { rateLimit: { max, timeWindow: "1 hour" } } } : {});
+  app.get("/v1/signup", async () => ({ open: deps.config.signupEnabled }));
+  app.post("/v1/signup", perHour(5), async (req, reply) => {
+    assertSignupOpen(deps.config.signupEnabled);
+    const body = parse(SignupRequest, req.body);
+    const created = await signup(deps.db, body);
+    const session = await login(deps.db, tokens, limiter, { tenantSlug: created.tenantSlug, staffUserId: created.ownerId, pin: body.pin }, req.ip);
+    const claims = await tokens.verify(session.token);
+    await audit
+      .recordAudit(deps.db, { tenantId: claims.tenantId, actorId: claims.sub, actorName: claims.name, action: "business.signup", summary: `Created ${created.tenantName} with café ${session.outlets[0]?.name ?? ""}`, ip: req.ip })
+      .catch((err) => req.log.error({ err }, "audit write failed"));
+    req.log.info({ tenant: created.tenantSlug }, "new business signed up");
+    return reply.status(201).send({ tenantSlug: created.tenantSlug, outletSlug: created.outletSlug, session });
+  });
 
   // ---------- Staff ----------
   app.get<{ Params: { tenant: string } }>("/v1/staff/:tenant/users", async (req) => listStaffUsers(deps.db, req.params.tenant));

@@ -28,6 +28,8 @@ async function audit(p, name) {
   await p.locator('.sheet .btn-primary').first().click();
   await p.goto(CUSTOMER + '/400-coffee/tower-a/checkout'); await p.waitForSelector('.pay-bar'); await audit(p, 'customer checkout');
   const s = await ctx.newPage(); await s.setViewportSize({ width: 1280, height: 800 });
+  await s.goto(STAFF + '/signup'); await s.waitForSelector('text=Start your café'); await audit(s, 'staff sign-up');
+  await s.click('text=I already have an account');
   await s.goto(STAFF + '/'); await s.waitForSelector('text=Owner (Admin)'); await audit(s, 'staff login');
   await s.click('text=Owner (Admin)'); await audit(s, 'staff pin');
   for (const d of '1111') await s.click(`.pinpad button[aria-label="${d}"]`); await s.waitForSelector('.topbar');
