@@ -12,6 +12,8 @@ type Business = {
   name: string;
   plan: "starter" | "growth" | "multi";
   planName: string;
+  monthlyPaise: number;
+  billing: { state: "trial" | "trial_over" | "paid" | "overdue" | "not_billed"; until: string | null; daysLeft: number | null };
   suspended: boolean;
   demo: boolean;
   createdAt: string;
@@ -46,6 +48,45 @@ async function request<T>(path: string, init: RequestInit & { token?: string } =
 }
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }) : "Never");
+
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+/** A date in India, as YYYY-MM-DD. */
+const istDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
+/** One month on from the later of today and the current paid or trial end: the usual next "paid until". */
+const nextMonth = (b: Business) => {
+  const base = b.billing.until && new Date(b.billing.until) > new Date() ? new Date(b.billing.until) : new Date();
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + 1);
+  return istDay(d);
+};
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function BillingCell({ b, onChange }: { b: Business; onChange: (body: { paidUntil?: string; trialEndsOn?: string }) => void }) {
+  const { state, until, daysLeft } = b.billing;
+  const ask = (question: string, suggested: string, key: "paidUntil" | "trialEndsOn") => {
+    const v = window.prompt(question, suggested)?.trim();
+    if (!v) return;
+    if (!DAY.test(v)) return window.alert("Use a date like 2026-12-31.");
+    onChange({ [key]: v });
+  };
+  const label =
+    state === "trial" ? `Trial, ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left` : state === "paid" ? `Paid to ${shortDate(until!)}` : state === "trial_over" ? `Trial ended ${shortDate(until!)}` : state === "overdue" ? `Due since ${shortDate(until!)}` : "Not billed";
+  const tone = state === "paid" || state === "trial" ? "pill ok" : state === "not_billed" ? "pill none" : "pill warn";
+  return (
+    <div className="billing-cell">
+      <span className={tone}>{label}</span>
+      <span className="muted small">{formatInr(b.monthlyPaise)} a month</span>
+      <button className="link-btn small" onClick={() => ask(`Paid until (YYYY-MM-DD) for ${b.name}:`, nextMonth(b), "paidUntil")} aria-label={`Record a payment for ${b.name}`}>
+        Record payment
+      </button>
+      {state !== "paid" && (
+        <button className="link-btn small" onClick={() => ask(`Free trial ends on (YYYY-MM-DD) for ${b.name}:`, nextMonth(b), "trialEndsOn")} aria-label={`Change the free trial for ${b.name}`}>
+          Change trial
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function Platform() {
   const [who, setWho] = useState<Who | null>(() => {
@@ -135,7 +176,7 @@ function Businesses({ who, onSignOut }: { who: Who; onSignOut: () => void }) {
     );
   useEffect(() => void load(), []);
 
-  const change = async (b: Business, body: { plan?: string; suspended?: boolean }, confirmText?: string) => {
+  const change = async (b: Business, body: { plan?: string; suspended?: boolean; paidUntil?: string; trialEndsOn?: string }, confirmText?: string) => {
     if (confirmText && !window.confirm(confirmText)) return;
     setError(null);
     try {
@@ -174,6 +215,13 @@ function Businesses({ who, onSignOut }: { who: Who; onSignOut: () => void }) {
               <span className="muted small">in active businesses</span>
             </div>
             <div className="stat-tile">
+              <span className="muted small">Paying each month</span>
+              <strong>{formatInr(active.filter((b) => b.billing.state === "paid").reduce((n, b) => n + b.monthlyPaise, 0))}</strong>
+              <span className="muted small">
+                {active.filter((b) => b.billing.state === "trial").length} on free trial · {active.filter((b) => b.billing.state === "trial_over" || b.billing.state === "overdue").length} payment due
+              </span>
+            </div>
+            <div className="stat-tile">
               <span className="muted small">Orders, last 30 days</span>
               <strong>{active.reduce((n, b) => n + b.ordersLast30Days, 0)}</strong>
             </div>
@@ -207,6 +255,7 @@ function Businesses({ who, onSignOut }: { who: Who; onSignOut: () => void }) {
                   <th className="num">Sales (30 days)</th>
                   <th>Last order</th>
                   <th>Plan</th>
+                  <th>Billing</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -243,7 +292,11 @@ function Businesses({ who, onSignOut }: { who: Who; onSignOut: () => void }) {
                         ))}
                       </select>
                     </td>
-                    <td className="status-cell">
+                    <td>
+                      <BillingCell b={b} onChange={(body) => change(b, body)} />
+                    </td>
+                    <td>
+                      <div className="status-cell">
                       <span className={b.suspended ? "pill warn" : "pill"}>{b.suspended ? "Paused" : "Active"}</span>
                       {b.suspended ? (
                         <button className="btn btn-ghost small" onClick={() => change(b, { suspended: false })} aria-label={`Resume ${b.name}`}>
@@ -258,12 +311,13 @@ function Businesses({ who, onSignOut }: { who: Who; onSignOut: () => void }) {
                           Pause
                         </button>
                       )}
+                      </div>
                     </td>
                   </tr>
                 ))}
                 {shown.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="muted">
+                    <td colSpan={10} className="muted">
                       No businesses match.
                     </td>
                   </tr>

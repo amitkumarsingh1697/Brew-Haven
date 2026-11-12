@@ -1,6 +1,7 @@
 import { eq, like, or } from "drizzle-orm";
 import type { z } from "zod";
 import type { SignupRequest } from "@brew-haven/contracts";
+import { trialEndFrom } from "@brew-haven/domain";
 import { hashPin, type StaffClaims } from "../auth.js";
 import type { Db } from "../db/client.js";
 import { outlets, staffUsers, stations, tenants } from "../db/schema.js";
@@ -48,7 +49,7 @@ export async function signup(db: Db, body: z.output<typeof SignupRequest>) {
   const created = await db.transaction(async (tx) => {
     const [tenant] = await tx
       .insert(tenants)
-      .values({ slug, name: body.businessName, branding: { displayName: body.businessName }, contact: { email: body.email, phone: body.phone } })
+      .values({ slug, name: body.businessName, branding: { displayName: body.businessName }, contact: { email: body.email, phone: body.phone }, trialEndsAt: trialEndFrom() })
       .returning();
     const [outlet] = await tx
       .insert(outlets)

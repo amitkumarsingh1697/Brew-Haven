@@ -19,7 +19,7 @@ import { hashPin, type StaffClaims } from "../auth.js";
 import type { Db, Tx } from "../db/client.js";
 import { categories, menuItems, modifierGroups, modifierOptions, outletItemStock, outlets, staffUsers, stations, tenants } from "../db/schema.js";
 import { AppError, notFound } from "../errors.js";
-import { limitReached, planOf } from "@brew-haven/domain";
+import { billingStatus, limitReached, planOf } from "@brew-haven/domain";
 
 /** Owner self-service (D-17). Every function here is ADMIN-only and scoped to the admin's tenant. */
 
@@ -143,13 +143,23 @@ async function assertWithinPlan(tx: Tx, tenantId: string, what: "cafe" | "staff"
 
 /** The plan, its limits and what's used, for the owner's settings. */
 export async function planUsage(db: Db | Tx, tenantId: string) {
-  const [t] = await db.select({ plan: tenants.plan }).from(tenants).where(eq(tenants.id, tenantId));
+  const [t] = await db.select({ plan: tenants.plan, trialEndsAt: tenants.trialEndsAt, paidUntil: tenants.paidUntil }).from(tenants).where(eq(tenants.id, tenantId));
   const plan = planOf(t?.plan);
   const [[c], [s]] = await Promise.all([
     db.select({ n: sql<number>`count(*)::int` }).from(outlets).where(eq(outlets.tenantId, tenantId)),
     db.select({ n: sql<number>`count(*)::int` }).from(staffUsers).where(and(eq(staffUsers.tenantId, tenantId), eq(staffUsers.active, true))),
   ]);
-  return { id: plan.id, name: plan.name, maxCafes: plan.maxCafes, maxStaff: plan.maxStaff, cafes: c!.n, staff: s!.n };
+  return {
+    id: plan.id,
+    name: plan.name,
+    maxCafes: plan.maxCafes,
+    maxStaff: plan.maxStaff,
+    cafes: c!.n,
+    staff: s!.n,
+    monthlyPaise: plan.monthlyPaise,
+    yearlyPaise: plan.yearlyPaise,
+    billing: billingStatus({ trialEndsAt: t?.trialEndsAt ?? null, paidUntil: t?.paidUntil ?? null }),
+  };
 }
 
 // ---------- Outlets and stations ----------

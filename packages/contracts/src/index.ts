@@ -196,7 +196,15 @@ export const StaffLoginRequest = z.object({
 });
 /** Brew Haven's own team signs in with email and password, never a café PIN. */
 export const PlatformLoginRequest = z.object({ email: z.string().trim().email().max(200), password: z.string().min(1).max(200) });
-export const PlatformBusinessUpdate = z.object({ plan: z.enum(["starter", "growth", "multi"]).optional(), suspended: z.boolean().optional() });
+const DateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-12-31");
+export const PlatformBusinessUpdate = z.object({
+  plan: z.enum(["starter", "growth", "multi"]).optional(),
+  suspended: z.boolean().optional(),
+  /** Paid up to the end of this day (IST); null clears it. */
+  paidUntil: DateOnly.nullable().optional(),
+  /** Free trial runs to the end of this day (IST), to extend or end a trial; null clears it. */
+  trialEndsOn: DateOnly.nullable().optional(),
+});
 
 export const StaffSession = z.object({
   token: z.string(),
@@ -347,6 +355,13 @@ export const OutletWithStations = z.object({
 });
 export type OutletWithStations = z.infer<typeof OutletWithStations>;
 
+/** Where a business stands with Brew Haven: free trial, paid up, or past either. */
+export const BillingStatusView = z.object({
+  state: z.enum(["trial", "trial_over", "paid", "overdue", "not_billed"]),
+  until: z.string().nullable(),
+  daysLeft: z.number().int().nullable(),
+});
+
 export const AdminSetup = z.object({
   tenant: z.object({
     slug: z.string(),
@@ -354,7 +369,17 @@ export const AdminSetup = z.object({
     taxRateBps: z.number().int(),
     branding: Branding,
     billing: BillingDetails,
-    plan: z.object({ id: z.string(), name: z.string(), maxCafes: z.number().int().nullable(), maxStaff: z.number().int().nullable(), cafes: z.number().int(), staff: z.number().int() }),
+    plan: z.object({
+      id: z.string(),
+      name: z.string(),
+      maxCafes: z.number().int().nullable(),
+      maxStaff: z.number().int().nullable(),
+      cafes: z.number().int(),
+      staff: z.number().int(),
+      monthlyPaise: z.number().int(),
+      yearlyPaise: z.number().int(),
+      billing: BillingStatusView,
+    }),
   }),
   outlets: z.array(OutletWithStations),
   categories: z.array(z.object({ id: Id, name: z.string(), sort: z.number().int(), active: z.boolean() })),

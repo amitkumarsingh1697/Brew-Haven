@@ -799,6 +799,10 @@ function PlanCard({ plan }: { plan: AdminSetup["tenant"]["plan"] }) {
   return (
     <section className="panel plan-card" aria-labelledby="plan-h">
       <h2 id="plan-h">Your plan: {plan.name}</h2>
+      <p className="plan-price">
+        <strong>{formatInr(plan.monthlyPaise)}</strong> a month, or {formatInr(plan.yearlyPaise)} a year (two months free). Prices are before GST.
+      </p>
+      <BillingLine billing={plan.billing} />
       <ul>
         {line("Cafés", plan.cafes, plan.maxCafes)}
         {line("Active team members, you included", plan.staff, plan.maxStaff)}
@@ -806,6 +810,41 @@ function PlanCard({ plan }: { plan: AdminSetup["tenant"]["plan"] }) {
       {(plan.maxCafes !== null || plan.maxStaff !== null) && <p className="muted small">Need more? Contact us to move to a bigger plan.</p>}
     </section>
   );
+}
+
+const longDate = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
+
+function BillingLine({ billing }: { billing: AdminSetup["tenant"]["plan"]["billing"] }) {
+  const days = billing.daysLeft ?? 0;
+  const left = days <= 1 ? "Last day" : `${days} days left`;
+  switch (billing.state) {
+    case "trial":
+      return (
+        <p className="billing-line trial">
+          <span className="pill">Free trial</span> {left}. Your trial ends on {longDate(billing.until!)}. We'll be in touch before then about paying for your plan.
+        </p>
+      );
+    case "paid":
+      return (
+        <p className="billing-line">
+          <span className="pill">Paid</span> Paid until {longDate(billing.until!)}.
+        </p>
+      );
+    case "trial_over":
+      return (
+        <p className="billing-line due" role="status">
+          <span className="pill warn">Payment due</span> Your free trial ended on {longDate(billing.until!)}. Please contact us to pay for your plan and keep taking orders.
+        </p>
+      );
+    case "overdue":
+      return (
+        <p className="billing-line due" role="status">
+          <span className="pill warn">Payment due</span> Your plan was paid until {longDate(billing.until!)}. Please contact us to renew and keep taking orders.
+        </p>
+      );
+    default:
+      return null;
+  }
 }
 
 function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {

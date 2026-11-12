@@ -32,6 +32,9 @@ and privacy draft).
 ## What the team can change
 
 - **Plan:** Starter, Growth or Multi-café (see PLANS.md). Replaces running the `plan` script.
+- **Billing:** each business shows its price and whether it is on a free trial, paid up, or due.
+  "Record payment" sets the paid-until date when a UPI or bank payment arrives; "Change trial"
+  extends or ends a trial. The "Paying each month" tile adds up businesses that are paid up.
 - **Pause / resume:** a paused business can't take new orders, online or at the counter. Customers
   see "not taking orders right now". The owner and staff can still sign in, see reports and download
   exports, and nothing is deleted. Use it for unpaid accounts (Terms of service, section 4).
@@ -43,4 +46,4 @@ the Growth plan", "Brew Haven paused the account…"), so the owner can see what
 
 - `POST /v1/platform/login` `{ email, password }` → `{ token, name, email }` (8-hour token)
 - `GET /v1/platform/businesses`
-- `PATCH /v1/platform/businesses/:id` `{ plan?, suspended? }`
+- `PATCH /v1/platform/businesses/:id` `{ plan?, suspended?, paidUntil?: "YYYY-MM-DD" | null, trialEndsOn?: "YYYY-MM-DD" | null }`
