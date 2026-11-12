@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, sql, sum } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, sql, sum } from "drizzle-orm";
 import type { z } from "zod";
 import type { IngredientInput, IngredientUpdate, LowStockInput, RecipeInput, StockMovementInput } from "@brew-haven/contracts";
 import { consumption, type RecipeRow } from "@brew-haven/domain";
@@ -229,4 +229,63 @@ export async function lowStockAcrossCafes(db: Db, staff: StaffClaims) {
     for (const i of inv.ingredients) if (i.active && (i.status === "LOW" || i.status === "OUT")) out.push({ outlet: c.name, ingredient: i.name, unit: i.unit, onHand: i.onHand, lowAt: i.lowAt, status: i.status });
   }
   return out;
+}
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const IST_MIDNIGHT = (d: string) => new Date(`${d}T00:00:00+05:30`);
+
+/**
+ * Stock movement for one café over a date range (India time), per ingredient:
+ * opening + received - used by sales - wasted + count corrections = closing.
+ * The count corrections are the variance: stock that went missing (or turned up) beyond what the
+ * recipes and recorded waste explain. Owner only.
+ */
+export async function stockReport(db: Db, staff: StaffClaims, q: { outletId?: string; from?: string; to?: string }) {
+  assertAdmin(staff);
+  if (!q.outletId) throw new AppError("VALIDATION", "Choose a café");
+  await assertStaffOutlet(db, staff, q.outletId);
+  const today = new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
+  const to = q.to && DAY.test(q.to) ? q.to : today;
+  const from = q.from && DAY.test(q.from) ? q.from : to;
+  if (from > to) throw new AppError("VALIDATION", "The start date is after the end date");
+  if ((Date.parse(to) - Date.parse(from)) / 86_400_000 > 92) throw new AppError("VALIDATION", "Choose a range of up to 3 months");
+  const start = IST_MIDNIGHT(from);
+  const end = new Date(IST_MIDNIGHT(to).getTime() + 86_400_000);
+
+  const list = await db.select().from(ingredients).where(eq(ingredients.tenantId, staff.tenantId)).orderBy(asc(ingredients.name));
+  const before = await db
+    .select({ id: stockMovements.ingredientId, n: sum(stockMovements.quantity) })
+    .from(stockMovements)
+    .where(and(eq(stockMovements.outletId, q.outletId), lt(stockMovements.createdAt, start)))
+    .groupBy(stockMovements.ingredientId);
+  const during = await db
+    .select({ id: stockMovements.ingredientId, kind: stockMovements.kind, n: sum(stockMovements.quantity) })
+    .from(stockMovements)
+    .where(and(eq(stockMovements.outletId, q.outletId), gte(stockMovements.createdAt, start), lt(stockMovements.createdAt, end)))
+    .groupBy(stockMovements.ingredientId, stockMovements.kind);
+  const of = (id: string, kind: string) => Number(during.find((d) => d.id === id && d.kind === kind)?.n ?? 0);
+
+  const rows = list
+    .map((i) => {
+      const opening = Number(before.find((b) => b.id === i.id)?.n ?? 0);
+      const received = of(i.id, "RECEIVE");
+      const used = -of(i.id, "SALE");
+      const wasted = -of(i.id, "WASTE");
+      const variance = of(i.id, "COUNT");
+      return {
+        ingredientId: i.id,
+        name: i.name,
+        unit: i.unit,
+        opening,
+        received,
+        used,
+        wasted,
+        variance,
+        closing: opening + received - used - wasted + variance,
+        /** Missing stock as a share of what sales used; null when nothing was used. */
+        variancePct: used > 0 ? Math.round((variance / used) * 1000) / 10 : null,
+      };
+    })
+    .filter((r) => r.opening || r.received || r.used || r.wasted || r.variance);
+  return { from, to, outletId: q.outletId, rows };
 }

@@ -28,7 +28,16 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Receipts and GST tax invoices: per-café numbering per financial year, CGST/SGST split, GSTIN, legal name and FSSAI licence in Café settings, customer receipt page, counter print (80 mm or A4) | Merged (#13) |
 | Counter UPI reference check (blocks a reused UTR across all cafés; optional for now, can be made required) and owner "Payment checks": failed or stuck refunds, paid-but-not-served, UPI without reference | Merged (#14) |
 | Production readiness: `/health/ready`, chat-webhook alerts for server errors and failed jobs, request references, backup script and restore drill. See OPERATIONS.md | Merged (#15) |
-| Inventory: ingredients, recipes (with choices such as oat milk), automatic use on every order, deliveries, waste and shelf counts at the café, low-stock levels and an owner overview. See INVENTORY.md | In review |
+| Inventory: ingredients, recipes (with choices such as oat milk), automatic use on every order, deliveries, waste and shelf counts at the café, low-stock levels and an owner overview. See INVENTORY.md | Merged (#16) |
+
+## Sprint 4: reports, exports, self-serve sign-up, plans
+
+| Item | Status |
+|---|---|
+| Stock report per café: opening, received, used by sales, wasted, count difference (variance) and closing, with CSV download. See INVENTORY.md | In review |
+| CSV exports: orders, payments and refunds, day closes, stock movements | Planned |
+| Self-serve sign-up for a new café business | Planned |
+| Plans and limits (placeholder plans until pricing is decided) | Planned |
 
 ## Waiting on Amit
 
@@ -37,4 +46,5 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Deploy the demo (ADR-0002) | Cloudflare, Render and Neon accounts connected, or their API tokens shared securely |
 | Live payments | The café owner's choice of gateway and merchant KYC (Razorpay adapter is ready) |
 | Real WhatsApp messages | Choice of WhatsApp provider (BSP) and approved message templates |
+| Plans and prices | Plan names, limits and monthly prices for the SaaS offer (placeholders until then) |
 | Saleable 3D polish | A 3D artist for the barista and room models (SOW line) |

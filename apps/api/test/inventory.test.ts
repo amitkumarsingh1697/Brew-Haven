@@ -101,3 +101,18 @@ describe("stock at a café", () => {
     expect(summaries.some((s) => s.startsWith("Updated the recipe for Cappuccino"))).toBe(true);
   });
 });
+
+describe("stock report", () => {
+  it("reconciles received, used, wasted and counted for the owner", async () => {
+    expect((await env.app.inject({ method: "GET", url: `/v1/admin/stock-report?outletId=${env.outletA}`, headers: as(env.cashierA) })).statusCode).toBe(403);
+    const r = await env.app.inject({ method: "GET", url: `/v1/admin/stock-report?outletId=${env.outletA}`, headers: as(env.admin) });
+    expect(r.statusCode).toBe(200);
+    const rows = r.json().rows as Array<{ ingredientId: string; opening: number; received: number; used: number; wasted: number; variance: number; closing: number; variancePct: number | null }>;
+    // Milk today: received 5000, wasted 200, counted 100 short, cappuccinos used 300.
+    expect(rows.find((x) => x.ingredientId === milk)).toMatchObject({ opening: 0, received: 5000, used: 300, wasted: 200, variance: -100, closing: 4400, variancePct: -33.3 });
+    expect(rows.find((x) => x.ingredientId === oat)).toMatchObject({ used: 150, variancePct: 0 });
+    // A day before anything happened is empty; a reversed range is refused.
+    expect((await env.app.inject({ method: "GET", url: `/v1/admin/stock-report?outletId=${env.outletA}&from=2026-01-01&to=2026-01-02`, headers: as(env.admin) })).json().rows).toEqual([]);
+    expect((await env.app.inject({ method: "GET", url: `/v1/admin/stock-report?outletId=${env.outletA}&from=2026-02-02&to=2026-01-02`, headers: as(env.admin) })).statusCode).toBe(400);
+  });
+});

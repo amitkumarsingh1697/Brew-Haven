@@ -113,6 +113,18 @@ export interface StockMove {
   note: string | null;
   by: string | null;
 }
+export interface StockReportRow {
+  ingredientId: string;
+  name: string;
+  unit: Unit;
+  opening: number;
+  received: number;
+  used: number;
+  wasted: number;
+  variance: number;
+  closing: number;
+  variancePct: number | null;
+}
 export interface RecipeLine {
   groupName: string | null;
   optionName: string | null;
@@ -178,6 +190,8 @@ export const api = {
     setRecipe: (itemId: string, rows: Array<{ groupName?: string; optionName?: string; ingredientId: string; quantity: number }>) => send<unknown>("PUT", `/v1/admin/recipes/${itemId}`, { rows }),
     setLowStock: (b: { outletId: string; ingredientId: string; lowAt: number | null }) => send<unknown>("PUT", "/v1/admin/low-stock", b),
     lowStock: () => call<{ items: Array<{ outlet: string; ingredient: string; unit: Unit; onHand: number; lowAt: number | null; status: "LOW" | "OUT" }> }>("/v1/admin/low-stock"),
+    stockReport: (q: { outletId: string; from: string; to: string }) =>
+      call<{ from: string; to: string; rows: StockReportRow[] }>(`/v1/admin/stock-report?${new URLSearchParams(q)}`),
     createOutlet: (b: { name: string; pickupPrefix: string; address?: string }) => post<OutletWithStations>("/v1/admin/outlets", b),
     updateOutlet: (id: string, b: { name?: string; pickupPrefix?: string; address?: string; isOpen?: boolean }) => send<OutletWithStations>("PATCH", `/v1/admin/outlets/${id}`, b),
     addStation: (outletId: string, name: string) => post<OutletWithStations>(`/v1/admin/outlets/${outletId}/stations`, { name }),

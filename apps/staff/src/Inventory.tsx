@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AdminSetup, StaffRole } from "@brew-haven/contracts";
 import { formatQuantity } from "@brew-haven/domain";
-import { ApiError, api, type IngredientStock, type RecipeItem, type StockMove, type Unit } from "./api";
+import { ApiError, api, type IngredientStock, type RecipeItem, type StockMove, type StockReportRow, type Unit } from "./api";
 
 const KIND_LABEL: Record<StockMove["kind"], string> = { RECEIVE: "Received", SALE: "Sold", WASTE: "Wasted", COUNT: "Counted" };
 const UNIT_WORD: Record<Unit, string> = { g: "grams", ml: "ml", pc: "pieces" };
@@ -271,6 +271,7 @@ export function InventoryAdmin({ setup, act }: { setup: AdminSetup; act: Act }) 
         </div>
       </section>
 
+      {stock.length > 0 && <StockReport outletId={outletId} cafe={setup.outlets.find((o) => o.id === outletId)?.name ?? ""} />}
       {stock.length > 0 && <RecipeEditor items={recipes} ingredients={stock} onSave={(itemId, rows) => run(() => api.admin.setRecipe(itemId, rows), "Recipe saved")} />}
     </div>
   );
@@ -410,6 +411,93 @@ function RecipeEditor({
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+const istDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
+const signed = (n: number, unit: Unit) => (n > 0 ? "+" : n < 0 ? "−" : "") + formatQuantity(Math.abs(n), unit);
+
+/** Owner: what each ingredient should have gone down by, against what was counted. */
+function StockReport({ outletId, cafe }: { outletId: string; cafe: string }) {
+  const [to, setTo] = useState(() => istDate(new Date()));
+  const [from, setFrom] = useState(() => istDate(new Date(Date.now() - 6 * 86_400_000)));
+  const [rows, setRows] = useState<StockReportRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setRows(null);
+    setError(null);
+    api.admin.stockReport({ outletId, from, to }).then((r) => setRows(r.rows), (e: ApiError) => setError(e.message));
+  }, [outletId, from, to]);
+
+  const download = () => {
+    if (!rows) return;
+    const head = ["Ingredient", "Unit", "Opening", "Received", "Used by sales", "Wasted", "Count difference", "Closing", "Difference % of use"];
+    const csv = [head, ...rows.map((r) => [r.name, r.unit, r.opening, r.received, r.used, r.wasted, r.variance, r.closing, r.variancePct ?? ""])]
+      .map((line) => line.map((c) => (/[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : String(c))).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    Object.assign(document.createElement("a"), { href: url, download: `stock-${cafe.toLowerCase().replace(/\W+/g, "-")}-${from}-to-${to}.csv` }).click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <section className="panel">
+      <header className="items-head">
+        <h2>Stock report: {cafe}</h2>
+        <div className="report-controls">
+          <label className="date-range">
+            <input type="date" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} aria-label="Stock report from" />
+            <span>to</span>
+            <input type="date" value={to} min={from} onChange={(e) => e.target.value && setTo(e.target.value)} aria-label="Stock report to" />
+          </label>
+          <button className="btn btn-ghost" onClick={download} disabled={!rows?.length}>
+            Download CSV
+          </button>
+        </div>
+      </header>
+      <p className="muted small">
+        Opening + received − used by sales − wasted, against what the team counted. A minus count difference is stock that went missing beyond the recipes and recorded waste: over-pouring, unrecorded waste, or theft.
+      </p>
+      {error && <p className="error">{error}</p>}
+      <div className="table-wrap">
+        <table className="items-table">
+          <thead>
+            <tr>
+              <th>Ingredient</th>
+              <th className="num">Opening</th>
+              <th className="num">Received</th>
+              <th className="num">Used by sales</th>
+              <th className="num">Wasted</th>
+              <th className="num">Count difference</th>
+              <th className="num">Closing</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows?.map((r) => (
+              <tr key={r.ingredientId}>
+                <td>{r.name}</td>
+                <td className="num nowrap">{formatQuantity(r.opening, r.unit)}</td>
+                <td className="num nowrap">{formatQuantity(r.received, r.unit)}</td>
+                <td className="num nowrap">{formatQuantity(r.used, r.unit)}</td>
+                <td className="num nowrap">{formatQuantity(r.wasted, r.unit)}</td>
+                <td className={`num nowrap ${r.variance < 0 ? "short" : ""}`}>
+                  {r.variance ? signed(r.variance, r.unit) : "—"}
+                  {r.variancePct !== null && r.variance !== 0 && <small className="muted"> ({r.variancePct > 0 ? "+" : ""}{r.variancePct}% of use)</small>}
+                </td>
+                <td className="num nowrap">{formatQuantity(r.closing, r.unit)}</td>
+              </tr>
+            ))}
+            {rows && rows.length === 0 && (
+              <tr>
+                <td colSpan={7} className="muted">
+                  No stock recorded at this café in these dates.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
