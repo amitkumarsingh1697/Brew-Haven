@@ -33,3 +33,6 @@ services:
         sync: false
       - key: APP_ENV
         value: demo
+      # Self-serve sign-up at /signup on the staff app. Off in production unless set to "true".
+      - key: SIGNUP_ENABLED
+        value: "true"

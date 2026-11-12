@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 import type { AdminSetup, OutletWithStations } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
 import { InventoryAdmin } from "./Inventory";
-import { ApiError, CUSTOMER_URL, TENANT, api, type ActivityEntry, type AdminItem, type ItemInput, type SalesReport } from "./api";
+import { ApiError, CUSTOMER_URL, api, getTenant, type ActivityEntry, type AdminItem, type ItemInput, type SalesReport } from "./api";
 
 /** Owner self-service (D-17): cafés, kitchens, menu, staff, settings and QR codes. */
 type Section = "reports" | "checks" | "inventory" | "cafes" | "menu" | "staff" | "settings" | "messages" | "activity";
@@ -14,6 +14,21 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
   const [section, setSection] = useState<Section>("reports");
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [welcome, setWelcome] = useState(() => {
+    try {
+      return sessionStorage.getItem("bh:welcome") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const dismissWelcome = () => {
+    try {
+      sessionStorage.removeItem("bh:welcome");
+    } catch {
+      /* ignore */
+    }
+    setWelcome(false);
+  };
 
   const reload = () =>
     api.admin
@@ -63,6 +78,43 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
           </button>
         ))}
       </nav>
+      {welcome && setup.outlets[0] && (
+        <section className="panel welcome" aria-labelledby="welcome-h">
+          <h2 id="welcome-h">Your café is ready</h2>
+          <p>
+            Customers can already order at{" "}
+            <a href={`${CUSTOMER_URL}/${getTenant()}/${setup.outlets[0].slug}`} target="_blank" rel="noreferrer">
+              your menu page
+            </a>
+            . Three things to do next:
+          </p>
+          <ol>
+            <li>
+              <button className="link-btn" onClick={() => setSection("menu")}>
+                Check your menu and prices
+              </button>
+            </li>
+            <li>
+              <button className="link-btn" onClick={() => setSection("staff")}>
+                Add your team
+              </button>{" "}
+              so each person signs in with their own PIN
+            </li>
+            <li>
+              <button className="link-btn" onClick={() => setSection("cafes")}>
+                Print the QR code
+              </button>{" "}
+              for your counter and tables
+            </li>
+          </ol>
+          <p className="muted small">
+            Your staff sign in on any device at this address with the business link <strong>{getTenant()}</strong>.
+          </p>
+          <button className="btn btn-ghost" onClick={dismissWelcome}>
+            Got it
+          </button>
+        </section>
+      )}
       {error && (
         <p className="error banner-inline" role="alert">
           {error}
@@ -167,7 +219,7 @@ function CafeCard({ outlet, act, onQr, onOutletsChanged }: { outlet: OutletWithS
   const [letter, setLetter] = useState(outlet.pickupPrefix);
   const [address, setAddress] = useState(outlet.address ?? "");
   const [newStation, setNewStation] = useState("");
-  const link = `${CUSTOMER_URL}/${TENANT}/${outlet.slug}`;
+  const link = `${CUSTOMER_URL}/${getTenant()}/${outlet.slug}`;
 
   return (
     <section className="panel cafe-card">
@@ -281,7 +333,7 @@ function CafeCard({ outlet, act, onQr, onOutletsChanged }: { outlet: OutletWithS
 }
 
 function QrPoster({ outlet, cafeName, onClose }: { outlet: OutletWithStations; cafeName: string; onClose: () => void }) {
-  const link = `${CUSTOMER_URL}/${TENANT}/${outlet.slug}`;
+  const link = `${CUSTOMER_URL}/${getTenant()}/${outlet.slug}`;
   const [svg, setSvg] = useState<string>("");
   const [png, setPng] = useState<string>("");
   useEffect(() => {

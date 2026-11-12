@@ -1,0 +1,1 @@
+ALTER TABLE "tenants" ADD COLUMN "contact" jsonb DEFAULT '{}'::jsonb NOT NULL;

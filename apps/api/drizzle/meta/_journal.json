@@ -57,6 +57,13 @@
       "when": 1794253963193,
       "tag": "0007_inventory",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794485097534,
+      "tag": "0008_signup",
+      "breakpoints": true
     }
   ]
 }

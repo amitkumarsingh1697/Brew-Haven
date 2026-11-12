@@ -8,6 +8,7 @@ import { api, setSessionToken } from "./api";
 import { useLiveOrders } from "./live";
 import { Admin } from "./Admin";
 import { Login } from "./Login";
+import { Signup } from "./Signup";
 import { Board, Kitchen, NewOrder, Stock, Today } from "./screens";
 
 type Tab = "orders" | "kitchen" | "new" | "stock" | "today" | "setup";
@@ -47,17 +48,35 @@ function App() {
     setSessionToken(session?.token ?? null, logout);
   }, [session]);
 
+  const [signingUp, setSigningUp] = useState(() => window.location.pathname.replace(/\/$/, "").endsWith("/signup"));
+  const start = (s: StaffSession) => {
+    try {
+      sessionStorage.setItem("bh:staff", JSON.stringify(s));
+    } catch {
+      /* ignore */
+    }
+    setSessionToken(s.token, logout);
+    setSession(s);
+    if (signingUp) window.history.replaceState(null, "", "/");
+    setSigningUp(false);
+  };
   if (!session) {
+    if (signingUp)
+      return (
+        <Signup
+          onDone={start}
+          onCancel={() => {
+            window.history.replaceState(null, "", "/");
+            setSigningUp(false);
+          }}
+        />
+      );
     return (
       <Login
-        onLogin={(s) => {
-          try {
-            sessionStorage.setItem("bh:staff", JSON.stringify(s));
-          } catch {
-            /* ignore */
-          }
-          setSessionToken(s.token, logout);
-          setSession(s);
+        onLogin={start}
+        onSignup={() => {
+          window.history.pushState(null, "", "/signup");
+          setSigningUp(true);
         }}
       />
     );
@@ -65,9 +84,17 @@ function App() {
   return <Workspace session={session} onLogout={logout} />;
 }
 
+function hasWelcome() {
+  try {
+    return sessionStorage.getItem("bh:welcome") === "1";
+  } catch {
+    return false;
+  }
+}
+
 function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () => void }) {
   const role = session.user.role;
-  const [tab, setTab] = useState<Tab>(role === "KITCHEN" ? "kitchen" : "orders");
+  const [tab, setTab] = useState<Tab>(() => (role === "KITCHEN" ? "kitchen" : role === "ADMIN" && hasWelcome() ? "setup" : "orders"));
   // Cafés come from the server so ones the owner adds appear without signing in again.
   const [outlets, setOutlets] = useState<OutletWithStations[] | null>(null);
   const refreshOutlets = () => api.outlets().then(setOutlets).catch(() => undefined);

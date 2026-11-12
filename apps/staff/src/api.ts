@@ -1,8 +1,33 @@
-import type { AdminSetup, DaySummary, MenuResponse, OrderView, OutletWithStations, ReceiptView, StaffSession } from "@brew-haven/contracts";
+import type { AdminSetup, SignupRequest, DaySummary, MenuResponse, OrderView, OutletWithStations, ReceiptView, StaffSession } from "@brew-haven/contracts";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:8080";
 export const CUSTOMER_URL = (import.meta.env.VITE_CUSTOMER_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5173";
-export const TENANT = (import.meta.env.VITE_TENANT as string | undefined) ?? "400-coffee";
+const DEFAULT_TENANT = (import.meta.env.VITE_TENANT as string | undefined) ?? "400-coffee";
+const TENANT_KEY = "bh:business";
+
+/**
+ * The business this device signs in to: a "?business=" link, then the one remembered on this
+ * device (set at sign-up or by "Different business?"), then the build default.
+ */
+export function getTenant(): string {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("business");
+    if (fromUrl && /^[a-z0-9-]{1,60}$/.test(fromUrl)) {
+      localStorage.setItem(TENANT_KEY, fromUrl);
+      return fromUrl;
+    }
+    return localStorage.getItem(TENANT_KEY) || DEFAULT_TENANT;
+  } catch {
+    return DEFAULT_TENANT;
+  }
+}
+export function setTenant(slug: string) {
+  try {
+    localStorage.setItem(TENANT_KEY, slug);
+  } catch {
+    /* private mode: the link still works for this visit */
+  }
+}
 
 export class ApiError extends Error {
   constructor(
@@ -155,8 +180,8 @@ export interface RecipeItem {
 }
 
 export const api = {
-  users: () => call<{ tenant: { name: string }; users: Array<{ id: string; name: string; role: string }> }>(`/v1/staff/${TENANT}/users`),
-  login: (staffUserId: string, pin: string) => post<StaffSession>("/v1/staff/login", { tenantSlug: TENANT, staffUserId, pin }),
+  users: () => call<{ tenant: { name: string }; users: Array<{ id: string; name: string; role: string }> }>(`/v1/staff/${getTenant()}/users`),
+  login: (staffUserId: string, pin: string) => post<StaffSession>("/v1/staff/login", { tenantSlug: getTenant(), staffUserId, pin }),
   orders: (outletId: string, scope: "live" | "today" = "live") => call<OrderView[]>(`/v1/staff/orders?outletId=${outletId}&scope=${scope}`),
   action: (id: string, action: "START" | "MARK_READY" | "HAND_OVER") => post<OrderView>(`/v1/staff/orders/${id}/actions`, { action }),
   reject: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/reject`, { reason }),
@@ -173,7 +198,9 @@ export const api = {
   closeInfo: (outletId: string) => call<{ summary: DaySummary; cash: { takenPaise: number; refundedPaise: number }; close: DayClose | null }>(`/v1/staff/close?outletId=${outletId}`),
   closeDay: (b: { outletId: string; openingFloatPaise: number; countedCashPaise: number; note?: string }) => post<DayClose>("/v1/staff/close", b),
   summary: (outletId: string) => call<DaySummary>(`/v1/staff/summary?outletId=${outletId}`),
-  menu: (outletSlug: string) => call<MenuResponse>(`/v1/cafes/${TENANT}/${outletSlug}/menu`),
+  menu: (outletSlug: string) => call<MenuResponse>(`/v1/cafes/${getTenant()}/${outletSlug}/menu`),
+  signupOpen: () => call<{ open: boolean }>("/v1/signup"),
+  signup: (b: SignupRequest) => post<{ tenantSlug: string; outletSlug: string; session: StaffSession }>("/v1/signup", b),
   outlets: () => call<OutletWithStations[]>("/v1/staff/outlets"),
   admin: {
     setup: () => call<AdminSetup>("/v1/admin/setup"),
