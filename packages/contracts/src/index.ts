@@ -194,6 +194,10 @@ export const StaffLoginRequest = z.object({
   staffUserId: Id,
   pin: z.string().regex(/^\d{4,8}$/),
 });
+/** Brew Haven's own team signs in with email and password, never a café PIN. */
+export const PlatformLoginRequest = z.object({ email: z.string().trim().email().max(200), password: z.string().min(1).max(200) });
+export const PlatformBusinessUpdate = z.object({ plan: z.enum(["starter", "growth", "multi"]).optional(), suspended: z.boolean().optional() });
+
 export const StaffSession = z.object({
   token: z.string(),
   user: z.object({ id: Id, name: z.string(), role: StaffRole }),

@@ -2,6 +2,7 @@
  * Accessibility audit (axe-core, WCAG 2.0-2.2 A/AA plus best practices) across the customer and
  * staff screens. Needs the API and both apps running with the demo seed, and Playwright installed.
  *   node tools/a11y-audit.cjs   (CUSTOMER_URL / STAFF_URL override the default dev ports)
+ * With PLATFORM_EMAIL and PLATFORM_PASSWORD set, it also checks the Brew Haven team pages.
  * Exits non-zero when anything is found.
  */
 const { chromium } = require('playwright');
@@ -36,6 +37,12 @@ async function audit(p, name) {
   await audit(s, 'staff orders');
   for (const tab of ['Kitchen display', 'New counter order', 'Stock', 'Today', 'Setup']) { await s.click(`.tab:has-text("${tab}")`); await audit(s, 'staff ' + tab); }
   for (const sub of ['Payment checks', 'Inventory', 'Cafés & kitchens', 'Menu', 'Staff', 'Café settings', 'Customer messages', 'Activity']) { await s.click(`.subtabs button:has-text("${sub}")`); await audit(s, 'admin ' + sub); }
+  if (process.env.PLATFORM_EMAIL) {
+    const t = await ctx.newPage();
+    await t.goto(STAFF + '/platform'); await t.waitForSelector('text=Team sign-in'); await audit(t, 'platform sign-in');
+    await t.fill('input[type=email]', process.env.PLATFORM_EMAIL); await t.fill('input[type=password]', process.env.PLATFORM_PASSWORD ?? '');
+    await t.click('button:has-text("Sign in")'); await t.waitForSelector('.platform-table'); await audit(t, 'platform businesses');
+  }
   if (!results.length) console.log('No WCAG 2.2 AA or best-practice issues found on', audited, 'screens.');
   const byRule = {};
   for (const r of results) (byRule[r.id] ??= { impact: r.impact, help: r.help, pages: [], n: 0, sample: r.sample }).pages.push(r.page), byRule[r.id].n += r.n;

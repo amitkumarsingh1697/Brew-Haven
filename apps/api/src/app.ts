@@ -31,12 +31,14 @@ import {
   SimulatePaymentRequest,
   StaffActionRequest,
   StaffLoginRequest,
+  PlatformLoginRequest,
+  PlatformBusinessUpdate,
   StockUpdateRequest,
   WalkInOrderRequest,
 } from "@brew-haven/contracts";
 import { quote } from "@brew-haven/domain";
 import { createAlerter, type Alerter } from "./alerts.js";
-import { AttemptLimiter, StaffTokens, type StaffClaims } from "./auth.js";
+import { AttemptLimiter, PlatformTokens, StaffTokens, type PlatformClaims, type StaffClaims } from "./auth.js";
 import type { Config } from "./config.js";
 import type { Db } from "./db/client.js";
 import { orders, payments } from "./db/schema.js";
@@ -60,6 +62,7 @@ import {
 import { listPaymentExceptions } from "./services/exceptions.js";
 import { exportCsv } from "./services/exports.js";
 import { gstSummary } from "./services/gst.js";
+import * as platform from "./services/platform.js";
 import { assertSignupOpen, signup } from "./services/signup.js";
 import { readiness } from "./services/health.js";
 import { orderView } from "./services/orders.js";
@@ -138,6 +141,7 @@ export async function buildApp(deps: AppDeps) {
     log: app.log,
   };
   const tokens = new StaffTokens(deps.config.staffTokenSecret);
+  const platformTokens = new PlatformTokens(deps.config.staffTokenSecret);
   const limiter = new AttemptLimiter();
   const origins = new Set(deps.config.corsOrigins);
 
@@ -384,6 +388,16 @@ export async function buildApp(deps: AppDeps) {
   app.get<{ Querystring: { outletId: string } }>("/v1/staff/close", async (req) => getClose(deps.db, await staff(req), req.query.outletId));
   app.post("/v1/staff/close", async (req) => closeDay(deps.db, await staff(req), parse(CloseDayRequest, req.body)));
   app.get("/v1/staff/outlets", async (req) => admin.accessibleOutlets(deps.db, await staff(req)));
+
+  // ---------- Brew Haven's own team: every business, totals only ----------
+  async function platformAdmin(req: FastifyRequest): Promise<PlatformClaims> {
+    const h = req.headers.authorization;
+    if (!h?.startsWith("Bearer ")) throw new AppError("UNAUTHORIZED", "Please sign in");
+    return platformTokens.verify(h.slice(7));
+  }
+  app.post("/v1/platform/login", perMinute(10), async (req) => platform.platformLogin(deps.db, platformTokens, limiter, parse(PlatformLoginRequest, req.body), req.ip));
+  app.get("/v1/platform/businesses", async (req) => (await platformAdmin(req), platform.listBusinesses(deps.db)));
+  app.patch<{ Params: { id: string } }>("/v1/platform/businesses/:id", async (req) => platform.updateBusiness(deps.db, await platformAdmin(req), req.params.id, parse(PlatformBusinessUpdate, req.body), req.ip));
 
   // ---------- Owner admin (D-17) ----------
   type IdParams = { Params: { id: string } };

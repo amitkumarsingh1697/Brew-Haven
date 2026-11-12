@@ -60,6 +60,31 @@ export class StaffTokens {
   }
 }
 
+export interface PlatformClaims {
+  sub: string;
+  email: string;
+  name: string;
+}
+
+/** Sign-ins for Brew Haven's own team. A different audience, so a café token never works here. */
+export class PlatformTokens {
+  private key: Uint8Array;
+  constructor(secret: string) {
+    this.key = new TextEncoder().encode(secret);
+  }
+  async issue(c: PlatformClaims): Promise<string> {
+    return new SignJWT({ email: c.email, name: c.name }).setProtectedHeader({ alg: "HS256" }).setSubject(c.sub).setIssuedAt().setExpirationTime("8h").setAudience("brew-haven-platform").sign(this.key);
+  }
+  async verify(token: string): Promise<PlatformClaims> {
+    try {
+      const { payload } = await jwtVerify(token, this.key, { audience: "brew-haven-platform" });
+      return { sub: String(payload.sub), email: String(payload.email), name: String(payload.name) };
+    } catch {
+      throw new AppError("UNAUTHORIZED", "Please sign in again.");
+    }
+  }
+}
+
 /** Small in-memory limiter for PIN attempts (per staff user and IP). */
 export class AttemptLimiter {
   private hits = new Map<string, { count: number; resetAt: number }>();
