@@ -92,15 +92,15 @@ export class AttemptLimiter {
     private max = 5,
     private windowMs = 5 * 60 * 1000,
   ) {}
-  check(key: string, now = Date.now()) {
+  check(key: string, now = Date.now(), max = this.max) {
     const h = this.hits.get(key);
-    if (h && h.resetAt > now && h.count >= this.max) {
+    if (h && h.resetAt > now && h.count >= max) {
       throw new AppError("RATE_LIMITED", "Too many attempts. Try again in a few minutes.");
     }
   }
-  fail(key: string, now = Date.now()) {
+  fail(key: string, now = Date.now(), windowMs = this.windowMs) {
     const h = this.hits.get(key);
-    if (!h || h.resetAt <= now) this.hits.set(key, { count: 1, resetAt: now + this.windowMs });
+    if (!h || h.resetAt <= now) this.hits.set(key, { count: 1, resetAt: now + windowMs });
     else h.count += 1;
   }
   reset(key: string) {
