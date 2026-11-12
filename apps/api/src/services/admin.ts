@@ -19,6 +19,7 @@ import { hashPin, type StaffClaims } from "../auth.js";
 import type { Db, Tx } from "../db/client.js";
 import { categories, menuItems, modifierGroups, modifierOptions, outletItemStock, outlets, staffUsers, stations, tenants } from "../db/schema.js";
 import { AppError, notFound } from "../errors.js";
+import { limitReached, planOf } from "@brew-haven/domain";
 
 /** Owner self-service (D-17). Every function here is ADMIN-only and scoped to the admin's tenant. */
 
@@ -82,6 +83,7 @@ export async function getSetup(db: Db, staff: StaffClaims): Promise<AdminSetup> 
       taxRateBps: tenant!.taxRateBps,
       branding: { displayName: b.displayName ?? tenant!.name, tagline: b.tagline, greeting: b.greeting, managerName: b.managerName, logoUrl: b.logoUrl ?? null },
       billing: tenant!.billing,
+      plan: await planUsage(db, t),
     },
     outlets: os,
     categories: cats.map((c) => ({ id: c.id, name: c.name, sort: c.sort, active: c.active })),
@@ -121,6 +123,35 @@ export async function updateSettings(db: Db, staff: StaffClaims, body: z.output<
   return getSetup(db, staff);
 }
 
+// ---------- Plan limits ----------
+
+/**
+ * Throws when the business's plan doesn't allow one more café or active team member. Locks the
+ * business row so two additions at once can't both slip under the limit.
+ */
+async function assertWithinPlan(tx: Tx, tenantId: string, what: "cafe" | "staff") {
+  const [t] = await tx.select({ plan: tenants.plan }).from(tenants).where(eq(tenants.id, tenantId)).for("update");
+  const plan = planOf(t?.plan);
+  const [{ n }] = (
+    what === "cafe"
+      ? await tx.select({ n: sql<number>`count(*)::int` }).from(outlets).where(eq(outlets.tenantId, tenantId))
+      : await tx.select({ n: sql<number>`count(*)::int` }).from(staffUsers).where(and(eq(staffUsers.tenantId, tenantId), eq(staffUsers.active, true)))
+  ) as [{ n: number }];
+  const msg = limitReached(plan, what, n);
+  if (msg) throw new AppError("PLAN_LIMIT", msg);
+}
+
+/** The plan, its limits and what's used, for the owner's settings. */
+export async function planUsage(db: Db | Tx, tenantId: string) {
+  const [t] = await db.select({ plan: tenants.plan }).from(tenants).where(eq(tenants.id, tenantId));
+  const plan = planOf(t?.plan);
+  const [[c], [s]] = await Promise.all([
+    db.select({ n: sql<number>`count(*)::int` }).from(outlets).where(eq(outlets.tenantId, tenantId)),
+    db.select({ n: sql<number>`count(*)::int` }).from(staffUsers).where(and(eq(staffUsers.tenantId, tenantId), eq(staffUsers.active, true))),
+  ]);
+  return { id: plan.id, name: plan.name, maxCafes: plan.maxCafes, maxStaff: plan.maxStaff, cafes: c!.n, staff: s!.n };
+}
+
 // ---------- Outlets and stations ----------
 
 async function ownOutlet(db: Db | Tx, staff: StaffClaims, outletId: string) {
@@ -148,6 +179,7 @@ export async function createOutlet(db: Db, staff: StaffClaims, body: z.output<ty
   if (new Set(stationList.map((s) => s.key)).size !== stationList.length) throw new AppError("VALIDATION", "Two kitchens have the same name");
 
   return db.transaction(async (tx) => {
+    await assertWithinPlan(tx, staff.tenantId, "cafe");
     const [o] = await tx
       .insert(outlets)
       .values({ tenantId: staff.tenantId, slug, name: body.name, pickupPrefix: body.pickupPrefix, address: body.address ?? null, isOpen: true })
@@ -309,10 +341,12 @@ export async function createStaffUser(db: Db, staff: StaffClaims, body: z.output
   assertAdmin(staff);
   if (body.role !== "ADMIN" && body.outletIds.length === 0) throw new AppError("VALIDATION", "Choose at least one café for this person");
   await assertOutletIds(db, staff, body.outletIds);
-  const [u] = await db
-    .insert(staffUsers)
-    .values({ tenantId: staff.tenantId, name: body.name, role: body.role, pinHash: await hashPin(body.pin), outletIds: body.outletIds })
-    .returning();
+  const pinHash = await hashPin(body.pin);
+  const u = await db.transaction(async (tx) => {
+    await assertWithinPlan(tx, staff.tenantId, "staff");
+    const [row] = await tx.insert(staffUsers).values({ tenantId: staff.tenantId, name: body.name, role: body.role, pinHash, outletIds: body.outletIds }).returning();
+    return row;
+  });
   return { id: u!.id, name: u!.name, role: u!.role, outletIds: u!.outletIds, active: u!.active };
 }
 
@@ -330,6 +364,10 @@ export async function updateStaffUser(db: Db, staff: StaffClaims, userId: string
   if (body.outletIds !== undefined) patch.outletIds = body.outletIds;
   if (body.active !== undefined) patch.active = body.active;
   if (body.pin !== undefined) patch.pinHash = await hashPin(body.pin);
-  const [row] = await db.update(staffUsers).set(patch).where(eq(staffUsers.id, userId)).returning();
+  const [row] = await db.transaction(async (tx) => {
+    // Giving sign-in access back counts against the plan like adding someone new.
+    if (body.active === true && !u.active) await assertWithinPlan(tx, staff.tenantId, "staff");
+    return tx.update(staffUsers).set(patch).where(eq(staffUsers.id, userId)).returning();
+  });
   return { id: row!.id, name: row!.name, role: row!.role, outletIds: row!.outletIds, active: row!.active };
 }

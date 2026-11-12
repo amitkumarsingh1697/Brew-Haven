@@ -337,7 +337,14 @@ export const OutletWithStations = z.object({
 export type OutletWithStations = z.infer<typeof OutletWithStations>;
 
 export const AdminSetup = z.object({
-  tenant: z.object({ slug: z.string(), name: z.string(), taxRateBps: z.number().int(), branding: Branding, billing: BillingDetails }),
+  tenant: z.object({
+    slug: z.string(),
+    name: z.string(),
+    taxRateBps: z.number().int(),
+    branding: Branding,
+    billing: BillingDetails,
+    plan: z.object({ id: z.string(), name: z.string(), maxCafes: z.number().int().nullable(), maxStaff: z.number().int().nullable(), cafes: z.number().int(), staff: z.number().int() }),
+  }),
   outlets: z.array(OutletWithStations),
   categories: z.array(z.object({ id: Id, name: z.string(), sort: z.number().int(), active: z.boolean() })),
   items: z.array(

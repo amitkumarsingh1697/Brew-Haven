@@ -64,6 +64,13 @@
       "when": 1794485097534,
       "tag": "0008_signup",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794485471368,
+      "tag": "0009_plans",
+      "breakpoints": true
     }
   ]
 }

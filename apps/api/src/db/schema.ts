@@ -32,6 +32,8 @@ export const tenants = pgTable("tenants", {
   demoData: boolean("demo_data").notNull().default(false),
   /** How to reach the owner, from self-serve sign-up. Never shown to customers. */
   contact: jsonb("contact").$type<{ email?: string; phone?: string }>().notNull().default({}),
+  /** Subscription plan id (see PLANS in the domain package). Only its limits are enforced. */
+  plan: text("plan").notNull().default("starter"),
   createdAt: createdAt(),
 });
 

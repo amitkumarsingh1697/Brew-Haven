@@ -36,8 +36,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 |---|---|
 | Stock report per café: opening, received, used by sales, wasted, count difference (variance) and closing, with CSV download. See INVENTORY.md | Merged (#17) |
 | CSV exports for the accountant: orders, items sold, payments and refunds, day closes, stock movements. See EXPORTS.md | Merged (#18) |
-| Self-serve sign-up: a new business creates its account, first café, owner PIN and an optional sample menu at `/signup` on the staff app, then gets a short "what next" guide. Staff devices switch business with "Different business?". See SIGNUP.md | In review |
-| Plans and limits (placeholder plans until pricing is decided) | Planned |
+| Self-serve sign-up: a new business creates its account, first café, owner PIN and an optional sample menu at `/signup` on the staff app, then gets a short "what next" guide. Staff devices switch business with "Different business?". See SIGNUP.md | Merged (#19) |
+| Plans and limits: Starter (1 café, 5 team), Growth (3, 20), Multi-café (no limits) as placeholders; new businesses start on Starter, the pilot is on Multi-café; owner sees plan and usage in Café settings; we change plans with `pnpm --filter @brew-haven/api plan`. See PLANS.md | In review |
 
 ## Waiting on Amit
 

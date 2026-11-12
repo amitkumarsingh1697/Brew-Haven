@@ -7,7 +7,8 @@ export type ErrorCode =
   | "FORBIDDEN"
   | "UNAUTHORIZED"
   | "PAYMENT"
-  | "RATE_LIMITED";
+  | "RATE_LIMITED"
+  | "PLAN_LIMIT";
 
 const STATUS: Record<ErrorCode, number> = {
   NOT_FOUND: 404,
@@ -19,6 +20,8 @@ const STATUS: Record<ErrorCode, number> = {
   UNAUTHORIZED: 401,
   PAYMENT: 402,
   RATE_LIMITED: 429,
+  /** The business's plan doesn't allow it (one more café, one more team member). */
+  PLAN_LIMIT: 403,
 };
 
 export class AppError extends Error {
