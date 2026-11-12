@@ -1459,3 +1459,10 @@ a.btn {
 .speed-card .hours li > span:last-child { white-space: nowrap; }
 .funnel-card { margin-top: 12px; }
 .funnel-card .funnel li { grid-template-columns: minmax(9em, 14em) 1fr auto; }
+.help-modal { max-width: 720px; width: 100%; max-height: 90dvh; overflow-y: auto; text-align: left; }
+.help-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; position: sticky; top: 0; background: inherit; padding-bottom: 8px; }
+.help-body { line-height: 1.5; }
+.help-body h1 { font-size: 1.5rem; margin: 4px 0 8px; }
+.help-body h2 { font-size: 1.3rem; margin: 18px 0 4px; }
+.help-body ul, .help-body ol { padding-left: 20px; }
+.user .help-btn { margin-right: 4px; }
