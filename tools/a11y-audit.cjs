@@ -35,6 +35,7 @@ async function audit(p, name) {
   await s.click('text=Owner (Admin)'); await audit(s, 'staff pin');
   for (const d of '1111') await s.click(`.pinpad button[aria-label="${d}"]`); await s.waitForSelector('.topbar');
   await audit(s, 'staff orders');
+  await s.click('.help-btn'); await s.waitForSelector('.help-modal'); await audit(s, 'staff help'); await s.click('.help-modal button:has-text("Close")');
   for (const tab of ['Kitchen display', 'New counter order', 'Stock', 'Today', 'Setup']) { await s.click(`.tab:has-text("${tab}")`); await audit(s, 'staff ' + tab); }
   for (const sub of ['Payment checks', 'Inventory', 'Cafés & kitchens', 'Menu', 'Staff', 'Café settings', 'Customer messages', 'Activity']) { await s.click(`.subtabs button:has-text("${sub}")`); await audit(s, 'admin ' + sub); }
   if (process.env.PLATFORM_EMAIL) {
