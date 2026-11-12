@@ -466,3 +466,20 @@ export const stockMovements = pgTable(
   },
   (t) => [index("stock_movements_outlet_ingredient").on(t.outletId, t.ingredientId), index("stock_movements_created").on(t.outletId, t.createdAt)],
 );
+
+/**
+ * Anonymous steps of a customer's visit (opened, menu, added an item, checkout, started paying) for
+ * the owner's ordering funnel. The visit id is random per browser tab; no name, phone, IP or device.
+ */
+export const visitEvents = pgTable(
+  "visit_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    tenantId: tenantId(),
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    visit: text("visit").notNull(),
+    kind: text("kind").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("visit_events_outlet_time").on(t.outletId, t.at), uniqueIndex("visit_events_once").on(t.outletId, t.visit, t.kind)],
+);

@@ -1299,11 +1299,57 @@ function Reports({ setup }: { setup: AdminSetup }) {
               )}
             </article>
           </div>
+          <FunnelCard from={from} to={to} outletId={outletId} />
           <SpeedCard from={from} to={to} outletId={outletId} />
           <GstCard from={from} to={to} outletId={outletId} />
         </>
       )}
     </section>
+  );
+}
+
+/** How many visits to the ordering page got to each step, and how many paid. Counts only. */
+function FunnelCard({ from, to, outletId }: { from: string; to: string; outletId: string }) {
+  const [f, setF] = useState<Awaited<ReturnType<typeof api.admin.funnel>> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    setError(null);
+    api.admin.funnel({ from, to, outletId: outletId || undefined }).then(
+      (r) => live && setF(r),
+      (e: ApiError) => live && setError(e.message),
+    );
+    return () => {
+      live = false;
+    };
+  }, [from, to, outletId]);
+  const top = Math.max(1, f?.steps[0]?.visits ?? 1);
+  return (
+    <article className="report-card wide funnel-card">
+      <h3>Online ordering</h3>
+      {error && <p className="error">{error}</p>}
+      {!f && !error && <p className="muted">Loading…</p>}
+      {f && (f.steps[0]!.visits === 0 ? (
+        <p className="muted">No visits to the ordering page in this period.</p>
+      ) : (
+        <>
+          <ul className="method-list funnel">
+            {f.steps.map((s) => (
+              <li key={s.step}>
+                <span>{s.label}</span>
+                <span className="meter" aria-hidden>
+                  <span style={{ width: `${(s.visits / top) * 100}%` }} />
+                </span>
+                <strong>{s.visits}</strong>
+              </li>
+            ))}
+          </ul>
+          <p className="muted small">
+            {f.conversionPct === null ? "" : `${f.conversionPct}% of visits ended in a paid order. `}Counts of visits only: nobody's name, phone or device is recorded. People who turn on "Do not track" aren't counted.
+          </p>
+        </>
+      ))}
+    </article>
   );
 }
 

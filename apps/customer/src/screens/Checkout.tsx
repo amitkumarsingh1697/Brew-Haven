@@ -1,3 +1,4 @@
+import { track } from "../track";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import type { QuoteResponse } from "@brew-haven/contracts";
@@ -9,6 +10,7 @@ import { useOnline } from "@brew-haven/pwa";
 import { useMenu } from "../hooks";
 
 export function Checkout({ tenant, outlet }: { tenant: string; outlet: string }) {
+  useEffect(() => track(`${tenant}/${outlet}`, "checkout"), [tenant, outlet]);
   const { menu } = useMenu(tenant, outlet);
   const { lines } = useBasket();
   const [, navigate] = useLocation();
@@ -72,6 +74,7 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
     setSubmitError(null);
     try {
       savedDetails.set({ name: name.trim(), phone });
+      track(`${tenant}/${outlet}`, "pay");
       const res = await api.createOrder(
         tenant,
         outlet,

@@ -302,6 +302,11 @@ export const api = {
       if (q.outletId) p.set("outletId", q.outletId);
       return saveFile(`/v1/admin/exports/${kind}?${p}`, `brew-haven-${kind}-${q.from}-to-${q.to}.csv`);
     },
+    funnel: (q: { from: string; to: string; outletId?: string }) => {
+      const p = new URLSearchParams({ from: q.from, to: q.to });
+      if (q.outletId) p.set("outletId", q.outletId);
+      return call<{ from: string; to: string; conversionPct: number | null; steps: Array<{ step: string; label: string; visits: number }> }>(`/v1/admin/funnel?${p}`);
+    },
     kitchenSpeed: (q: { from: string; to: string; outletId?: string; targetMinutes: number }) => {
       const p = new URLSearchParams({ from: q.from, to: q.to, targetMinutes: String(q.targetMinutes) });
       if (q.outletId) p.set("outletId", q.outletId);
