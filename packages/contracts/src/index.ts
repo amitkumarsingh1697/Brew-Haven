@@ -56,6 +56,11 @@ export const Branding = z.object({
   primaryColor: z.string().optional(),
   accentColor: z.string().optional(),
   logoUrl: z.string().nullable().optional(),
+  /**
+   * Filmed barista for the 3D welcome scene, shot against a green screen: an idle loop, and
+   * optionally a wave played when the visitor taps. Without it the scene uses the drawn barista.
+   */
+  baristaVideo: z.object({ idle: z.string(), wave: z.string().optional(), keyColor: z.string().optional() }).nullable().optional(),
 });
 export const MenuResponse = z.object({
   tenant: z.object({ slug: Slug, name: z.string(), branding: Branding, taxRateBps: z.number().int() }),

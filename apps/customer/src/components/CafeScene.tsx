@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 
 const Cafe3D = lazy(() => import("./Cafe3D"));
+import type { Cafe3DProps } from "./Cafe3D";
 
 /**
  * Should this device get the 3D café? ADR-0003: the 2D scene is first-class, 3D is an
@@ -39,7 +40,7 @@ class Quiet extends Component<{ onError: () => void; children: ReactNode }, { fa
  * The café scene. The 2D illustration paints first (it is the poster and the LCP element),
  * then the 3D café loads in the background and fades in over it when its first frame is ready.
  */
-export function CafeScene({ cafeName, managerName, favourites = [] }: { cafeName: string; managerName: string; favourites?: Array<{ name: string; price: string }> }) {
+export function CafeScene({ cafeName, managerName, favourites = [], baristaVideo = null }: { cafeName: string; managerName: string; favourites?: Array<{ name: string; price: string }>; baristaVideo?: Cafe3DProps["baristaVideo"] }) {
   const [use3D, setUse3D] = useState(false);
   const [ready, setReady] = useState(false);
   const [still, setStill] = useState(false);
@@ -59,7 +60,7 @@ export function CafeScene({ cafeName, managerName, favourites = [] }: { cafeName
       {use3D && (
         <Quiet onError={giveUp}>
           <Suspense fallback={null}>
-            <Cafe3D cafeName={cafeName} favourites={favourites} still={still} onReady={() => setReady(true)} onTooSlow={giveUp} />
+            <Cafe3D cafeName={cafeName} favourites={favourites} baristaVideo={baristaVideo} still={still} onReady={() => setReady(true)} onTooSlow={giveUp} />
           </Suspense>
         </Quiet>
       )}

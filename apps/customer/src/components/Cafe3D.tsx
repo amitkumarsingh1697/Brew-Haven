@@ -12,6 +12,8 @@ import * as THREE from "three";
 export interface Cafe3DProps {
   cafeName: string;
   favourites: Array<{ name: string; price: string }>;
+  /** Filmed barista on a green screen; replaces the drawn one when set. */
+  baristaVideo?: { idle: string; wave?: string; keyColor?: string } | null;
   /** Reduced motion: no intro dolly, no idle animation. */
   still: boolean;
   onReady: () => void;
@@ -652,6 +654,96 @@ function Barista({ apron, still, waveSignal }: { apron: THREE.Texture; still: bo
  * Sign and chalkboard text, drawn on canvases. Inter is used where digits appear because the
  * display serif's default figures are old-style ("4oo"), and canvas text can't switch them.
  */
+/* ---------- filmed barista ---------- */
+
+/**
+ * Removes the green screen: pixels close to the key colour (in chroma, so shadows on the screen go
+ * too) become transparent, with a soft edge, and green spill on hair and shoulders is pulled back.
+ */
+const KEY_VERT = `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const KEY_FRAG = `
+uniform sampler2D map; uniform vec3 keyColor; uniform vec3 tint; uniform float similarity; uniform float smoothness; uniform float spill;
+varying vec2 vUv;
+vec2 rgb2uv(vec3 c) { return vec2(c.r * -0.169 + c.g * -0.331 + c.b * 0.5 + 0.5, c.r * 0.5 + c.g * -0.419 + c.b * -0.081 + 0.5); }
+void main() {
+  vec4 c = texture2D(map, vUv);
+  float d = distance(rgb2uv(c.rgb), rgb2uv(keyColor));
+  float a = smoothstep(similarity, similarity + smoothness, d);
+  float s = pow(clamp((d - similarity) / spill, 0.0, 1.0), 1.5);
+  float grey = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+  vec3 rgb = (mix(vec3(grey), c.rgb, s) * 0.94 + 0.03) * tint; // lift the blacks a touch so dark hair reads against the wall
+  if (a < 0.05) discard;
+  // The clip is sampled as raw sRGB so the key matches what was filmed; convert for the renderer.
+  gl_FragColor = vec4(pow(rgb, vec3(2.2)), a);
+  #include <colorspace_fragment>
+}`;
+
+function makeVideo(src: string, loop: boolean) {
+  const v = document.createElement("video");
+  v.src = src;
+  v.crossOrigin = "anonymous";
+  v.muted = true;
+  v.loop = loop;
+  v.playsInline = true;
+  v.preload = "auto";
+  return v;
+}
+
+/**
+ * The filmed barista: an idle loop, and a wave when tapped that plays once and returns to idle.
+ * Calls onFail if the clip can't play, so the drawn barista takes over.
+ */
+function VideoBarista({ video, still, waveSignal, onFail }: { video: NonNullable<Cafe3DProps["baristaVideo"]>; still: boolean; waveSignal: number; onFail: () => void }) {
+  const idle = useMemo(() => makeVideo(video.idle, true), [video.idle]);
+  const wave = useMemo(() => (video.wave ? makeVideo(video.wave, false) : null), [video.wave]);
+  const idleTex = useMemo(() => Object.assign(new THREE.VideoTexture(idle), { colorSpace: THREE.NoColorSpace }), [idle]);
+  const waveTex = useMemo(() => (wave ? Object.assign(new THREE.VideoTexture(wave), { colorSpace: THREE.NoColorSpace }) : null), [wave]);
+  const [aspect, setAspect] = useState(9 / 16);
+  const [waving, setWaving] = useState(false);
+  const uniforms = useMemo(
+    () => ({ map: { value: idleTex as THREE.Texture }, keyColor: { value: new THREE.Color().setStyle(video.keyColor ?? "#00b140", THREE.NoColorSpace) }, tint: { value: new THREE.Color(0.96, 0.9, 0.82) }, similarity: { value: 0.11 }, smoothness: { value: 0.07 }, spill: { value: 0.14 } }),
+    [idleTex, video.keyColor],
+  );
+
+  useEffect(() => {
+    const ready = () => {
+      if (idle.videoWidth) setAspect(idle.videoWidth / idle.videoHeight);
+      if (still) idle.currentTime = 0;
+      else void idle.play().catch(onFail);
+    };
+    idle.addEventListener("loadeddata", ready);
+    idle.addEventListener("error", onFail);
+    idle.load();
+    return () => {
+      idle.removeEventListener("loadeddata", ready);
+      idle.removeEventListener("error", onFail);
+      idle.pause();
+      idleTex.dispose();
+    };
+  }, [idle, idleTex, still, onFail]);
+
+  useEffect(() => {
+    if (!waveSignal || !wave || still) return;
+    wave.currentTime = 0;
+    void wave.play().then(() => setWaving(true), () => undefined);
+    const done = () => setWaving(false);
+    wave.addEventListener("ended", done);
+    return () => wave.removeEventListener("ended", done);
+  }, [waveSignal, wave, still]);
+
+  useEffect(() => () => waveTex?.dispose(), [waveTex]);
+  uniforms.map.value = waving && waveTex ? waveTex : idleTex;
+
+  // Framed waist up behind the counter, about the drawn barista's height.
+  const h = 1.45;
+  return (
+    <mesh position={[0.05, 0.98 + h / 2 - 0.3, -0.42]}>
+      <planeGeometry args={[h * aspect, h]} />
+      <shaderMaterial vertexShader={KEY_VERT} fragmentShader={KEY_FRAG} uniforms={uniforms} transparent />
+    </mesh>
+  );
+}
+
 function drawSign(g: CanvasRenderingContext2D, cafeName: string) {
   const W = 1024, H = 290;
   g.fillStyle = C.ink;
@@ -782,7 +874,9 @@ function FirstFrame({ onFirstFrame }: { onFirstFrame: () => void }) {
   return null;
 }
 
-export default function Cafe3D({ cafeName, favourites, still, onReady, onTooSlow }: Cafe3DProps) {
+export default function Cafe3D({ cafeName, favourites, baristaVideo, still, onReady, onTooSlow }: Cafe3DProps) {
+  const [videoFailed, setVideoFailed] = useState(false);
+  const onVideoFail = useMemo(() => () => setVideoFailed(true), []);
   const initial = cafeName.trim().charAt(0).toUpperCase() || "B";
   const tex = useTextures(initial);
   const [dpr, setDpr] = useState(1.5);
@@ -849,7 +943,11 @@ export default function Cafe3D({ cafeName, favourites, still, onReady, onTooSlow
         <Room plaster={tex.plaster} tiles={tex.tiles} />
         <Shelves wood={tex.wood} />
         <Signage cafeName={cafeName} favourites={favourites} />
-        <Barista apron={tex.apron} still={still} waveSignal={wave} />
+        {baristaVideo && !videoFailed ? (
+          <VideoBarista video={baristaVideo} still={still} waveSignal={wave} onFail={onVideoFail} />
+        ) : (
+          <Barista apron={tex.apron} still={still} waveSignal={wave} />
+        )}
         <Counter wood={tex.wood} />
         <EspressoMachine />
         <PastryCase />
