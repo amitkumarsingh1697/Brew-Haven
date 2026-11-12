@@ -94,7 +94,57 @@ function useTextures(initial: string) {
       g.textBaseline = "middle";
       g.fillText(initial, 128, 110);
     });
-    return { wood, glow, steam, apron };
+    // Limewashed plaster: soft blotches and a few hairline cracks, tinted by the material colour.
+    const plaster = canvasTexture(512, 256, (g) => {
+      g.fillStyle = "#ffffff";
+      g.fillRect(0, 0, 512, 256);
+      for (let i = 0; i < 90; i++) {
+        const x = rnd() * 512;
+        const y = rnd() * 256;
+        const r = 20 + rnd() * 70;
+        const grad = g.createRadialGradient(x, y, 0, x, y, r);
+        const shade = rnd() > 0.5 ? "255,240,220" : "150,130,115";
+        grad.addColorStop(0, `rgba(${shade},${0.05 + rnd() * 0.08})`);
+        grad.addColorStop(1, `rgba(${shade},0)`);
+        g.fillStyle = grad;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      g.strokeStyle = "rgba(90,70,60,0.18)";
+      g.lineWidth = 1;
+      for (let i = 0; i < 6; i++) {
+        let x = rnd() * 512;
+        let y = rnd() * 256;
+        g.beginPath();
+        g.moveTo(x, y);
+        for (let k = 0; k < 6; k++) g.lineTo((x += (rnd() - 0.5) * 30), (y += rnd() * 12));
+        g.stroke();
+      }
+    });
+    plaster.wrapS = plaster.wrapT = THREE.RepeatWrapping;
+    plaster.repeat.set(2, 1);
+    // Glazed subway tiles for the wainscot: offset rows with darker grout and a soft highlight.
+    const tiles = canvasTexture(256, 128, (g) => {
+      g.fillStyle = "#6e6258";
+      g.fillRect(0, 0, 256, 128);
+      const tw = 64;
+      const th = 32;
+      for (let row = 0; row < 4; row++)
+        for (let col = -1; col < 5; col++) {
+          const x = col * tw + (row % 2 ? tw / 2 : 0) + 2;
+          const y = row * th + 2;
+          const v = 225 + Math.floor(rnd() * 20);
+          g.fillStyle = `rgb(${v},${v - 6},${v - 18})`;
+          g.fillRect(x, y, tw - 4, th - 4);
+          const hl = g.createLinearGradient(x, y, x, y + th);
+          hl.addColorStop(0, "rgba(255,255,255,0.35)");
+          hl.addColorStop(0.5, "rgba(255,255,255,0)");
+          g.fillStyle = hl;
+          g.fillRect(x, y, tw - 4, th - 4);
+        }
+    });
+    tiles.wrapS = tiles.wrapT = THREE.RepeatWrapping;
+    tiles.repeat.set(9, 2.2);
+    return { wood, glow, steam, apron, plaster, tiles };
   }, [initial]);
 }
 
@@ -117,17 +167,17 @@ function Many({ at, children }: { at: Array<{ p: readonly [number, number, numbe
 
 /* ---------- pieces of the café ---------- */
 
-function Room() {
+function Room({ plaster, tiles }: { plaster: THREE.Texture; tiles: THREE.Texture }) {
   return (
     <group>
       <mesh position={[0, 2, -1.6]}>
         <planeGeometry args={[9, 4.4]} />
-        <meshStandardMaterial color={C.wall} roughness={0.95} />
+        <meshStandardMaterial map={plaster} color={C.wall} roughness={0.95} />
       </mesh>
-      {/* wainscot */}
+      {/* tiled wainscot */}
       <mesh position={[0, 0.55, -1.58]}>
         <boxGeometry args={[9, 1.1, 0.04]} />
-        <meshStandardMaterial color={C.panel} roughness={0.8} />
+        <meshStandardMaterial map={tiles} color="#7a5a44" roughness={0.35} />
       </mesh>
       <mesh position={[0, 1.12, -1.55]}>
         <boxGeometry args={[9, 0.04, 0.08]} />
@@ -363,6 +413,47 @@ function Lamp({ x, glow }: { x: number; glow: THREE.Texture }) {
       </Billboard>
       <pointLight position={[0, 2.45, 0]} color="#ffcf8a" intensity={4.5} distance={4.5} decay={1.6} />
     </group>
+  );
+}
+
+/** Warm pools of lamplight on the counter top: one instanced draw for both lamps. */
+const POOLS = [-1.05, 1.05].map((x) => ({ p: [x, 1.054, 0.2] as const, r: [-Math.PI / 2, 0, 0] as const, s: [1.9, 0.95, 1] as const }));
+function LightPools({ glow }: { glow: THREE.Texture }) {
+  return (
+    <Many at={POOLS}>
+      <planeGeometry args={[0.9, 0.9]} />
+      <meshBasicMaterial map={glow} color="#ffcf8a" transparent opacity={0.9} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+    </Many>
+  );
+}
+
+/** Dust drifting through the lamplight. One draw call; frozen with reduced motion. */
+function Dust({ tex, still }: { tex: THREE.Texture; still: boolean }) {
+  const count = 70;
+  const ref = useRef<THREE.Points>(null);
+  const seeds = useMemo(() => {
+    let seed = 11;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    return Array.from({ length: count }, (_, i) => ({ x: (i % 2 ? 1.05 : -1.05) + (rnd() - 0.5) * 0.9, y: 1.2 + rnd() * 1.3, z: 0.15 + (rnd() - 0.5) * 0.7, phase: rnd() * Math.PI * 2, speed: 0.04 + rnd() * 0.06 }));
+  }, []);
+  const positions = useMemo(() => new Float32Array(seeds.flatMap((s) => [s.x, s.y, s.z])), [seeds]);
+  useFrame(({ clock }) => {
+    if (still || !ref.current) return;
+    const t = clock.elapsedTime;
+    const a = ref.current.geometry.attributes.position as THREE.BufferAttribute;
+    seeds.forEach((s, i) => {
+      const y = 1.2 + ((s.y - 1.2 + t * s.speed) % 1.3);
+      a.setXYZ(i, s.x + Math.sin(t * 0.3 + s.phase) * 0.06, y, s.z + Math.cos(t * 0.25 + s.phase) * 0.04);
+    });
+    a.needsUpdate = true;
+  });
+  return (
+    <points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial map={tex} color="#ffe2b0" size={0.045} sizeAttenuation transparent opacity={0.8} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+    </points>
   );
 }
 
@@ -753,7 +844,9 @@ export default function Cafe3D({ cafeName, favourites, still, onReady, onTooSlow
         <hemisphereLight args={["#ffe3b8", "#3a2618", 0.8]} />
         <directionalLight position={[1.5, 3, 4]} intensity={1.1} color="#ffe6c4" />
         <directionalLight position={[-2, 1.2, 3]} intensity={0.35} color="#ffd2a0" />
-        <Room />
+        {/* rim light from behind, so the barista stands out from the wall */}
+        <directionalLight position={[0.5, 2.6, -2.5]} intensity={0.9} color="#ffd9a8" />
+        <Room plaster={tex.plaster} tiles={tex.tiles} />
         <Shelves wood={tex.wood} />
         <Signage cafeName={cafeName} favourites={favourites} />
         <Barista apron={tex.apron} still={still} waveSignal={wave} />
@@ -764,6 +857,8 @@ export default function Cafe3D({ cafeName, favourites, still, onReady, onTooSlow
         {[-1.05, 1.05].map((x) => (
           <Lamp key={x} x={x} glow={tex.glow} />
         ))}
+        <LightPools glow={tex.glow} />
+        <Dust tex={tex.steam} still={still} />
         <CameraRig still={still} />
         <FirstFrame onFirstFrame={onReady} />
       </Canvas>

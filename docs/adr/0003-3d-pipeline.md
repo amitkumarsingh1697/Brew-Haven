@@ -41,4 +41,14 @@ Blender modelling, UV and lightmap baking; character rigging and animation retar
 * The barista follows the visitor's finger or cursor, blinks, and waves on arrival, every so often, and when tapped.
 * Falls back to the 2D scene when WebGL 2 is missing, Save-Data is on, device memory is under 3 GB, the scene errors, or `PerformanceMonitor` reports a sustained low frame rate. Reduced motion gets a still 3D frame. `?scene=2d` and `?scene=3d` force either path for demos.
 * Rendering stops when the scene is off screen or the tab is hidden.
+
+## Polish without an artist (Sprint 7, 12 Nov 2026)
+
+Amit has no 3D artist for now, so the procedural scene was polished in code instead:
+
+* Limewashed plaster on the back wall and glazed tiles on the wainscot, both drawn once on a canvas (no extra draw calls).
+* Warm pools of lamplight on the counter top (one instanced draw for both lamps) and dust drifting through the light (one `points` draw, frozen under reduced motion).
+* A rim light from behind so the barista separates from the wall, and a CSS vignette over the canvas that costs the GPU nothing.
+* Measured: 82 draw calls and about 12k triangles.
+
 * Still to do for the saleable version: replace the procedural barista with the rigged character and baked café model from the Blender pipeline above, after the 3D artist's polish pass.
