@@ -1061,3 +1061,16 @@ h3 {
   margin: 8px auto 16px;
   box-shadow: var(--bh-shadow);
 }
+
+/* Terms and privacy */
+.legal { max-width: 760px; margin: 0 auto; padding: 16px 16px 48px; line-height: 1.55; }
+.legal-nav { display: flex; gap: 16px; padding: 8px 0 12px; border-bottom: 1px solid var(--bh-parchment); }
+.legal-nav a { color: var(--bh-roasted); font-weight: 600; }
+.legal-nav a[aria-current="page"] { text-decoration: none; color: var(--bh-espresso); }
+.legal-draft { background: #fbe9c8; color: #5c3b00; border-radius: 8px; padding: 8px 12px; margin: 12px 0; }
+.legal h2 { margin-top: 24px; }
+.legal h3 { margin: 20px 0 4px; font-size: 1.05rem; }
+.legal-table { overflow-x: auto; }
+.legal table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+.legal th, .legal td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--bh-parchment); }
+.legal h1 { font-size: 1.8rem; margin: 16px 0 4px; }

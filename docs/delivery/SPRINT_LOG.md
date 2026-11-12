@@ -46,7 +46,13 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | GST summary in Reports (by rate, by café, invoice numbers issued and cancelled) and a GST invoices CSV for the accountant. See EXPORTS.md | Merged (#21) |
 | Brew Haven team view at `/platform`: every business with plan, cafés, team, 30-day orders and sales and last order (totals only); change plan, pause or resume, each recorded in the business's own activity log. Separate email-and-password sign-in. See PLATFORM.md | Merged (#22) |
 | Kitchen speed in Reports: paid-to-ready, waiting to start, making and waiting for pickup (typical and slowest 1 in 10), late orders against the owner's target, by café and by hour, slowest late orders. See KITCHEN_SPEED.md | Merged (#23) |
-| Counter orders keep working offline: the till keeps the last menu, saves orders it can't send as OFF-1, OFF-2… and sends them when the connection is back, never twice; price changes and refusals are shown to the cashier. See OFFLINE.md | In review |
+| Counter orders keep working offline: the till keeps the last menu, saves orders it can't send as OFF-1, OFF-2… and sends them when the connection is back, never twice; price changes and refusals are shown to the cashier. See OFFLINE.md | Merged (#24) |
+
+## Sprint 6: pilot readiness
+
+| Item | Status |
+|---|---|
+| Terms of service (with data processing terms) and privacy policy pages at `/legal/terms` and `/legal/privacy` on the customer app, marked as a draft until the lawyer signs off; linked from sign-up and checkout. Text in `docs/legal` | In review |
 
 ## Waiting on Amit
 
@@ -55,6 +61,6 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Deploy the demo (ADR-0002) | Cloudflare, Render and Neon accounts connected, or their API tokens shared securely |
 | Live payments | The café owner's choice of gateway and merchant KYC (Razorpay adapter is ready) |
 | Real WhatsApp messages | Choice of WhatsApp provider (BSP) and approved message templates |
-| Terms of service and privacy policy | Lawyer review of the draft (terms, privacy policy, data processing terms) shared on 12 Nov; then the pages go live and the sign-up checkbox links to them |
+| Terms of service and privacy policy | Lawyer review of the draft shared on 12 Nov. The pages are live with a "Draft" notice; once approved, update `docs/legal` and build with `VITE_LEGAL_FINAL=true` |
 | Plans and prices | Plan names, limits and monthly prices for the SaaS offer (placeholders until then) |
 | Saleable 3D polish | A 3D artist for the barista and room models (SOW line) |

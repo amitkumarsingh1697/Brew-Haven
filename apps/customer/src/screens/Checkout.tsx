@@ -157,7 +157,9 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
           </div>
           {touched && !phoneCheck.success && <em className="field-error">Enter a 10-digit Indian mobile number</em>}
         </label>
-        <p className="consent-note">We'll use this number only to send updates about this order.</p>
+        <p className="consent-note">
+          We'll use this number only to send updates about this order. <a href="/legal/privacy">Privacy policy</a>
+        </p>
         <label className="check">
           <input type="checkbox" checked={offers} onChange={(e) => setOffers(e.target.checked)} />
           <span>Also send me offers from {menu?.tenant.branding.displayName ?? "the café"} (optional, you can stop any time)</span>
