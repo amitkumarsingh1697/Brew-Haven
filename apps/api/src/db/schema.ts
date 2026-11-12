@@ -372,13 +372,14 @@ export const notifications = pgTable(
     toPhone: text("to_phone").notNull(),
     template: text("template").notNull(),
     body: text("body").notNull(),
-    status: text("status", { enum: ["QUEUED", "SENT", "LOGGED", "FAILED"] }).notNull(),
+    /** QUEUED → SENT → DELIVERED → READ from WhatsApp's delivery updates. FAILED is retried; REJECTED is final. */
+    status: text("status", { enum: ["QUEUED", "SENT", "DELIVERED", "READ", "LOGGED", "FAILED", "REJECTED"] }).notNull(),
     providerMessageId: text("provider_message_id"),
     error: text("error"),
     createdAt: createdAt(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
   },
-  (t) => [uniqueIndex("notifications_outbox").on(t.outboxId), index("notifications_tenant_time").on(t.tenantId, t.createdAt)],
+  (t) => [uniqueIndex("notifications_outbox").on(t.outboxId), index("notifications_tenant_time").on(t.tenantId, t.createdAt), index("notifications_provider_id").on(t.providerMessageId)],
 );
 
 /** End-of-day cash count per café (one per business day; re-closing replaces it and is audited). */

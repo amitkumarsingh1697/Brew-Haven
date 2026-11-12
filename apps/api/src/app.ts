@@ -73,9 +73,9 @@ import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login,
 import * as admin from "./services/admin.js";
 import * as audit from "./services/audit.js";
 import * as inventory from "./services/inventory.js";
-import { listNotifications } from "./services/notifications.js";
+import { applyDeliveryUpdates, listNotifications } from "./services/notifications.js";
 import { closeDay, getClose, salesReport } from "./services/reports.js";
-import { LogNotifier, MetaWhatsAppNotifier, type Notifier } from "./notify/provider.js";
+import { LogNotifier, MetaWhatsAppNotifier, type Notifier, parseMetaStatuses, verifyMetaSignature } from "./notify/provider.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -104,7 +104,7 @@ export function createProvider(config: Config): PaymentProvider {
 
 export function createNotifier(config: Config): Notifier {
   const n = config.notifications;
-  if (n?.provider === "meta" && n.meta) return new MetaWhatsAppNotifier(n.meta.token, n.meta.phoneNumberId, n.meta.language);
+  if (n?.provider === "meta" && n.meta) return new MetaWhatsAppNotifier(n.meta.token, n.meta.phoneNumberId, n.meta.language, fetch, n.meta.apiVersion);
   return new LogNotifier();
 }
 
@@ -310,6 +310,21 @@ export async function buildApp(deps: AppDeps) {
   app.post<{ Params: { token: string; id: string } }>("/v1/track/:token/adjustments/:id/resolve", async (req) =>
     resolveCustomerAdjustment(ctx, req.params.token, req.params.id, parse(ResolveAdjustmentRequest, req.body)),
   );
+
+  // ---------- WhatsApp delivery updates (Meta webhook) ----------
+  const wa = deps.config.notifications?.provider === "meta" ? deps.config.notifications.meta : undefined;
+  // Meta checks the URL once, when the webhook is set up, by echoing a challenge.
+  app.get<{ Querystring: Record<string, string | undefined> }>("/v1/webhooks/whatsapp", async (req, reply) => {
+    const q = req.query;
+    if (!wa?.verifyToken || q["hub.mode"] !== "subscribe" || q["hub.verify_token"] !== wa.verifyToken) return reply.status(403).send({ error: { code: "FORBIDDEN", message: "Webhook not verified" } });
+    return reply.type("text/plain").send(q["hub.challenge"] ?? "");
+  });
+  app.post("/v1/webhooks/whatsapp", async (req, reply) => {
+    if (!wa?.appSecret) throw notFound("Webhook");
+    if (!verifyMetaSignature(req.rawBody ?? "", req.headers["x-hub-signature-256"] as string | undefined, wa.appSecret))
+      return reply.status(401).send({ error: { code: "UNAUTHORIZED", message: "Bad signature" } });
+    return { updated: await applyDeliveryUpdates(deps.db, parseMetaStatuses(req.body)) };
+  });
 
   // ---------- Payments ----------
   app.post<{ Params: { provider: string } }>("/v1/payments/webhook/:provider", async (req, reply) => {

@@ -1121,6 +1121,15 @@ a.btn {
   background: #fdecea;
   color: var(--bh-danger);
 }
+.pill-delivered,
+.pill-read {
+  background: var(--bh-mint);
+  color: var(--bh-leaf-text);
+}
+.pill-rejected {
+  background: #fdecea;
+  color: var(--bh-danger);
+}
 
 /* close the day */
 .close-day {

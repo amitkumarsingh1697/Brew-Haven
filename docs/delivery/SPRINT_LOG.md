@@ -61,7 +61,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 
 | Item | Status |
 |---|---|
-| Plan prices (Starter ₹999, Growth ₹1,999, Multi-café ₹3,999 a month; a year for ten months), a 30-day free trial at sign-up, billing status for the owner, and payments recorded by the team. See PLANS.md | In review |
+| Plan prices (Starter ₹999, Growth ₹1,999, Multi-café ₹3,999 a month; a year for ten months), a 30-day free trial at sign-up, billing status for the owner, and payments recorded by the team. See PLANS.md | Merged (#29) |
+| WhatsApp Cloud API made ready to switch on: templates reworded to pass Meta's rules, a script that submits them for approval and shows their status, signed delivery updates (Delivered, Read, Not delivered) in the owner's message log, and no pointless retries for numbers not on WhatsApp. See WHATSAPP_SETUP.md | In review |
 
 ## Waiting on Amit
 
@@ -69,6 +70,6 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 |---|---|
 | Deploy the demo (ADR-0002) | Cloudflare, Render and Neon accounts connected, or their API tokens shared securely |
 | Live payments | The café owner's choice of gateway and merchant KYC (Razorpay adapter is ready) |
-| Real WhatsApp messages | Meta Business verification and a WhatsApp number for the Cloud API, then template approval (Sprint 7) |
+| Real WhatsApp messages | Steps 1 to 5 of WHATSAPP_SETUP.md: Meta Business verification, a WhatsApp number, a payment method and a system-user token. We do the rest |
 | Terms of service and privacy policy | Lawyer review of the draft shared on 12 Nov. The pages are live with a "Draft" notice; once approved, update `docs/legal` and build with `VITE_LEGAL_FINAL=true` |
 | Saleable 3D polish | A 3D artist for the barista and room models (SOW line) |

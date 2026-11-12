@@ -1007,7 +1007,7 @@ function Activity({ setup }: { setup: AdminSetup }) {
 
 // ---------- Customer messages (WhatsApp) ----------
 
-const STATUS_LABEL: Record<string, string> = { SENT: "Sent", LOGGED: "Preview only", FAILED: "Failed, retrying", QUEUED: "Sending" };
+const STATUS_LABEL: Record<string, string> = { SENT: "Sent", DELIVERED: "Delivered", READ: "Read", LOGGED: "Preview only", FAILED: "Failed, retrying", REJECTED: "Not delivered", QUEUED: "Sending" };
 
 function Messages() {
   const [data, setData] = useState<Awaited<ReturnType<typeof api.admin.notifications>> | null>(null);
