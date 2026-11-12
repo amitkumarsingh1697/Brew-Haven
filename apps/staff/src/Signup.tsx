@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { StaffSession } from "@brew-haven/contracts";
-import { ApiError, api, setTenant } from "./api";
+import { ApiError, CUSTOMER_URL, api, setTenant } from "./api";
 
 /** Self-serve sign-up: a new café business creates its account, first café and owner sign-in. */
 export function Signup({ onDone, onCancel }: { onDone: (s: StaffSession) => void; onCancel: () => void }) {
@@ -106,7 +106,14 @@ export function Signup({ onDone, onCancel }: { onDone: (s: StaffSession) => void
               <input type="checkbox" checked={f.sampleMenu} onChange={set("sampleMenu")} /> Start with a sample menu I can edit
             </label>
             <label className="check">
-              <input type="checkbox" checked={f.acceptTerms} onChange={set("acceptTerms")} /> I accept the terms of service and privacy policy
+              <input type="checkbox" checked={f.acceptTerms} onChange={set("acceptTerms")} /> I accept the{" "}
+              <a href={`${CUSTOMER_URL}/legal/terms`} target="_blank" rel="noreferrer">
+                terms of service
+              </a>{" "}
+              and{" "}
+              <a href={`${CUSTOMER_URL}/legal/privacy`} target="_blank" rel="noreferrer">
+                privacy policy
+              </a>
             </label>
             {error && (
               <p className="error" role="alert">

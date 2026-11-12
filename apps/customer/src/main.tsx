@@ -5,6 +5,7 @@ import { Redirect, Route, Switch } from "wouter";
 import "@brew-haven/ui-tokens/tokens.css";
 import "./styles.css";
 import { Checkout } from "./screens/Checkout";
+import { Legal } from "./screens/Legal";
 import { Menu } from "./screens/Menu";
 import { ReceiptPage } from "./screens/ReceiptPage";
 import { Track } from "./screens/Track";
@@ -27,6 +28,7 @@ function App() {
     <>
     <OfflineBanner />
     <Switch>
+      <Route path="/legal/:page">{(p) => <Legal page={p.page} />}</Route>
       <Route path="/order/:token/receipt">{(p) => <ReceiptPage token={p.token} />}</Route>
       <Route path="/order/:token">{(p) => <Track token={p.token} />}</Route>
       <Route path="/:tenant/:outlet/menu">{(p) => <Menu tenant={p.tenant} outlet={p.outlet} />}</Route>
