@@ -40,6 +40,21 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+/** Fetches a file the API sends (e.g. a CSV export) and saves it in the browser. */
+async function saveFile(path: string, filename: string) {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  } catch {
+    throw new ApiError(0, "Can't reach the server. Check the café Wi-Fi.");
+  }
+  if (res.status === 401 && token) onUnauthorized();
+  if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => null))?.error?.message ?? "Download failed");
+  const url = URL.createObjectURL(await res.blob());
+  Object.assign(document.createElement("a"), { href: url, download: filename }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 const post = <T>(path: string, body: unknown) => call<T>(path, { method: "POST", body: JSON.stringify(body) });
 const send = <T>(method: "PUT" | "PATCH" | "DELETE", path: string, body?: unknown) => call<T>(path, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
 
@@ -190,6 +205,11 @@ export const api = {
     setRecipe: (itemId: string, rows: Array<{ groupName?: string; optionName?: string; ingredientId: string; quantity: number }>) => send<unknown>("PUT", `/v1/admin/recipes/${itemId}`, { rows }),
     setLowStock: (b: { outletId: string; ingredientId: string; lowAt: number | null }) => send<unknown>("PUT", "/v1/admin/low-stock", b),
     lowStock: () => call<{ items: Array<{ outlet: string; ingredient: string; unit: Unit; onHand: number; lowAt: number | null; status: "LOW" | "OUT" }> }>("/v1/admin/low-stock"),
+    exportCsv: (kind: "orders" | "items" | "payments" | "closes" | "stock", q: { from: string; to: string; outletId?: string }) => {
+      const p = new URLSearchParams({ from: q.from, to: q.to });
+      if (q.outletId) p.set("outletId", q.outletId);
+      return saveFile(`/v1/admin/exports/${kind}?${p}`, `brew-haven-${kind}-${q.from}-to-${q.to}.csv`);
+    },
     stockReport: (q: { outletId: string; from: string; to: string }) =>
       call<{ from: string; to: string; rows: StockReportRow[] }>(`/v1/admin/stock-report?${new URLSearchParams(q)}`),
     createOutlet: (b: { name: string; pickupPrefix: string; address?: string }) => post<OutletWithStations>("/v1/admin/outlets", b),
