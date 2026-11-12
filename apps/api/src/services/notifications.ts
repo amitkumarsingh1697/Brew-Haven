@@ -1,10 +1,10 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { formatInr } from "@brew-haven/domain";
 import type { StaffClaims } from "../auth.js";
 import type { Db } from "../db/client.js";
 import { customers, notifications, orders, outlets, refunds, tenants } from "../db/schema.js";
 import { AppError } from "../errors.js";
-import { render, type Notifier, type TemplateName } from "../notify/provider.js";
+import { PermanentSendError, render, type Notifier, type StatusUpdate, type TemplateName } from "../notify/provider.js";
 
 export interface NotifyDeps {
   db: Db;
@@ -72,9 +72,33 @@ export async function notifyCustomer(deps: NotifyDeps, outboxId: number, orderId
       .where(eq(notifications.id, n!.id));
     return deps.notifier.delivers ? "sent" : "logged";
   } catch (e) {
-    await deps.db.update(notifications).set({ status: "FAILED", error: String(e).slice(0, 500) }).where(eq(notifications.id, n!.id));
+    const permanent = e instanceof PermanentSendError;
+    await deps.db.update(notifications).set({ status: permanent ? "REJECTED" : "FAILED", error: String(e).slice(0, 500) }).where(eq(notifications.id, n!.id));
+    if (permanent) return "rejected"; // retrying won't help, so the job is done
     throw e; // the outbox retries with backoff
   }
+}
+
+/** Which statuses each delivery update may move a message on from: never backwards (read, then a late "delivered"). */
+const MOVES_FROM: Record<StatusUpdate["status"], Array<(typeof notifications.$inferSelect)["status"]>> = {
+  SENT: ["QUEUED", "FAILED"],
+  DELIVERED: ["QUEUED", "FAILED", "SENT"],
+  READ: ["QUEUED", "FAILED", "SENT", "DELIVERED"],
+  REJECTED: ["QUEUED", "FAILED", "SENT"],
+};
+
+/** Applies WhatsApp's delivery updates to the message log. Unknown message ids are ignored. */
+export async function applyDeliveryUpdates(db: Db, updates: StatusUpdate[]) {
+  let changed = 0;
+  for (const u of updates) {
+    const r = await db
+      .update(notifications)
+      .set({ status: u.status, ...(u.error ? { error: u.error.slice(0, 500) } : {}) })
+      .where(and(eq(notifications.providerMessageId, u.providerMessageId), inArray(notifications.status, MOVES_FROM[u.status])))
+      .returning({ id: notifications.id });
+    changed += r.length;
+  }
+  return changed;
 }
 
 const mask = (phone: string) => `••••••${phone.slice(-4)}`;

@@ -25,7 +25,17 @@ export interface Config {
     provider: "log" | "meta";
     /** Base URL of the customer app, for tracking links in messages. */
     customerAppUrl: string;
-    meta?: { token: string; phoneNumberId: string; language: string };
+    meta?: {
+      token: string;
+      phoneNumberId: string;
+      language: string;
+      /** Graph API version, e.g. "v23.0". */
+      apiVersion?: string;
+      /** App secret, to check delivery-update webhooks are from Meta. Without it they are refused. */
+      appSecret?: string;
+      /** The token typed into Meta's webhook settings when subscribing. */
+      verifyToken?: string;
+    };
   };
 }
 
@@ -68,7 +78,14 @@ export function loadConfig(): Config {
       customerAppUrl: process.env.CUSTOMER_APP_URL ?? "http://localhost:5173",
       meta:
         process.env.NOTIFY_PROVIDER === "meta"
-          ? { token: required("WHATSAPP_TOKEN"), phoneNumberId: required("WHATSAPP_PHONE_NUMBER_ID"), language: process.env.WHATSAPP_TEMPLATE_LANGUAGE ?? "en" }
+          ? {
+              token: required("WHATSAPP_TOKEN"),
+              phoneNumberId: required("WHATSAPP_PHONE_NUMBER_ID"),
+              language: process.env.WHATSAPP_TEMPLATE_LANGUAGE ?? "en",
+              apiVersion: process.env.WHATSAPP_API_VERSION || undefined,
+              appSecret: process.env.WHATSAPP_APP_SECRET || undefined,
+              verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || undefined,
+            }
           : undefined,
     },
   };

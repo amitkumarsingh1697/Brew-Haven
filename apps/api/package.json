@@ -11,6 +11,7 @@
     "db:seed": "tsx src/scripts/seed.ts",
     "plan": "tsx src/scripts/set-plan.ts",
     "platform-admin": "tsx src/scripts/platform-admin.ts",
+    "whatsapp-templates": "tsx src/scripts/whatsapp-templates.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

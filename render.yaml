@@ -26,6 +26,17 @@ services:
       # Customer messages: "log" previews them in the owner's Setup > Customer messages; "meta" sends via WhatsApp Cloud API.
       - key: NOTIFY_PROVIDER
         value: log
+      # Needed only with NOTIFY_PROVIDER=meta. See docs/delivery/WHATSAPP_SETUP.md.
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_BUSINESS_ACCOUNT_ID
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
       - key: CUSTOMER_APP_URL
         sync: false
       # Operational alerts (server errors, background jobs that gave up): a Slack / Google Chat / Discord webhook URL.
