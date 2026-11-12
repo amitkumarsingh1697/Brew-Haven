@@ -37,7 +37,13 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Stock report per café: opening, received, used by sales, wasted, count difference (variance) and closing, with CSV download. See INVENTORY.md | Merged (#17) |
 | CSV exports for the accountant: orders, items sold, payments and refunds, day closes, stock movements. See EXPORTS.md | Merged (#18) |
 | Self-serve sign-up: a new business creates its account, first café, owner PIN and an optional sample menu at `/signup` on the staff app, then gets a short "what next" guide. Staff devices switch business with "Different business?". See SIGNUP.md | Merged (#19) |
-| Plans and limits: Starter (1 café, 5 team), Growth (3, 20), Multi-café (no limits) as placeholders; new businesses start on Starter, the pilot is on Multi-café; owner sees plan and usage in Café settings; we change plans with `pnpm --filter @brew-haven/api plan`. See PLANS.md | In review |
+| Plans and limits: Starter (1 café, 5 team), Growth (3, 20), Multi-café (no limits) as placeholders; new businesses start on Starter, the pilot is on Multi-café; owner sees plan and usage in Café settings; we change plans with `pnpm --filter @brew-haven/api plan`. See PLANS.md | Merged (#20) |
+
+## Sprint 5: GST, kitchen speed, offline counter
+
+| Item | Status |
+|---|---|
+| GST summary in Reports (by rate, by café, invoice numbers issued and cancelled) and a GST invoices CSV for the accountant. See EXPORTS.md | In review |
 
 ## Waiting on Amit
 
@@ -46,6 +52,6 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Deploy the demo (ADR-0002) | Cloudflare, Render and Neon accounts connected, or their API tokens shared securely |
 | Live payments | The café owner's choice of gateway and merchant KYC (Razorpay adapter is ready) |
 | Real WhatsApp messages | Choice of WhatsApp provider (BSP) and approved message templates |
-| Terms of service and privacy policy | The text new businesses accept at sign-up (the checkbox exists; there is no page to link yet) |
+| Terms of service and privacy policy | Lawyer review of the draft (terms, privacy policy, data processing terms) shared on 12 Nov; then the pages go live and the sign-up checkbox links to them |
 | Plans and prices | Plan names, limits and monthly prices for the SaaS offer (placeholders until then) |
 | Saleable 3D polish | A 3D artist for the barista and room models (SOW line) |

@@ -118,6 +118,25 @@ export interface DayClose {
   note: string | null;
 }
 
+export interface GstSums {
+  invoices: number;
+  taxablePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  totalPaise: number;
+}
+export interface GstSummary {
+  from: string;
+  to: string;
+  gstin: string | null;
+  legalName: string | null;
+  sac: string;
+  totals: GstSums;
+  byRate: Array<GstSums & { rateBps: number }>;
+  byCafe: Array<GstSums & { outlet: string }>;
+  documents: Array<{ series: string; outlet: string; first: string; last: string; issued: number; cancelled: number }>;
+}
+
 export interface SalesReport {
   from: string;
   to: string;
@@ -232,10 +251,15 @@ export const api = {
     setRecipe: (itemId: string, rows: Array<{ groupName?: string; optionName?: string; ingredientId: string; quantity: number }>) => send<unknown>("PUT", `/v1/admin/recipes/${itemId}`, { rows }),
     setLowStock: (b: { outletId: string; ingredientId: string; lowAt: number | null }) => send<unknown>("PUT", "/v1/admin/low-stock", b),
     lowStock: () => call<{ items: Array<{ outlet: string; ingredient: string; unit: Unit; onHand: number; lowAt: number | null; status: "LOW" | "OUT" }> }>("/v1/admin/low-stock"),
-    exportCsv: (kind: "orders" | "items" | "payments" | "closes" | "stock", q: { from: string; to: string; outletId?: string }) => {
+    exportCsv: (kind: "orders" | "items" | "payments" | "closes" | "stock" | "gst", q: { from: string; to: string; outletId?: string }) => {
       const p = new URLSearchParams({ from: q.from, to: q.to });
       if (q.outletId) p.set("outletId", q.outletId);
       return saveFile(`/v1/admin/exports/${kind}?${p}`, `brew-haven-${kind}-${q.from}-to-${q.to}.csv`);
+    },
+    gstSummary: (q: { from: string; to: string; outletId?: string }) => {
+      const p = new URLSearchParams({ from: q.from, to: q.to });
+      if (q.outletId) p.set("outletId", q.outletId);
+      return call<GstSummary>(`/v1/admin/gst-summary?${p}`);
     },
     stockReport: (q: { outletId: string; from: string; to: string }) =>
       call<{ from: string; to: string; rows: StockReportRow[] }>(`/v1/admin/stock-report?${new URLSearchParams(q)}`),
