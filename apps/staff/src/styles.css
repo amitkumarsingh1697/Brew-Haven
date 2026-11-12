@@ -1448,3 +1448,12 @@ a.btn {
 .pos-cart .offline-queue li { display: block; font-size: 0.9rem; padding: 0; border: 0; }
 .offline-queue .warn { color: var(--bh-warning); }
 .offline-queue .link-btn { color: var(--bh-roasted); }
+.speed-card { margin-top: 12px; overflow-x: auto; }
+.speed-card .speed-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.speed-card .speed-head label { display: flex; align-items: center; gap: 6px; }
+.speed-card .speed-head input { width: 64px; }
+.speed-card h4 { margin: 4px 0 0; }
+.speed-card caption { text-align: left; padding: 4px 0; }
+.speed-card .meter.over > span { background: var(--bh-danger, #b3261e); }
+.speed-card .hours li { grid-template-columns: 4em minmax(60px, 1fr) minmax(0, max-content); }
+.speed-card .hours li > span:last-child { white-space: nowrap; }

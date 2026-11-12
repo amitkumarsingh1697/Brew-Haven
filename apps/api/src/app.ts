@@ -62,6 +62,7 @@ import {
 import { listPaymentExceptions } from "./services/exceptions.js";
 import { exportCsv } from "./services/exports.js";
 import { gstSummary } from "./services/gst.js";
+import { kitchenSpeed } from "./services/kitchen-speed.js";
 import * as platform from "./services/platform.js";
 import { assertSignupOpen, signup } from "./services/signup.js";
 import { readiness } from "./services/health.js";
@@ -410,6 +411,9 @@ export async function buildApp(deps: AppDeps) {
   });
   app.get<{ Querystring: { from?: string; to?: string; outletId?: string } }>("/v1/admin/reports", async (req) => salesReport(deps.db, await staff(req), req.query));
   app.get<{ Querystring: { from?: string; to?: string; outletId?: string } }>("/v1/admin/gst-summary", async (req) => gstSummary(deps.db, await staff(req), { ...req.query, outletId: req.query.outletId || undefined }));
+  app.get<{ Querystring: { from?: string; to?: string; outletId?: string; targetMinutes?: string } }>("/v1/admin/kitchen-speed", async (req) =>
+    kitchenSpeed(deps.db, await staff(req), { ...req.query, outletId: req.query.outletId || undefined }),
+  );
   app.get("/v1/admin/notifications", async (req) => ({ provider: notifier.name, delivers: notifier.delivers, messages: await listNotifications(deps.db, await staff(req)) }));
   app.get<{ Querystring: { limit?: string; before?: string; outletId?: string } }>("/v1/admin/activity", async (req) =>
     audit.listActivity(deps.db, await staff(req), { limit: Number(req.query.limit) || undefined, before: Number(req.query.before) || undefined, outletId: req.query.outletId }),

@@ -137,6 +137,30 @@ export interface GstSummary {
   documents: Array<{ series: string; outlet: string; first: string; last: string; issued: number; cancelled: number }>;
 }
 
+export interface SpeedSpread {
+  medianSec: number | null;
+  p90Sec: number | null;
+}
+export interface SpeedView {
+  orders: number;
+  late: number;
+  latePct: number;
+  ticket: SpeedSpread;
+  waitToStart: SpeedSpread;
+  making: SpeedSpread;
+  waitForPickup: SpeedSpread;
+}
+export interface KitchenSpeed {
+  from: string;
+  to: string;
+  targetMinutes: number;
+  stillOpen: number;
+  totals: SpeedView;
+  byCafe: Array<SpeedView & { outletId: string; outlet: string }>;
+  byHour: Array<SpeedView & { hour: number }>;
+  slowest: Array<{ orderId: string; code: string; outlet: string; channel: string; placedAt: string; ticketSec: number; items: number; hadIssue: boolean }>;
+}
+
 export interface SalesReport {
   from: string;
   to: string;
@@ -277,6 +301,11 @@ export const api = {
       const p = new URLSearchParams({ from: q.from, to: q.to });
       if (q.outletId) p.set("outletId", q.outletId);
       return saveFile(`/v1/admin/exports/${kind}?${p}`, `brew-haven-${kind}-${q.from}-to-${q.to}.csv`);
+    },
+    kitchenSpeed: (q: { from: string; to: string; outletId?: string; targetMinutes: number }) => {
+      const p = new URLSearchParams({ from: q.from, to: q.to, targetMinutes: String(q.targetMinutes) });
+      if (q.outletId) p.set("outletId", q.outletId);
+      return call<KitchenSpeed>(`/v1/admin/kitchen-speed?${p}`);
     },
     gstSummary: (q: { from: string; to: string; outletId?: string }) => {
       const p = new URLSearchParams({ from: q.from, to: q.to });
