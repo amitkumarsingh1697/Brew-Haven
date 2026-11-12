@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 import type { AdminSetup, OutletWithStations } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
 import { InventoryAdmin } from "./Inventory";
-import { ApiError, CUSTOMER_URL, api, getTenant, type ActivityEntry, type AdminItem, type ItemInput, type GstSummary, type SalesReport } from "./api";
+import { ApiError, CUSTOMER_URL, api, getTenant, type ActivityEntry, type AdminItem, type ItemInput, type GstSummary, type KitchenSpeed, type SpeedSpread, type SalesReport } from "./api";
 
 /** Owner self-service (D-17): cafés, kitchens, menu, staff, settings and QR codes. */
 type Section = "reports" | "checks" | "inventory" | "cafes" | "menu" | "staff" | "settings" | "messages" | "activity";
@@ -1299,10 +1299,152 @@ function Reports({ setup }: { setup: AdminSetup }) {
               )}
             </article>
           </div>
+          <SpeedCard from={from} to={to} outletId={outletId} />
           <GstCard from={from} to={to} outletId={outletId} />
         </>
       )}
     </section>
+  );
+}
+
+const mins = (sec: number | null) => {
+  if (sec === null) return "–";
+  if (sec < 60) return `${sec} s`;
+  const m = Math.floor(sec / 60);
+  const r = sec % 60;
+  return r ? `${m} min ${r} s` : `${m} min`;
+};
+const speedText = (s: SpeedSpread) => (s.medianSec === null ? "–" : `${mins(s.medianSec)} (slowest 1 in 10: ${mins(s.p90Sec)})`);
+const TARGET_KEY = "bh:speed-target";
+
+/** How fast the kitchen turns orders round, and which orders ran late against the owner's target. */
+function SpeedCard({ from, to, outletId }: { from: string; to: string; outletId: string }) {
+  const [target, setTarget] = useState(() => {
+    try {
+      return Number(localStorage.getItem(TARGET_KEY)) || 10;
+    } catch {
+      return 10;
+    }
+  });
+  const [k, setK] = useState<KitchenSpeed | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    setError(null);
+    api.admin.kitchenSpeed({ from, to, outletId: outletId || undefined, targetMinutes: target }).then(
+      (r) => live && setK(r),
+      (e: ApiError) => live && setError(e.message),
+    );
+    return () => {
+      live = false;
+    };
+  }, [from, to, outletId, target]);
+  const saveTarget = (n: number) => {
+    if (!Number.isFinite(n) || n < 1 || n > 120) return;
+    setTarget(n);
+    try {
+      localStorage.setItem(TARGET_KEY, String(n));
+    } catch {
+      /* ignore */
+    }
+  };
+  const maxHour = Math.max(1, ...(k?.byHour.map((h) => h.ticket.medianSec ?? 0) ?? [1]));
+  return (
+    <article className="report-card wide speed-card">
+      <header className="speed-head">
+        <h3>Kitchen speed</h3>
+        <label className="small">
+          Late after
+          <input type="number" min={1} max={120} value={target} onChange={(e) => saveTarget(Number(e.target.value))} aria-label="Late after, minutes" />
+          minutes
+        </label>
+      </header>
+      {error && <p className="error">{error}</p>}
+      {!k && !error && <p className="muted">Loading…</p>}
+      {k && k.totals.orders === 0 && <p className="muted">No orders were marked ready in this period.</p>}
+      {k && k.totals.orders > 0 && (
+        <>
+          <div className="stat-tiles">
+            <Tile label="Paid to ready" value={mins(k.totals.ticket.medianSec)} sub={`typical; slowest 1 in 10: ${mins(k.totals.ticket.p90Sec)}`} />
+            <Tile label="Late" value={`${k.totals.late} of ${k.totals.orders}`} sub={`${k.totals.latePct}% over ${k.targetMinutes} min`} />
+            <Tile label="Waiting to start" value={mins(k.totals.waitToStart.medianSec)} sub="paid until the kitchen taps Start" />
+            <Tile label="Waiting for pickup" value={mins(k.totals.waitForPickup.medianSec)} sub="ready until handed over" />
+          </div>
+          <p className="muted small">
+            Typical is the middle order. Times run from payment, so a long wait to start usually means the kitchen was busy or the ticket was missed.
+            {k.stillOpen ? ` ${k.stillOpen} order${k.stillOpen === 1 ? " is" : "s are"} not ready yet and aren't counted.` : ""}
+          </p>
+          {k.byCafe.length > 1 && (
+            <table className="items-table compact">
+              <thead>
+                <tr>
+                  <th>Café</th>
+                  <th className="num">Orders</th>
+                  <th>Paid to ready</th>
+                  <th>Making</th>
+                  <th className="num">Late</th>
+                </tr>
+              </thead>
+              <tbody>
+                {k.byCafe.map((c) => (
+                  <tr key={c.outletId}>
+                    <td>{c.outlet}</td>
+                    <td className="num">{c.orders}</td>
+                    <td>{speedText(c.ticket)}</td>
+                    <td>{mins(c.making.medianSec)}</td>
+                    <td className="num">{c.orders ? `${c.late} (${c.latePct}%)` : "–"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <h4 className="small">Typical paid-to-ready time by hour</h4>
+          <ul className="hours">
+            {k.byHour.map((h) => (
+              <li key={h.hour}>
+                <span>{hourLabel(h.hour)}</span>
+                <span className={`meter${(h.ticket.medianSec ?? 0) > k.targetMinutes * 60 ? " over" : ""}`} aria-hidden>
+                  <span style={{ width: `${((h.ticket.medianSec ?? 0) / maxHour) * 100}%` }} />
+                </span>
+                <span className="muted">
+                  {mins(h.ticket.medianSec)} · {h.orders} order{h.orders === 1 ? "" : "s"}
+                  {h.late ? `, ${h.late} late` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {k.slowest.length > 0 && (
+            <table className="items-table compact">
+              <caption className="muted small">Slowest late orders</caption>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Café</th>
+                  <th>Paid at</th>
+                  <th className="num">Items</th>
+                  <th>Paid to ready</th>
+                </tr>
+              </thead>
+              <tbody>
+                {k.slowest.map((o) => (
+                  <tr key={o.orderId}>
+                    <td>
+                      {o.code}
+                      {o.channel === "COUNTER" ? " · counter" : ""}
+                      {o.hadIssue && <span className="muted small"> · item unavailable</span>}
+                    </td>
+                    <td>{o.outlet}</td>
+                    <td className="nowrap">{new Date(o.placedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })}</td>
+                    <td className="num">{o.items}</td>
+                    <td className="warn">{mins(o.ticketSec)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
+    </article>
   );
 }
 
