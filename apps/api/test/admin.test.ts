@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { AdminSetup, MenuResponse, OrderView, OutletWithStations, StaffSession } from "@brew-haven/contracts";
 import { setup, teardown, type TestEnv } from "./helpers.js";
+import { eq } from "drizzle-orm";
+import { tenants } from "../src/db/schema.js";
 
 let env: TestEnv;
 beforeAll(async () => {
@@ -137,6 +139,16 @@ describe("owner self-service (D-17)", () => {
     const menu = (await env.app.inject({ method: "GET", url: "/v1/cafes/400-coffee/tower-a/menu" })).json() as MenuResponse;
     expect(menu.tenant.branding.managerName).toBe("Meera");
     expect(menu.tenant.branding.greeting).toBe("Hi there! Ready for a coffee?");
+  });
+
+  it("gives customers the filmed barista when one is set, and keeps it when the owner saves settings", async () => {
+    const menuOf = async () => ((await env.app.inject({ method: "GET", url: "/v1/cafes/400-coffee/tower-a/menu" })).json() as MenuResponse).tenant.branding;
+    expect((await menuOf()).baristaVideo).toBeNull();
+    const [t] = await env.db.select().from(tenants).where(eq(tenants.slug, "400-coffee"));
+    await env.db.update(tenants).set({ branding: { ...(t!.branding as object), baristaVideo: { idle: "/baristas/400-coffee/idle.mp4", wave: "/baristas/400-coffee/wave.mp4" } } }).where(eq(tenants.id, t!.id));
+    expect((await menuOf()).baristaVideo).toEqual({ idle: "/baristas/400-coffee/idle.mp4", wave: "/baristas/400-coffee/wave.mp4" });
+    await call("PUT", "/v1/admin/settings", env.admin, { displayName: "400 Coffee Cafe", tagline: "Fresh every morning", greeting: "Hello!", managerName: "Meera", taxRateBps: 500 });
+    expect((await menuOf()).baristaVideo?.idle).toBe("/baristas/400-coffee/idle.mp4");
   });
 
   it("keeps the last kitchen of a café", async () => {

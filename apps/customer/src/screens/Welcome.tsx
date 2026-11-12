@@ -40,7 +40,7 @@ export function Welcome({ tenant, outlet }: { tenant: string; outlet: string }) 
       </header>
 
       <div className="scene-wrap">
-        <CafeScene cafeName={b.displayName} managerName={manager} favourites={favourites} />
+        <CafeScene cafeName={b.displayName} managerName={manager} favourites={favourites} baristaVideo={b.baristaVideo ?? null} />
         <div className="bubble" role="status">
           <strong>{manager}</strong>
           <span>{b.greeting ?? "Welcome in! What can I get you?"}</span>

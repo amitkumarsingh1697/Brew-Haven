@@ -63,7 +63,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 |---|---|
 | Plan prices (Starter ₹999, Growth ₹1,999, Multi-café ₹3,999 a month; a year for ten months), a 30-day free trial at sign-up, billing status for the owner, and payments recorded by the team. See PLANS.md | Merged (#29) |
 | WhatsApp Cloud API made ready to switch on: templates reworded to pass Meta's rules, a script that submits them for approval and shows their status, signed delivery updates (Delivered, Read, Not delivered) in the owner's message log, and no pointless retries for numbers not on WhatsApp. See WHATSAPP_SETUP.md | Merged (#30) |
-| 3D café polish without an artist: limewashed plaster wall and a tiled band behind the counter, warm pools of lamplight on the counter, dust drifting in the light (still with reduced motion), a rim light on the barista and a soft vignette. 82 draw calls, inside the 100 budget. See ADR-0003 | In review |
+| 3D café polish without an artist: limewashed plaster wall and a tiled band behind the counter, warm pools of lamplight on the counter, dust drifting in the light (still with reduced motion), a rim light on the barista and a soft vignette. 82 draw calls, inside the 100 budget. See ADR-0003 | Merged (#31) |
+| Filmed barista: the café's own barista on video behind the 3D counter, green screen removed in the browser, wave on tap, drawn barista as fallback. Filming guide, clip tool and switch command. See BARISTA_VIDEO.md | In review |
 
 ## Waiting on Amit
 
@@ -73,4 +74,4 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Live payments | The café owner's choice of gateway and merchant KYC (Razorpay adapter is ready) |
 | Real WhatsApp messages | Steps 1 to 5 of WHATSAPP_SETUP.md: Meta Business verification, a WhatsApp number, a payment method and a system-user token. We do the rest |
 | Terms of service and privacy policy | Lawyer review of the draft shared on 12 Nov. The pages are live with a "Draft" notice; once approved, update `docs/legal` and build with `VITE_LEGAL_FINAL=true` |
-| Saleable 3D polish | Optional now: a 3D artist only if the procedural barista and room should be replaced with modelled ones (SOW line) |
+| Filmed barista | Film the café's barista (with their written consent) following BARISTA_VIDEO.md and share the original files |

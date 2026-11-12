@@ -66,6 +66,7 @@ export async function getMenu(db: Db, tenantSlug: string, outletSlug: string): P
         primaryColor: b.primaryColor,
         accentColor: b.accentColor,
         logoUrl: b.logoUrl ?? null,
+        baristaVideo: (b.baristaVideo as { idle: string; wave?: string; keyColor?: string } | undefined) ?? null,
       },
     },
     outlet: { id: outlet.id, slug: outlet.slug, name: outlet.name, isOpen: outlet.isOpen },

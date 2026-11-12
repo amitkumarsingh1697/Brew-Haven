@@ -12,6 +12,7 @@
     "plan": "tsx src/scripts/set-plan.ts",
     "platform-admin": "tsx src/scripts/platform-admin.ts",
     "whatsapp-templates": "tsx src/scripts/whatsapp-templates.ts",
+    "barista-video": "tsx src/scripts/set-barista-video.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
