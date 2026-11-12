@@ -1408,3 +1408,19 @@ a.btn {
 .login-links .link-btn {
   color: var(--bh-roasted);
 }
+.add-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+  display: grid;
+  place-content: center;
+  gap: 6px;
+}
+.plan-card {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.plan-card ul {
+  margin: 0;
+  padding-left: 20px;
+}

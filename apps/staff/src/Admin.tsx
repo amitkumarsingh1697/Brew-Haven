@@ -131,7 +131,12 @@ export function Admin({ onOutletsChanged }: { onOutletsChanged: () => void }) {
       {section === "cafes" && <Cafes setup={setup} act={act} onOutletsChanged={onOutletsChanged} />}
       {section === "menu" && <MenuAdmin setup={setup} act={act} />}
       {section === "staff" && <StaffAdmin setup={setup} act={act} />}
-      {section === "settings" && <Settings setup={setup} act={act} />}
+      {section === "settings" && (
+        <>
+          <PlanCard plan={setup.tenant.plan} />
+          <Settings setup={setup} act={act} />
+        </>
+      )}
       {section === "messages" && <Messages />}
       {section === "activity" && <Activity setup={setup} />}
     </div>
@@ -166,8 +171,9 @@ function Cafes({ setup, act, onOutletsChanged }: { setup: AdminSetup; act: Act; 
           }}
         />
       ) : (
-        <button className="add-card" onClick={() => setAdding(true)}>
+        <button className="add-card" onClick={() => setAdding(true)} disabled={atLimit(setup.tenant.plan.maxCafes, setup.tenant.plan.cafes)}>
           <span>+</span> Add a new café
+          {atLimit(setup.tenant.plan.maxCafes, setup.tenant.plan.cafes) && <small className="muted">Your {setup.tenant.plan.name} plan includes {setup.tenant.plan.maxCafes === 1 ? "1 café" : `${setup.tenant.plan.maxCafes} cafés`}</small>}
         </button>
       )}
       {qr && <QrPoster outlet={qr} cafeName={setup.tenant.branding.displayName} onClose={() => setQr(null)} />}
@@ -781,6 +787,26 @@ function StaffAdmin({ setup, act }: { setup: AdminSetup; act: Act }) {
 }
 
 // ---------- Settings ----------
+
+const atLimit = (max: number | null, used: number) => max !== null && used >= max;
+
+function PlanCard({ plan }: { plan: AdminSetup["tenant"]["plan"] }) {
+  const line = (label: string, used: number, max: number | null) => (
+    <li>
+      {label}: <strong>{used}</strong> {max === null ? "(no limit)" : `of ${max}`}
+    </li>
+  );
+  return (
+    <section className="panel plan-card" aria-labelledby="plan-h">
+      <h2 id="plan-h">Your plan: {plan.name}</h2>
+      <ul>
+        {line("Cafés", plan.cafes, plan.maxCafes)}
+        {line("Active team members, you included", plan.staff, plan.maxStaff)}
+      </ul>
+      {(plan.maxCafes !== null || plan.maxStaff !== null) && <p className="muted small">Need more? Contact us to move to a bigger plan.</p>}
+    </section>
+  );
+}
 
 function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
   const b = setup.tenant.branding;

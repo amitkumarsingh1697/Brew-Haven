@@ -71,6 +71,8 @@ export async function seedDemo(db: Db) {
         name: "400 Coffee Cafe",
         taxRateBps: 500,
         demoData: true,
+        // The pilot client has three cafés, so it isn't held to Starter limits.
+        plan: "multi",
         branding: {
           displayName: "400 Coffee Cafe",
           tagline: "Sanctuary for coffee lovers",
