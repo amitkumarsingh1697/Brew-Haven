@@ -23,6 +23,11 @@ customers can order.
 - **Low-stock levels** are set per café by the owner. The owner's "Running low" list shows anything
   at or below its level, or out, at any café.
 
+**Stock report** (Setup → Inventory, owner): for one café and a date range in India time, each
+ingredient's opening stock, received, used by sales, wasted, count difference and closing. The count
+difference is the variance: stock that went missing (minus) or turned up (plus) beyond what the
+recipes and recorded waste explain, also shown as a share of what sales used. It downloads as CSV.
+
 Every delivery, waste entry, count, recipe change and low-stock level is in the Activity log.
 
 ## Not yet
@@ -30,7 +35,7 @@ Every delivery, waste entry, count, recipe change and low-stock level is in the 
 - Cancelled or refunded orders don't put ingredients back (the drink was usually made). Correct with
   a shelf count.
 - Ingredient stock doesn't mark menu items sold out automatically; staff still use the item switch.
-- Wastage and variance reports, purchase orders and supplier lists are later backlog items.
+- Purchase orders and supplier lists are later backlog items.
 
 ## API
 
@@ -42,3 +47,4 @@ Every delivery, waste entry, count, recipe change and low-stock level is in the 
 | `POST /v1/admin/ingredients`, `PATCH /v1/admin/ingredients/:id` | Owner |
 | `GET /v1/admin/recipes`, `PUT /v1/admin/recipes/:itemId` | Owner |
 | `PUT /v1/admin/low-stock`, `GET /v1/admin/low-stock` | Owner |
+| `GET /v1/admin/stock-report?outletId&from&to` | Owner |

@@ -380,6 +380,7 @@ export async function buildApp(deps: AppDeps) {
   app.put<{ Params: { itemId: string } }>("/v1/admin/recipes/:itemId", async (req) => inventory.setRecipe(deps.db, await staff(req), req.params.itemId, parse(RecipeInput, req.body)));
   app.put("/v1/admin/low-stock", async (req) => inventory.setLowStock(deps.db, await staff(req), parse(LowStockInput, req.body)));
   app.get("/v1/admin/low-stock", async (req) => ({ items: await inventory.lowStockAcrossCafes(deps.db, await staff(req)) }));
+  app.get<{ Querystring: { outletId?: string; from?: string; to?: string } }>("/v1/admin/stock-report", async (req) => inventory.stockReport(deps.db, await staff(req), req.query));
   app.put("/v1/admin/settings", async (req) => admin.updateSettings(deps.db, await staff(req), parse(AdminSettingsRequest, req.body)));
   app.post("/v1/admin/outlets", async (req, reply) => reply.status(201).send(await admin.createOutlet(deps.db, await staff(req), parse(CreateOutletRequest, req.body))));
   app.patch<IdParams>("/v1/admin/outlets/:id", async (req) => admin.updateOutlet(deps.db, await staff(req), req.params.id, parse(UpdateOutletRequest, req.body)));

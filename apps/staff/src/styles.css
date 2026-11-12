@@ -1206,10 +1206,10 @@ a.btn {
 .meter > span { display: block; height: 100%; background: var(--bh-leaf); }
 .items-table.compact td, .items-table.compact th { padding: 6px 8px; }
 .reports .items-head { flex-wrap: wrap; gap: 10px; }
-.reports .report-controls { flex: 1 1 auto; justify-content: flex-end; }
+.reports .report-controls, .inventory-admin .report-controls { flex: 1 1 auto; justify-content: flex-end; }
 .reports .report-controls select { width: auto; }
-.reports .date-range { display: inline-flex; grid-template-columns: none; }
-.panel.reports .date-range input { width: auto; }
+.reports .date-range, .inventory-admin .date-range { display: inline-flex; grid-template-columns: none; }
+.panel.reports .date-range input, .inventory-admin .date-range input { width: auto; }
 .report-card td:first-child { white-space: nowrap; }
 .report-card .table-wrap, .report-card table { max-width: 100%; }
 .report-card:has(table) { overflow-x: auto; }
@@ -1316,4 +1316,8 @@ a.btn {
 .inventory-admin .inline-add input {
   flex: 1 1 240px;
   min-height: 44px;
+}
+.items-table td.short {
+  color: var(--bh-danger);
+  font-weight: 600;
 }
