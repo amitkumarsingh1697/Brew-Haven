@@ -223,6 +223,13 @@ export const WalkInOrderRequest = QuoteRequest.extend({
   customer: z.object({ name: z.string().trim().max(60).optional(), phone: IndianMobile.optional() }).optional(),
   /** Optional for UPI at the counter; when given it must be new, so one payment can't be used twice. */
   upiReference: UpiReference.optional(),
+  /**
+   * Set by the till for every counter order, so sending it twice (a retry, or a queue sent after
+   * the connection came back) never makes two orders.
+   */
+  clientRef: z.string().uuid().optional(),
+  /** When the order was taken, if the till saved it while offline and is sending it now. */
+  takenOfflineAt: z.string().datetime().optional(),
 }).refine((b) => !b.upiReference || b.method === "UPI_COUNTER", { message: "A UPI reference only goes with a UPI payment", path: ["upiReference"] });
 export const StockUpdateRequest = z.object({
   outletId: Id,

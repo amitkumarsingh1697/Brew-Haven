@@ -45,7 +45,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 |---|---|
 | GST summary in Reports (by rate, by café, invoice numbers issued and cancelled) and a GST invoices CSV for the accountant. See EXPORTS.md | Merged (#21) |
 | Brew Haven team view at `/platform`: every business with plan, cafés, team, 30-day orders and sales and last order (totals only); change plan, pause or resume, each recorded in the business's own activity log. Separate email-and-password sign-in. See PLATFORM.md | Merged (#22) |
-| Kitchen speed in Reports: paid-to-ready, waiting to start, making and waiting for pickup (typical and slowest 1 in 10), late orders against the owner's target, by café and by hour, slowest late orders. See KITCHEN_SPEED.md | In review |
+| Kitchen speed in Reports: paid-to-ready, waiting to start, making and waiting for pickup (typical and slowest 1 in 10), late orders against the owner's target, by café and by hour, slowest late orders. See KITCHEN_SPEED.md | Merged (#23) |
+| Counter orders keep working offline: the till keeps the last menu, saves orders it can't send as OFF-1, OFF-2… and sends them when the connection is back, never twice; price changes and refusals are shown to the cashier. See OFFLINE.md | In review |
 
 ## Waiting on Amit
 

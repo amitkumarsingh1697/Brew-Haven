@@ -229,7 +229,7 @@ export const api = {
   action: (id: string, action: "START" | "MARK_READY" | "HAND_OVER") => post<OrderView>(`/v1/staff/orders/${id}/actions`, { action }),
   reject: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/reject`, { reason }),
   flag: (id: string, lineIds: string[], note: string) => post<OrderView>(`/v1/staff/orders/${id}/flag-unavailable`, { lineIds, note: note || undefined, markSoldOut: true }),
-  walkIn: (body: { outletId: string; method: "CASH" | "UPI_COUNTER" | "CARD_COUNTER"; lines: Array<{ itemId: string; quantity: number; modifierIds: string[] }>; customer?: { name?: string }; upiReference?: string }) =>
+  walkIn: (body: { outletId: string; method: "CASH" | "UPI_COUNTER" | "CARD_COUNTER"; lines: Array<{ itemId: string; quantity: number; modifierIds: string[] }>; customer?: { name?: string }; upiReference?: string; clientRef?: string; takenOfflineAt?: string }) =>
     post<OrderView>("/v1/staff/orders/walk-in", body),
   stock: (outletId: string) => call<StockRow[]>(`/v1/staff/stock?outletId=${outletId}`),
   setStock: (body: { outletId: string; itemId: string; available: boolean; stockCount?: number | null }) => call<StockRow>("/v1/staff/stock", { method: "PUT", body: JSON.stringify(body) }),
@@ -241,7 +241,29 @@ export const api = {
   closeInfo: (outletId: string) => call<{ summary: DaySummary; cash: { takenPaise: number; refundedPaise: number }; close: DayClose | null }>(`/v1/staff/close?outletId=${outletId}`),
   closeDay: (b: { outletId: string; openingFloatPaise: number; countedCashPaise: number; note?: string }) => post<DayClose>("/v1/staff/close", b),
   summary: (outletId: string) => call<DaySummary>(`/v1/staff/summary?outletId=${outletId}`),
-  menu: (outletSlug: string) => call<MenuResponse>(`/v1/cafes/${getTenant()}/${outletSlug}/menu`),
+  /** The menu, kept on this device too so the till can still take counter orders offline. */
+  menu: async (outletSlug: string) => {
+    const k = `bh:menu:${getTenant()}:${outletSlug}`;
+    try {
+      const m = await call<MenuResponse>(`/v1/cafes/${getTenant()}/${outletSlug}/menu`);
+      try {
+        localStorage.setItem(k, JSON.stringify(m));
+      } catch {
+        /* ignore */
+      }
+      return m;
+    } catch (e) {
+      if ((e as ApiError).status !== 0) throw e;
+      let saved: MenuResponse | null = null;
+      try {
+        saved = JSON.parse(localStorage.getItem(k) ?? "null");
+      } catch {
+        /* ignore */
+      }
+      if (!saved) throw e;
+      return saved;
+    }
+  },
   signupOpen: () => call<{ open: boolean }>("/v1/signup"),
   signup: (b: SignupRequest) => post<{ tenantSlug: string; outletSlug: string; session: StaffSession }>("/v1/signup", b),
   outlets: () => call<OutletWithStations[]>("/v1/staff/outlets"),
