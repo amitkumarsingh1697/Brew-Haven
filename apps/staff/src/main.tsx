@@ -6,6 +6,7 @@ import "@brew-haven/ui-tokens/tokens.css";
 import "./styles.css";
 import { api, setSessionToken } from "./api";
 import { useLiveOrders } from "./live";
+import { useCounterQueueSync } from "./counterQueue";
 import { Admin } from "./Admin";
 import { Login } from "./Login";
 import { Platform } from "./Platform";
@@ -124,6 +125,7 @@ function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () 
     api.menu(outlet.slug).then(setMenu).catch(() => undefined);
   }, [outlet.slug, tab]);
 
+  useCounterQueueSync(live.upsert);
   const waiting = live.orders.filter((o) => o.state === "PLACED").length;
 
   return (
@@ -180,7 +182,7 @@ function OfflineBanner() {
   if (useOnline()) return null;
   return (
     <p className="offline-banner" role="alert">
-      No internet connection. New orders won't show up until it's back, and changes can't be saved.
+      No internet connection. New orders won't show up until it's back. Counter orders are saved on this till and sent when it returns.
     </p>
   );
 }

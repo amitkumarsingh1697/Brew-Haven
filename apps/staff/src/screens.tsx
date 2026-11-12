@@ -6,6 +6,7 @@ import { IngredientStockPanel } from "./Inventory";
 import { ApiError, api, type DayClose, type StockRow } from "./api";
 import { ReceiptModal } from "./ReceiptModal";
 import { OrderCard } from "./OrderCard";
+import { discard, dismissNote, enqueue, isOffline, newClientRef, retry, useCounterQueue } from "./counterQueue";
 
 type Live = { orders: OrderView[]; upsert: (o: OrderView) => void };
 
@@ -123,21 +124,33 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
   const charge = async (method: "CASH" | "UPI_COUNTER" | "CARD_COUNTER") => {
     setBusy(true);
     setMsg(null);
-    try {
-      const o = await api.walkIn({
-        outletId,
-        method,
-        lines: lines.map((l) => ({ itemId: l.item.id, quantity: l.quantity, modifierIds: l.modifierIds })),
-        ...(name.trim() ? { customer: { name: name.trim() } } : {}),
-        ...(method === "UPI_COUNTER" && utr ? { upiReference: utr } : {}),
-      });
-      onCreated(o);
+    const body = {
+      outletId,
+      method,
+      lines: lines.map((l) => ({ itemId: l.item.id, quantity: l.quantity, modifierIds: l.modifierIds })),
+      ...(name.trim() ? { customer: { name: name.trim() } } : {}),
+      ...(method === "UPI_COUNTER" && utr ? { upiReference: utr } : {}),
+    };
+    const clientRef = newClientRef();
+    const clear = () => {
       setLines([]);
       setName("");
       setUtr("");
+    };
+    try {
+      const o = await api.walkIn({ ...body, clientRef });
+      onCreated(o);
+      clear();
       setMsg({ kind: "ok", text: `Order ${o.pickupCode} sent to the kitchen · ${formatInr(o.paidPaise)} recorded`, orderId: o.id });
     } catch (e) {
-      setMsg({ kind: "err", text: (e as ApiError).message });
+      if (isOffline(e)) {
+        const summary = lines.map((l) => `${l.quantity}× ${l.item.name}${l.label ? ` (${l.label})` : ""}`).join(", ");
+        const q = enqueue({ clientRef, outletName: menu.outlet.name, body, totalPaise: total, summary });
+        clear();
+        setMsg({ kind: "ok", text: `No connection. Saved as ${q.ticket} (${formatInr(total)}). Tell the kitchen: ${summary}. It will be sent as soon as the connection is back.` });
+      } else {
+        setMsg({ kind: "err", text: (e as ApiError).message });
+      }
     } finally {
       setBusy(false);
     }
@@ -209,9 +222,10 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
             Card
           </button>
         </div>
-        <p className="muted small">Take the payment first, then tap how the customer paid.</p>
+        <p className="muted small">Take the payment first, then tap how the customer paid. With no connection, the order is saved on this till and sent later.</p>
+        <OfflineQueue onPrint={setPrinting} />
         {msg && (
-          <p className={msg.kind === "ok" ? "ok" : "error"}>
+          <p className={msg.kind === "ok" ? "ok" : "error"} role="status">
             {msg.text}
             {msg.orderId && (
               <>
@@ -227,6 +241,65 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
       {printing && <ReceiptModal orderId={printing} autoPrint onClose={() => setPrinting(null)} />}
       {picking && <ModifierPicker item={picking} onClose={() => setPicking(null)} onAdd={(ids) => (add(picking, ids), setPicking(null))} />}
     </div>
+  );
+}
+
+/** Counter orders saved while offline: waiting, failed (with what to do), and what they became once sent. */
+function OfflineQueue({ onPrint }: { onPrint: (orderId: string) => void }) {
+  const { queue, sent } = useCounterQueue();
+  if (!queue.length && !sent.length) return null;
+  return (
+    <section className="offline-queue" aria-label="Orders saved offline">
+      {queue.length > 0 && (
+        <>
+          <h3 className="small">Saved offline, not sent yet ({queue.length})</h3>
+          <ul>
+            {queue.map((q) => (
+              <li key={q.clientRef} className={q.status === "failed" ? "failed" : undefined}>
+                <strong>{q.ticket}</strong> {formatInr(q.totalPaise)} · {q.summary}
+                {q.status === "failed" ? (
+                  <div className="error small">
+                    Not accepted: {q.error}{" "}
+                    <button className="link-btn" onClick={() => retry(q.clientRef)}>
+                      Try again
+                    </button>{" "}
+                    <button className="link-btn" onClick={() => window.confirm(`Remove ${q.ticket}? Only do this if you've refunded the customer or entered it again.`) && discard(q.clientRef)}>
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <span className="muted small"> · waiting for connection</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {sent.length > 0 && (
+        <>
+          <h3 className="small">Sent after being offline</h3>
+          <ul>
+            {sent.map((s) => (
+              <li key={s.clientRef}>
+                {s.ticket} is order <strong>{s.pickupCode}</strong>
+                {s.recordedPaise !== undefined && (
+                  <span className="warn small">
+                    {" "}
+                    · price changed: you took {formatInr(s.takenPaise ?? 0)}, recorded {formatInr(s.recordedPaise)}. Check the drawer.
+                  </span>
+                )}{" "}
+                <button className="link-btn" onClick={() => onPrint(s.orderId)}>
+                  Receipt
+                </button>{" "}
+                <button className="link-btn" onClick={() => dismissNote(s.clientRef)} aria-label={`Dismiss ${s.ticket}`}>
+                  Dismiss
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }
 

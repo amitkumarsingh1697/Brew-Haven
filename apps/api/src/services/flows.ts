@@ -295,7 +295,22 @@ export async function createWalkInOrder(ctx: Ctx, staff: StaffClaims, body: z.ou
   if (!outlet) throw notFound("Café outlet");
   const [tenant] = await ctx.db.select().from(tenants).where(eq(tenants.id, staff.tenantId));
   if (tenant!.suspendedAt) throw new AppError("FORBIDDEN", "This account is paused, so new orders can't be taken. Contact Brew Haven support.");
-  const lines = await resolveLines(ctx.db, tenant!.id, outlet.id, body.lines, { requireAvailable: true });
+  const idempotencyKey = body.clientRef ? `counter:${body.clientRef}` : null;
+  const already = async () => {
+    if (!idempotencyKey) return null;
+    const [o] = await ctx.db.select({ id: orders.id }).from(orders).where(and(eq(orders.tenantId, tenant!.id), eq(orders.idempotencyKey, idempotencyKey)));
+    return o ? ctx.db.transaction((tx) => orderView(tx, o.id)) : null;
+  };
+  const prior = await already();
+  if (prior) return prior;
+  // An order taken while offline was already paid for, so an item that sold out since still goes through.
+  let takenAt = new Date();
+  if (body.takenOfflineAt) {
+    const t = new Date(body.takenOfflineAt);
+    if (t.getTime() > Date.now() + 5 * 60_000 || t.getTime() < Date.now() - 24 * 3_600_000) throw new AppError("VALIDATION", "This offline order is more than a day old. Enter it again as a new order if it was really sold.");
+    takenAt = t;
+  }
+  const lines = await resolveLines(ctx.db, tenant!.id, outlet.id, body.lines, { requireAvailable: !body.takenOfflineAt });
   const q = quote(lines, tenant!.taxRateBps);
   return withTx(ctx.db, async (tx, after) => {
     if (body.upiReference) await assertNewUpiReference(tx, tenant!.id, body.upiReference);
@@ -323,6 +338,7 @@ export async function createWalkInOrder(ctx: Ctx, staff: StaffClaims, body: z.ou
         taxRateBps: q.taxRateBps,
         trackingToken: newTrackingToken(),
         createdByStaffId: staff.sub,
+        idempotencyKey,
       })
       .returning();
     await insertLines(tx, order!, lines);
@@ -336,7 +352,7 @@ export async function createWalkInOrder(ctx: Ctx, staff: StaffClaims, body: z.ou
         ...(body.upiReference ? { provider: "upi_counter", providerPaymentId: body.upiReference } : {}),
         amountPaise: q.totalPaise,
         status: "CAPTURED",
-        capturedAt: new Date(),
+        capturedAt: takenAt,
         recordedByStaffId: staff.sub,
       })
       .catch((e: unknown) => {
@@ -345,10 +361,24 @@ export async function createWalkInOrder(ctx: Ctx, staff: StaffClaims, body: z.ou
         if ((err.code ?? err.cause?.code) === "23505") throw new AppError("CONFLICT", "This UPI reference was just used for another order. Check the customer's payment screen.");
         throw e;
       });
-    await tx.insert(orderEvents).values({ tenantId: tenant!.id, orderId: order!.id, action: "CREATE", fromState: null, toState: "AWAITING_PAYMENT", actor: staff.role, actorId: staff.sub });
+    await tx.insert(orderEvents).values({
+      tenantId: tenant!.id,
+      orderId: order!.id,
+      action: "CREATE",
+      fromState: null,
+      toState: "AWAITING_PAYMENT",
+      actor: staff.role,
+      actorId: staff.sub,
+      reason: body.takenOfflineAt ? `Taken while the till was offline, at ${takenAt.toISOString()}` : null,
+    });
     // The cashier has taken the money, so the system records the payment as verified.
     await placeOrder(tx, after, ctx.bus, order!, "PAYMENT_VERIFIED", "SYSTEM", staff.sub);
     return orderView(tx, order!.id);
+  }).catch(async (e: unknown) => {
+    // The same queued order sent twice at once: the second finds the first.
+    const again = await already();
+    if (again) return again;
+    throw e;
   });
 }
 

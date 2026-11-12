@@ -1442,3 +1442,9 @@ a.btn {
 .platform-table .pill { font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #e3f1e5; color: #1f5130; }
 .platform-table .pill.warn { background: #fbe3d6; color: #7a2e0e; }
 .platform-table { min-width: 960px; }
+.offline-queue { border: 1px dashed var(--bh-warning); border-radius: var(--bh-radius-sm); padding: 8px 10px; display: grid; gap: 4px; }
+.offline-queue h3 { margin: 0; }
+.offline-queue ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.pos-cart .offline-queue li { display: block; font-size: 0.9rem; padding: 0; border: 0; }
+.offline-queue .warn { color: var(--bh-warning); }
+.offline-queue .link-btn { color: var(--bh-roasted); }
