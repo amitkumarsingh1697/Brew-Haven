@@ -38,6 +38,9 @@ describe("self-serve sign-up", () => {
     const setupView = (await env.app.inject({ method: "GET", url: "/v1/admin/setup", headers: auth })).json();
     expect(setupView.outlets.map((o: { name: string }) => o.name)).toEqual(["Koramangala"]);
     expect(setupView.outlets[0].pickupPrefix).toBe("K");
+    // A new business starts on Starter with a 30-day free trial.
+    expect(setupView.tenant.plan).toMatchObject({ id: "starter", monthlyPaise: 99_900, billing: { state: "trial" } });
+    expect(setupView.tenant.plan.billing.daysLeft).toBe(30);
     const users = (await env.app.inject({ method: "GET", url: "/v1/staff/blue-door-cafe/users" })).json();
     expect(users.users).toHaveLength(1);
     // The sign-up is in the activity log.

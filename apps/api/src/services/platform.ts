@@ -1,5 +1,5 @@
 import { and, count, eq, gte, inArray, max, sum } from "drizzle-orm";
-import { PLANS, type PlanId } from "@brew-haven/domain";
+import { PLANS, type PlanId, billingStatus, formatInr, planOf } from "@brew-haven/domain";
 import { type AttemptLimiter, type PlatformClaims, type PlatformTokens, verifyPin } from "../auth.js";
 import type { Db } from "../db/client.js";
 import { orders, outlets, platformAdmins, staffUsers, tenants } from "../db/schema.js";
@@ -55,6 +55,8 @@ export async function listBusinesses(db: Db) {
       name: t.name,
       plan: t.plan,
       planName: PLANS[t.plan as PlanId]?.name ?? t.plan,
+      monthlyPaise: planOf(t.plan).monthlyPaise,
+      billing: billingStatus({ trialEndsAt: t.trialEndsAt, paidUntil: t.paidUntil }),
       suspended: t.suspendedAt !== null,
       demo: t.demoData,
       createdAt: t.createdAt.toISOString(),
@@ -68,11 +70,15 @@ export async function listBusinesses(db: Db) {
   };
 }
 
+/** The end of a day in India, as a moment: a business paid "until 31 Dec" can use all of that day. */
+const endOfDayIst = (day: string) => new Date(`${day}T23:59:59.999+05:30`);
+const dayLabel = (day: string) => new Date(`${day}T12:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+
 /**
- * Changes a business's plan, or pauses or resumes it. The change is written to the business's own
+ * Changes a business's plan, records a payment or a trial change, or pauses or resumes it. The change is written to the business's own
  * activity log, so its owner can see what Brew Haven changed and when.
  */
-export async function updateBusiness(db: Db, who: PlatformClaims, id: string, body: { plan?: string | undefined; suspended?: boolean | undefined }, ip: string) {
+export async function updateBusiness(db: Db, who: PlatformClaims, id: string, body: { plan?: string | undefined; suspended?: boolean | undefined; paidUntil?: string | null | undefined; trialEndsOn?: string | null | undefined }, ip: string) {
   if (body.plan !== undefined && !(body.plan in PLANS)) throw new AppError("VALIDATION", "No such plan");
   const [t] = await db.select().from(tenants).where(eq(tenants.id, id));
   if (!t) throw notFound("Business");
@@ -82,6 +88,16 @@ export async function updateBusiness(db: Db, who: PlatformClaims, id: string, bo
     patch.plan = body.plan;
     notes.push(`Brew Haven moved the business to the ${PLANS[body.plan as PlanId].name} plan`);
   }
+  const notesBilling: string[] = [];
+  if (body.paidUntil !== undefined) {
+    patch.paidUntil = body.paidUntil === null ? null : endOfDayIst(body.paidUntil);
+    notesBilling.push(body.paidUntil === null ? "Brew Haven cleared the paid-until date" : `Brew Haven recorded a payment: paid until ${dayLabel(body.paidUntil)} (${planOf(patch.plan ?? t.plan).name}, ${formatInr(planOf(patch.plan ?? t.plan).monthlyPaise)} a month)`);
+  }
+  if (body.trialEndsOn !== undefined) {
+    patch.trialEndsAt = body.trialEndsOn === null ? null : endOfDayIst(body.trialEndsOn);
+    notesBilling.push(body.trialEndsOn === null ? "Brew Haven ended the free trial" : `Brew Haven set the free trial to end on ${dayLabel(body.trialEndsOn)}`);
+  }
+  notes.push(...notesBilling);
   if (body.suspended !== undefined && body.suspended !== (t.suspendedAt !== null)) {
     patch.suspendedAt = body.suspended ? new Date() : null;
     notes.push(body.suspended ? "Brew Haven paused the account: no new orders until it is resumed" : "Brew Haven resumed the account");
@@ -89,6 +105,6 @@ export async function updateBusiness(db: Db, who: PlatformClaims, id: string, bo
   if (!notes.length) return { id, changed: false };
   await db.update(tenants).set(patch).where(eq(tenants.id, id));
   for (const summary of notes)
-    await recordAudit(db, { tenantId: id, actorId: null, actorName: `Brew Haven (${who.name})`, action: summary.includes("plan") ? "platform.plan" : "platform.suspend", summary, ip });
+    await recordAudit(db, { tenantId: id, actorId: null, actorName: `Brew Haven (${who.name})`, action: notesBilling.includes(summary) ? "platform.billing" : summary.includes(" plan") ? "platform.plan" : "platform.suspend", summary, ip });
   return { id, changed: true };
 }

@@ -22,7 +22,7 @@ describe("plan limits", () => {
   it("a new business starts on Starter: one café, five active team members", async () => {
     const auth = await newBusiness();
     const setupView = (await env.app.inject({ method: "GET", url: "/v1/admin/setup", headers: auth })).json();
-    expect(setupView.tenant.plan).toEqual({ id: "starter", name: "Starter", maxCafes: 1, maxStaff: 5, cafes: 1, staff: 1 });
+    expect(setupView.tenant.plan).toMatchObject({ id: "starter", name: "Starter", maxCafes: 1, maxStaff: 5, cafes: 1, staff: 1 });
     const outletId = setupView.outlets[0].id;
 
     const second = await env.app.inject({ method: "POST", url: "/v1/admin/outlets", headers: auth, payload: { name: "Second", pickupPrefix: "S" } });

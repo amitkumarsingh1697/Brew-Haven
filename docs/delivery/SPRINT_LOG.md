@@ -55,7 +55,13 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Terms of service (with data processing terms) and privacy policy pages at `/legal/terms` and `/legal/privacy` on the customer app, marked as a draft until the lawyer signs off; linked from sign-up and checkout. Text in `docs/legal` | Merged (#25) |
 | Staff training guides for cashier, kitchen and owner (`docs/training`), opened from a Help button in the staff app; the owner can read all three to train staff | Merged (#26) |
 | Online ordering funnel in Reports: visits that opened, browsed, added, reached checkout and started paying, and paid orders, from anonymous visit steps with no personal data. See ANALYTICS.md | Merged (#27) |
-| Security review: dependency upgrades (drizzle-orm, zod) clearing `pnpm audit`, order links and tokens kept out of logs, PIN and team sign-in limits across addresses. See SECURITY_REVIEW.md | In review |
+| Security review: dependency upgrades (drizzle-orm, zod) clearing `pnpm audit`, order links and tokens kept out of logs, PIN and team sign-in limits across addresses. See SECURITY_REVIEW.md | Merged (#28) |
+
+## Sprint 7: plans, WhatsApp, 3D polish
+
+| Item | Status |
+|---|---|
+| Plan prices (Starter ₹999, Growth ₹1,999, Multi-café ₹3,999 a month; a year for ten months), a 30-day free trial at sign-up, billing status for the owner, and payments recorded by the team. See PLANS.md | In review |
 
 ## Waiting on Amit
 
@@ -63,7 +69,6 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 |---|---|
 | Deploy the demo (ADR-0002) | Cloudflare, Render and Neon accounts connected, or their API tokens shared securely |
 | Live payments | The café owner's choice of gateway and merchant KYC (Razorpay adapter is ready) |
-| Real WhatsApp messages | Choice of WhatsApp provider (BSP) and approved message templates |
+| Real WhatsApp messages | Meta Business verification and a WhatsApp number for the Cloud API, then template approval (Sprint 7) |
 | Terms of service and privacy policy | Lawyer review of the draft shared on 12 Nov. The pages are live with a "Draft" notice; once approved, update `docs/legal` and build with `VITE_LEGAL_FINAL=true` |
-| Plans and prices | Plan names, limits and monthly prices for the SaaS offer (placeholders until then) |
 | Saleable 3D polish | A 3D artist for the barista and room models (SOW line) |

@@ -36,6 +36,10 @@ export const tenants = pgTable("tenants", {
   plan: text("plan").notNull().default("starter"),
   /** Set when Brew Haven pauses the account (for example, unpaid): no new orders, data kept. */
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  /** End of the free trial, set at sign-up. Null for businesses that never had one (the pilot). */
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+  /** How far the business has paid, recorded by Brew Haven when a payment arrives. */
+  paidUntil: timestamp("paid_until", { withTimezone: true }),
   createdAt: createdAt(),
 });
 

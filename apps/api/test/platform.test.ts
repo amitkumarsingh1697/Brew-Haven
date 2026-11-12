@@ -66,4 +66,32 @@ describe("Brew Haven's own view of every business", () => {
     expect(s).toContain("Brew Haven paused the account: no new orders until it is resumed");
     expect(s).toContain("Brew Haven resumed the account");
   });
+
+  it("records a payment or a trial change, and the owner sees where they stand", async () => {
+    const list = (await env.app.inject({ method: "GET", url: "/v1/platform/businesses", headers: bearer(token) })).json().businesses as Array<Biz & { billing: { state: string }; monthlyPaise: number }>;
+    const pilot = list.find((b) => b.slug === "400-coffee")!;
+    expect(pilot.billing.state).toBe("not_billed");
+    expect(pilot.monthlyPaise).toBe(399_900);
+    const patch = (payload: object) => env.app.inject({ method: "PATCH", url: `/v1/platform/businesses/${pilot.id}`, headers: bearer(token), payload });
+    const setup = async () => (await env.app.inject({ method: "GET", url: "/v1/admin/setup", headers: bearer(env.admin.token) })).json().tenant.plan;
+
+    expect((await patch({ paidUntil: "31/12/2026" })).statusCode).toBe(400);
+    const future = new Date(Date.now() + 40 * 86_400_000).toISOString().slice(0, 10);
+    expect((await patch({ trialEndsOn: future })).statusCode).toBe(200);
+    expect((await setup()).billing).toMatchObject({ state: "trial" });
+
+    expect((await patch({ trialEndsOn: "2026-01-01" })).statusCode).toBe(200);
+    expect((await setup()).billing.state).toBe("trial_over");
+
+    expect((await patch({ paidUntil: future })).statusCode).toBe(200);
+    const paid = await setup();
+    expect(paid.billing.state).toBe("paid");
+    expect(paid.billing.until).toBe(new Date(`${future}T23:59:59.999+05:30`).toISOString());
+    expect(paid.monthlyPaise).toBe(399_900);
+
+    const log = (await env.app.inject({ method: "GET", url: "/v1/admin/activity", headers: bearer(env.admin.token) })).json() as { entries: Array<{ summary: string; action: string }> };
+    expect(log.entries.some((e) => e.action === "platform.billing" && e.summary.startsWith("Brew Haven recorded a payment: paid until"))).toBe(true);
+    await patch({ paidUntil: null, trialEndsOn: null });
+    expect((await setup()).billing.state).toBe("not_billed");
+  });
 });
