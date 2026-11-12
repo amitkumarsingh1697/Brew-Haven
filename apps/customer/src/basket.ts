@@ -1,3 +1,4 @@
+import { track } from "./track";
 import { useSyncExternalStore } from "react";
 import type { MenuItemDto } from "@brew-haven/contracts";
 
@@ -57,6 +58,7 @@ class BasketStore {
     this.listeners.forEach((l) => l());
   }
   add(item: MenuItemDto, modifierIds: string[], quantity: number, note?: string) {
+    track(this.storageKey.replace("bh:basket:", ""), "add");
     const options = item.modifierGroups.flatMap((g) => g.options).filter((o) => modifierIds.includes(o.id));
     const key = `${item.id}|${[...modifierIds].sort().join(",")}|${note ?? ""}`;
     const existing = this.lines.find((l) => l.key === key);

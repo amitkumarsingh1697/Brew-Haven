@@ -16,6 +16,7 @@
 | Staff | Name, role, cafés you work at, sign-in PIN (stored only as a one-way hash) | To let you sign in and record who did what |
 | Owners | Name, email, mobile, business name and address | To run the account, bill and support you |
 | Everyone | Activity log, IP address, device and browser details | Security, preventing fraud, and fixing faults |
+| Customers | Which ordering steps a visit reached (opened, menu, added, checkout, paying), under a random id kept only in that browser tab and not linked to you. Not collected if your browser asks not to be tracked | To show the café how many visits turn into orders |
 
 ## Messages
 Order updates by WhatsApp or SMS are sent only if you give your number for that order. Offers and marketing are sent only if you separately agree, and you can stop them at any time by replying STOP or asking the café.

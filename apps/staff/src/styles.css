@@ -1457,6 +1457,8 @@ a.btn {
 .speed-card .meter.over > span { background: var(--bh-danger, #b3261e); }
 .speed-card .hours li { grid-template-columns: 4em minmax(60px, 1fr) minmax(0, max-content); }
 .speed-card .hours li > span:last-child { white-space: nowrap; }
+.funnel-card { margin-top: 12px; }
+.funnel-card .funnel li { grid-template-columns: minmax(9em, 14em) 1fr auto; }
 .help-modal { max-width: 720px; width: 100%; max-height: 90dvh; overflow-y: auto; text-align: left; }
 .help-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; position: sticky; top: 0; background: inherit; padding-bottom: 8px; }
 .help-body { line-height: 1.5; }
