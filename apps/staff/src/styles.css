@@ -1457,3 +1457,10 @@ a.btn {
 .speed-card .meter.over > span { background: var(--bh-danger, #b3261e); }
 .speed-card .hours li { grid-template-columns: 4em minmax(60px, 1fr) minmax(0, max-content); }
 .speed-card .hours li > span:last-child { white-space: nowrap; }
+.help-modal { max-width: 720px; width: 100%; max-height: 90dvh; overflow-y: auto; text-align: left; }
+.help-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; position: sticky; top: 0; background: inherit; padding-bottom: 8px; }
+.help-body { line-height: 1.5; }
+.help-body h1 { font-size: 1.5rem; margin: 4px 0 8px; }
+.help-body h2 { font-size: 1.3rem; margin: 18px 0 4px; }
+.help-body ul, .help-body ol { padding-left: 20px; }
+.user .help-btn { margin-right: 4px; }

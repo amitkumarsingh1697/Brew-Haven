@@ -8,6 +8,7 @@ import { api, setSessionToken } from "./api";
 import { useLiveOrders } from "./live";
 import { useCounterQueueSync } from "./counterQueue";
 import { Admin } from "./Admin";
+import { HelpButton } from "./Help";
 import { Login } from "./Login";
 import { Platform } from "./Platform";
 import { Signup } from "./Signup";
@@ -149,6 +150,7 @@ function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () 
           {live.connected ? "Live" : "Reconnecting"}
         </span>
         <span className="user">
+          <HelpButton role={role} />
           {session.user.name}
           <button className="link-btn" onClick={onLogout}>
             Sign out
