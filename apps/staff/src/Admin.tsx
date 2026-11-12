@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 import type { AdminSetup, OutletWithStations } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
 import { InventoryAdmin } from "./Inventory";
-import { ApiError, CUSTOMER_URL, api, getTenant, type ActivityEntry, type AdminItem, type ItemInput, type SalesReport } from "./api";
+import { ApiError, CUSTOMER_URL, api, getTenant, type ActivityEntry, type AdminItem, type ItemInput, type GstSummary, type SalesReport } from "./api";
 
 /** Owner self-service (D-17): cafés, kitchens, menu, staff, settings and QR codes. */
 type Section = "reports" | "checks" | "inventory" | "cafes" | "menu" | "staff" | "settings" | "messages" | "activity";
@@ -1041,6 +1041,7 @@ const EXPORTS: Array<[ExportKind, string]> = [
   ["payments", "Payments & refunds"],
   ["closes", "Day closes"],
   ["stock", "Stock movements"],
+  ["gst", "GST invoices"],
 ];
 const daysAgo = (n: number) => istDate(new Date(Date.now() - n * 86_400_000));
 const shortDate = (iso: string) => new Date(`${iso}T00:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
@@ -1298,9 +1299,130 @@ function Reports({ setup }: { setup: AdminSetup }) {
               )}
             </article>
           </div>
+          <GstCard from={from} to={to} outletId={outletId} />
         </>
       )}
     </section>
+  );
+}
+
+/** GST for the return: sales by rate, by café, and the invoice numbers issued. */
+function GstCard({ from, to, outletId }: { from: string; to: string; outletId: string }) {
+  const [g, setG] = useState<GstSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    setError(null);
+    api.admin.gstSummary({ from, to, outletId: outletId || undefined }).then(
+      (r) => live && setG(r),
+      (e: ApiError) => live && setError(e.message),
+    );
+    return () => {
+      live = false;
+    };
+  }, [from, to, outletId]);
+  const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 ? 1 : 0)}%`;
+  return (
+    <article className="report-card wide gst-card">
+      <h3>GST summary</h3>
+      {error && <p className="error">{error}</p>}
+      {!g && !error && <p className="muted">Loading…</p>}
+      {g && (
+        <>
+          <p className="muted small">
+            {g.gstin ? `GSTIN ${g.gstin}${g.legalName ? `, ${g.legalName}` : ""}.` : "No GSTIN on file yet, so receipts are plain receipts. Add it in Café settings."} Restaurant service, SAC {g.sac}. All sales are within the state, so GST is split
+            equally into CGST and SGST. Values are after any items removed or swapped.
+          </p>
+          {g.totals.invoices === 0 ? (
+            <p className="muted">No invoices in this period.</p>
+          ) : (
+            <>
+              <table className="items-table compact">
+                <thead>
+                  <tr>
+                    <th>Rate</th>
+                    <th className="num">Invoices</th>
+                    <th className="num">Taxable value</th>
+                    <th className="num">CGST</th>
+                    <th className="num">SGST</th>
+                    <th className="num">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.byRate.map((r) => (
+                    <tr key={r.rateBps}>
+                      <td>{pct(r.rateBps)}</td>
+                      <td className="num">{r.invoices}</td>
+                      <td className="num">{formatInr(r.taxablePaise)}</td>
+                      <td className="num">{formatInr(r.cgstPaise)}</td>
+                      <td className="num">{formatInr(r.sgstPaise)}</td>
+                      <td className="num">{formatInr(r.totalPaise)}</td>
+                    </tr>
+                  ))}
+                  {g.byRate.length > 1 && (
+                    <tr className="total-row">
+                      <td>All rates</td>
+                      <td className="num">{g.totals.invoices}</td>
+                      <td className="num">{formatInr(g.totals.taxablePaise)}</td>
+                      <td className="num">{formatInr(g.totals.cgstPaise)}</td>
+                      <td className="num">{formatInr(g.totals.sgstPaise)}</td>
+                      <td className="num">{formatInr(g.totals.totalPaise)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              {g.byCafe.length > 1 && (
+                <table className="items-table compact">
+                  <thead>
+                    <tr>
+                      <th>Café</th>
+                      <th className="num">Invoices</th>
+                      <th className="num">Taxable value</th>
+                      <th className="num">GST</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.byCafe.map((c) => (
+                      <tr key={c.outlet}>
+                        <td>{c.outlet}</td>
+                        <td className="num">{c.invoices}</td>
+                        <td className="num">{formatInr(c.taxablePaise)}</td>
+                        <td className="num">{formatInr(c.cgstPaise + c.sgstPaise)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          )}
+          {g.documents.length > 0 && (
+            <table className="items-table compact">
+              <caption className="muted small">Invoice numbers issued</caption>
+              <thead>
+                <tr>
+                  <th>Café</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <th className="num">Issued</th>
+                  <th className="num">Cancelled</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.documents.map((d) => (
+                  <tr key={d.series}>
+                    <td>{d.outlet}</td>
+                    <td className="nowrap">{d.first}</td>
+                    <td className="nowrap">{d.last}</td>
+                    <td className="num">{d.issued}</td>
+                    <td className="num">{d.cancelled}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
+    </article>
   );
 }
 

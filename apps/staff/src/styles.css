@@ -1192,6 +1192,9 @@ a.btn {
 .report-card { border: 1px solid var(--bh-parchment); border-radius: var(--bh-radius-sm); padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
 .report-card.wide { grid-column: 1 / -1; }
 .panel.reports .report-card h3 { margin: 0; font-size: 1rem; }
+.gst-card { margin-top: 12px; overflow-x: auto; }
+.gst-card caption { text-align: left; padding: 4px 0; }
+.gst-card .total-row td { font-weight: 600; border-top: 1px solid var(--bh-parchment); }
 .bars { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-end; gap: 4px; height: 160px; overflow-x: auto; }
 .bars li { flex: 1 0 22px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
 .bars .bar { width: 100%; max-width: 40px; background: var(--bh-roasted); border-radius: 4px 4px 0 0; }

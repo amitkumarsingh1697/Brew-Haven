@@ -3,8 +3,9 @@ import type { StaffClaims } from "../auth.js";
 import type { Db } from "../db/client.js";
 import { ingredients, orderLines, orders, outlets, payments, refunds, shiftCloses, staffUsers, stockMovements } from "../db/schema.js";
 import { AppError } from "../errors.js";
+import { gstInvoices } from "./gst.js";
 
-export const EXPORT_KINDS = ["orders", "items", "payments", "closes", "stock"] as const;
+export const EXPORT_KINDS = ["orders", "items", "payments", "closes", "stock", "gst"] as const;
 export type ExportKind = (typeof EXPORT_KINDS)[number];
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -60,6 +61,16 @@ export async function exportCsv(db: Db, staff: StaffClaims, kind: string, q: { f
       .orderBy(asc(orders.placedAt));
 
   switch (kind as ExportKind) {
+    case "gst": {
+      const { invoices } = await gstInvoices(db, staff, { from, to, outletId: q.outletId });
+      return {
+        filename,
+        csv: toCsv(
+          ["Invoice no", "Business date", "Café", "Status", "GST rate (%)", "Taxable value (₹)", "CGST (₹)", "SGST (₹)", "Invoice value (₹)"],
+          invoices.map((i) => [i.invoiceNo, i.businessDate, i.outlet, i.cancelled ? "Cancelled" : "Issued", (i.rateBps / 100).toFixed(2), rupees(i.taxablePaise), rupees(i.cgstPaise), rupees(i.sgstPaise), rupees(i.totalPaise)]),
+        ),
+      };
+    }
     case "orders": {
       const rows = await placed();
       const paid = rows.length
