@@ -143,9 +143,13 @@ describe("owner self-service (D-17)", () => {
 
   it("gives customers the filmed barista when one is set, and keeps it when the owner saves settings", async () => {
     const menuOf = async () => ((await env.app.inject({ method: "GET", url: "/v1/cafes/400-coffee/tower-a/menu" })).json() as MenuResponse).tenant.branding;
-    expect((await menuOf()).baristaVideo).toBeNull();
+    // The demo seed ships the AI clips; switch them off to check the drawn barista, then back on.
+    expect((await menuOf()).baristaVideo).toEqual({ idle: "/baristas/400-coffee/idle.mp4", wave: "/baristas/400-coffee/wave.mp4" });
     const [t] = await env.db.select().from(tenants).where(eq(tenants.slug, "400-coffee"));
-    await env.db.update(tenants).set({ branding: { ...(t!.branding as object), baristaVideo: { idle: "/baristas/400-coffee/idle.mp4", wave: "/baristas/400-coffee/wave.mp4" } } }).where(eq(tenants.id, t!.id));
+    const { baristaVideo: _seeded, ...rest } = t!.branding as Record<string, unknown>;
+    await env.db.update(tenants).set({ branding: rest }).where(eq(tenants.id, t!.id));
+    expect((await menuOf()).baristaVideo).toBeNull();
+    await env.db.update(tenants).set({ branding: { ...rest, baristaVideo: { idle: "/baristas/400-coffee/idle.mp4", wave: "/baristas/400-coffee/wave.mp4" } } }).where(eq(tenants.id, t!.id));
     expect((await menuOf()).baristaVideo).toEqual({ idle: "/baristas/400-coffee/idle.mp4", wave: "/baristas/400-coffee/wave.mp4" });
     await call("PUT", "/v1/admin/settings", env.admin, { displayName: "400 Coffee Cafe", tagline: "Fresh every morning", greeting: "Hello!", managerName: "Meera", taxRateBps: 500 });
     expect((await menuOf()).baristaVideo?.idle).toBe("/baristas/400-coffee/idle.mp4");

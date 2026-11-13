@@ -662,11 +662,11 @@ function Barista({ apron, still, waveSignal }: { apron: THREE.Texture; still: bo
  */
 const KEY_VERT = `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const KEY_FRAG = `
-uniform sampler2D map; uniform vec3 keyColor; uniform vec3 tint; uniform float similarity; uniform float smoothness; uniform float spill;
+uniform sampler2D map; uniform sampler2D waveMap; uniform float useWave; uniform vec3 keyColor; uniform vec3 tint; uniform float similarity; uniform float smoothness; uniform float spill;
 varying vec2 vUv;
 vec2 rgb2uv(vec3 c) { return vec2(c.r * -0.169 + c.g * -0.331 + c.b * 0.5 + 0.5, c.r * 0.5 + c.g * -0.419 + c.b * -0.081 + 0.5); }
 void main() {
-  vec4 c = texture2D(map, vUv);
+  vec4 c = mix(texture2D(map, vUv), texture2D(waveMap, vUv), useWave);
   float d = distance(rgb2uv(c.rgb), rgb2uv(keyColor));
   float a = smoothstep(similarity, similarity + smoothness, d);
   float s = pow(clamp((d - similarity) / spill, 0.0, 1.0), 1.5);
@@ -701,9 +701,11 @@ function VideoBarista({ video, still, waveSignal, onFail }: { video: NonNullable
   const [aspect, setAspect] = useState(9 / 16);
   const [waving, setWaving] = useState(false);
   const uniforms = useMemo(
-    () => ({ map: { value: idleTex as THREE.Texture }, keyColor: { value: new THREE.Color().setStyle(video.keyColor ?? "#00b140", THREE.NoColorSpace) }, tint: { value: new THREE.Color(0.96, 0.9, 0.82) }, similarity: { value: 0.11 }, smoothness: { value: 0.07 }, spill: { value: 0.14 } }),
-    [idleTex, video.keyColor],
+    () => ({ map: { value: idleTex as THREE.Texture }, waveMap: { value: (waveTex ?? idleTex) as THREE.Texture }, useWave: { value: 0 }, keyColor: { value: new THREE.Color().setStyle(video.keyColor ?? "#00b140", THREE.NoColorSpace) }, tint: { value: new THREE.Color(0.96, 0.9, 0.82) }, similarity: { value: 0.11 }, smoothness: { value: 0.07 }, spill: { value: 0.14 } }),
+    [idleTex, waveTex, video.keyColor],
   );
+  // The material keeps its own copy of the uniforms, so changes go to the material, not to `uniforms`.
+  const material = useRef<THREE.ShaderMaterial>(null);
 
   useEffect(() => {
     const ready = () => {
@@ -732,14 +734,18 @@ function VideoBarista({ video, still, waveSignal, onFail }: { video: NonNullable
   }, [waveSignal, wave, still]);
 
   useEffect(() => () => waveTex?.dispose(), [waveTex]);
-  uniforms.map.value = waving && waveTex ? waveTex : idleTex;
+  // Both clips stay bound to the shader and the wave is blended in when tapped.
+  useFrame(() => {
+    const u = material.current?.uniforms;
+    if (u) u.useWave!.value = waving && waveTex ? 1 : 0;
+  });
 
   // Framed waist up behind the counter, about the drawn barista's height.
   const h = 1.45;
   return (
     <mesh position={[0.05, 0.98 + h / 2 - 0.3, -0.42]}>
       <planeGeometry args={[h * aspect, h]} />
-      <shaderMaterial vertexShader={KEY_VERT} fragmentShader={KEY_FRAG} uniforms={uniforms} transparent />
+      <shaderMaterial ref={material} vertexShader={KEY_VERT} fragmentShader={KEY_FRAG} uniforms={uniforms} transparent />
     </mesh>
   );
 }
