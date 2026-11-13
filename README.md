@@ -15,7 +15,8 @@ Brew Haven is the product (owned by Inferra Software). **400 Coffee Cafe** is th
 What works today:
 
 * **Customer app** (`apps/customer`): 2D café welcome, menu with customisation and veg/non-veg marks, basket, checkout with mobile number and separate offers opt-in, pay-now (demo gateway or Razorpay), and live order tracking. If an item runs out after payment, the customer can swap it (paying or getting back the difference), remove it (refund) or cancel the order (full refund).
-* **Staff app** (`apps/staff`): PIN sign-in by role; live order board; kitchen display with station filter and new-order chime; reject with reason and refund; "item ran out"; counter orders paid by cash, UPI or card; stock and sold-out toggles; today's takings.
+* **Staff app** (`apps/staff`): PIN sign-in by role; live order board; kitchen display with station filter and new-order chime; reject with reason and refund; "item ran out"; counter orders placed for the customer and paid by cash (with change), card machine, the café's UPI QR, or "Scan to pay" (a QR the customer pays on their phone), with the cashier's mark-paid recorded in the audit log; stock and sold-out toggles; today's takings.
+* **GST** is charged on the whole bill at order time (CGST + SGST, rounded to the rupee), or taken out of tax-inclusive prices; a per-café setting (ADR-0004).
 * **API** (`apps/api`): Fastify + PostgreSQL. Orders are placed only after a signed payment webhook is verified.
 
 ## Run it locally

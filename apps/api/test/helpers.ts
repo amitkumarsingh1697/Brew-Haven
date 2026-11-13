@@ -6,6 +6,8 @@ import type { Config } from "../src/config.js";
 import { createDb } from "../src/db/client.js";
 import { migrate } from "../src/db/migrate.js";
 import { DEMO_PINS, DEMO_TENANT_SLUG, seedDemo } from "../src/db/seed-data.js";
+import { tenants } from "../src/db/schema.js";
+import { eq } from "drizzle-orm";
 
 export const TEST_DB = process.env.TEST_DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/brewhaven_test";
 
@@ -27,11 +29,17 @@ export async function resetDatabase() {
   await client.end();
 }
 
-export async function setup() {
+/**
+ * `pricesIncludeTax` defaults to true so the older suites keep checking the prices-include-GST
+ * mode with round numbers. The demo café itself adds GST on the bill (SO-6); gst-on-bill.test.ts
+ * and counter-payments.test.ts run in that mode.
+ */
+export async function setup(opts: { pricesIncludeTax?: boolean } = {}) {
   await resetDatabase();
   const { db, pool } = createDb(TEST_DB);
   await migrate(db);
   await seedDemo(db);
+  await db.update(tenants).set({ pricesIncludeTax: opts.pricesIncludeTax ?? true }).where(eq(tenants.slug, DEMO_TENANT_SLUG));
   const { app, ctx } = await buildApp({ config: testConfig, db });
   await app.ready();
 

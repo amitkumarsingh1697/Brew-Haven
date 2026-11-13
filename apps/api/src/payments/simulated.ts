@@ -28,13 +28,14 @@ export class SimulatedProvider implements PaymentProvider {
     return { body, headers: { "x-simulated-signature": hmacHex(this.secret, body) } };
   }
 
-  paymentEvent(type: "payment.captured" | "payment.failed", providerOrderId: string, amountPaise: number) {
+  paymentEvent(type: "payment.captured" | "payment.failed", providerOrderId: string, amountPaise: number, instrument: string | null = "upi") {
     return this.signedWebhook({
       eventId: randomUUID(),
       type,
       providerOrderId,
       providerPaymentId: `sim_pay_${randomBytes(9).toString("base64url")}`,
       amountPaise,
+      instrument,
     });
   }
 

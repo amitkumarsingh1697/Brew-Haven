@@ -854,6 +854,7 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
   const [greeting, setGreeting] = useState(b.greeting ?? "");
   const [managerName, setManagerName] = useState(b.managerName ?? "");
   const [gst, setGst] = useState(String(setup.tenant.taxRateBps / 100));
+  const [inclusive, setInclusive] = useState(setup.tenant.pricesIncludeTax);
   const bill = setup.tenant.billing;
   const [legalName, setLegalName] = useState(bill.legalName ?? "");
   const [gstin, setGstin] = useState(bill.gstin ?? "");
@@ -872,6 +873,7 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
               greeting: greeting.trim() || undefined,
               managerName: managerName.trim() || undefined,
               taxRateBps: Math.round(Number(gst) * 100),
+              pricesIncludeTax: inclusive,
               billing: { legalName: legalName.trim(), gstin: gstin.trim().toUpperCase(), fssaiLicence: fssai.trim(), footer: footer.trim() },
             }),
           "Settings saved. Customers see them straight away.",
@@ -897,10 +899,22 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
       </label>
       <h2>Tax</h2>
       <label>
-        GST rate included in menu prices (%)
+        GST rate (%)
         <input value={gst} onChange={(e) => setGst(e.target.value)} inputMode="decimal" />
         <small className="muted">Confirm the right rate with your accountant. Restaurants without input tax credit usually use 5%.</small>
       </label>
+      <fieldset className="radio-set">
+        <legend>How GST is charged</legend>
+        <label className="check">
+          <input type="radio" name="gst-mode" checked={!inclusive} onChange={() => setInclusive(false)} />
+          Added on the whole bill at checkout (menu shows prices before GST; total rounded to the rupee)
+        </label>
+        <label className="check">
+          <input type="radio" name="gst-mode" checked={inclusive} onChange={() => setInclusive(true)} />
+          Already included in menu prices
+        </label>
+        <small className="muted">Changes apply to new orders. Orders already placed keep the way they were billed.</small>
+      </fieldset>
       <h2>On the receipt</h2>
       <p className="muted small">With a GSTIN saved, receipts become tax invoices showing CGST and SGST. Leave it empty if the café isn't registered for GST.</p>
       <label>

@@ -4,8 +4,10 @@ import type { Db } from "./client.js";
 import { categories, menuItems, modifierGroups, modifierOptions, outlets, staffUsers, stations, tenants } from "./schema.js";
 
 /**
- * Demo data (D-07): an illustrative café menu, not copied from any one café.
- * Prices are tax-inclusive rupees. Replace with the owner's menu when it arrives.
+ * Development and testing menu (D-07, Point 3): modelled on what India's popular café chains sell
+ * and charge in 2026, without copying any one brand's menu. 400 Coffee adds GST on the bill (SO-6),
+ * so these prices are before GST. Replace with the café's real menu when the owner sends it
+ * (Admin > Menu, or edit this list and reseed a fresh database).
  */
 type Mods = "coffee" | "cold" | "chai" | "none";
 const MENU: Array<{ category: string; items: Array<[name: string, rupees: number, desc: string, veg: boolean, station: "bar" | "kitchen", mods: Mods, tags?: string[]]> }> = [
@@ -18,6 +20,9 @@ const MENU: Array<{ category: string; items: Array<[name: string, rupees: number
       ["Café Latte", 190, "Smooth espresso with plenty of silky steamed milk.", true, "bar", "coffee", ["bestseller"]],
       ["Flat White", 200, "A ristretto-forward coffee with thin, glossy microfoam.", true, "bar", "coffee"],
       ["Café Mocha", 220, "Espresso, dark chocolate and steamed milk.", true, "bar", "coffee"],
+      ["Cortado", 170, "Espresso cut with an equal splash of warm milk.", true, "bar", "coffee"],
+      ["Spanish Latte", 230, "Latte sweetened with condensed milk. Rich and smooth.", true, "bar", "coffee", ["new"]],
+      ["Caramel Macchiato", 240, "Vanilla milk marked with espresso and a caramel drizzle.", true, "bar", "coffee"],
     ],
   },
   {
@@ -27,6 +32,17 @@ const MENU: Array<{ category: string; items: Array<[name: string, rupees: number
       ["Cold Brew", 230, "Steeped for 16 hours. Low in acid, naturally sweet.", true, "bar", "cold", ["new"]],
       ["Classic Frappé", 240, "Blended coffee, milk and ice, topped with foam.", true, "bar", "cold", ["bestseller"]],
       ["Hazelnut Cold Coffee", 250, "Thick, creamy cold coffee with roasted hazelnut.", true, "bar", "cold"],
+      ["Mocha Frappé", 260, "Blended coffee and dark chocolate, finished with cream.", true, "bar", "cold"],
+      ["Vietnamese Iced Coffee", 240, "Strong drip coffee over condensed milk and ice.", true, "bar", "cold"],
+      ["Espresso Tonic", 230, "A double shot over tonic water and orange peel.", true, "bar", "none", ["new"]],
+    ],
+  },
+  {
+    category: "Manual Brews",
+    items: [
+      ["Pour Over (V60)", 220, "Single-estate Chikmagalur beans, brewed by hand to order.", true, "bar", "none"],
+      ["French Press", 200, "Full-bodied and rich. Serves one large cup.", true, "bar", "none"],
+      ["AeroPress", 210, "Clean, bright and quick, with a sweet finish.", true, "bar", "none"],
     ],
   },
   {
@@ -35,6 +51,27 @@ const MENU: Array<{ category: string; items: Array<[name: string, rupees: number
       ["Masala Chai", 90, "Assam tea brewed with ginger, cardamom and spices.", true, "bar", "chai", ["bestseller"]],
       ["Lemon Ginger Honey Tea", 110, "A bright, soothing caffeine-light brew.", true, "bar", "chai"],
       ["Hot Chocolate", 200, "Rich cocoa and steamed milk.", true, "bar", "none"],
+      ["Adrak Chai", 90, "Strong milk tea with fresh ginger.", true, "bar", "chai"],
+      ["Kashmiri Kahwa", 140, "Green tea with saffron, cardamom and almonds.", true, "bar", "none"],
+      ["Iced Peach Tea", 160, "Black tea shaken with peach and lemon.", true, "bar", "none"],
+    ],
+  },
+  {
+    category: "Shakes & Coolers",
+    items: [
+      ["Belgian Chocolate Shake", 260, "Thick shake with Belgian dark chocolate.", true, "bar", "none", ["bestseller"]],
+      ["Strawberry Shake", 240, "Made with real strawberries and ice cream.", true, "bar", "none"],
+      ["Fresh Lime Soda", 110, "Sweet, salted or mixed. Ask the barista.", true, "bar", "none"],
+      ["Watermelon Mint Cooler", 150, "Fresh watermelon, mint and a squeeze of lime.", true, "bar", "none"],
+    ],
+  },
+  {
+    category: "All-Day Breakfast",
+    items: [
+      ["Masala Omelette & Toast", 220, "Three-egg omelette with onion, tomato and green chilli.", false, "kitchen", "none"],
+      ["Avocado Toast", 320, "Smashed avocado, cherry tomatoes and chilli flakes on sourdough.", true, "kitchen", "none", ["new"]],
+      ["Poha", 140, "Flattened rice with peanuts, curry leaves and lemon.", true, "kitchen", "none"],
+      ["Pancake Stack", 260, "Three fluffy pancakes with maple syrup and butter.", true, "kitchen", "none"],
     ],
   },
   {
@@ -43,6 +80,11 @@ const MENU: Array<{ category: string; items: Array<[name: string, rupees: number
       ["Butter Croissant", 140, "Flaky, golden and baked fresh every morning.", true, "kitchen", "none"],
       ["Double Chocolate Muffin", 130, "Moist cocoa muffin with chocolate chunks.", true, "kitchen", "none"],
       ["Banana Walnut Bread", 150, "A thick slice, lightly toasted.", true, "kitchen", "none"],
+      ["Almond Croissant", 190, "Twice-baked croissant with almond cream.", true, "kitchen", "none"],
+      ["Cinnamon Roll", 170, "Soft, swirled and glazed.", true, "kitchen", "none"],
+      ["Chocolate Brownie", 150, "Fudgy, dense and served warm.", true, "kitchen", "none"],
+      ["Blueberry Cheesecake", 280, "Baked New York style with blueberry compote.", true, "kitchen", "none"],
+      ["Tiramisu", 300, "Espresso-soaked sponge with mascarpone cream.", true, "kitchen", "none"],
     ],
   },
   {
@@ -52,6 +94,20 @@ const MENU: Array<{ category: string; items: Array<[name: string, rupees: number
       ["Chicken Pesto Sandwich", 260, "Grilled chicken, basil pesto and tomato.", false, "kitchen", "none"],
       ["Veg Puff", 60, "Flaky pastry with spiced potato and peas.", true, "kitchen", "none"],
       ["Egg Puff", 70, "Flaky pastry with a spiced egg masala.", false, "kitchen", "none"],
+      ["Bombay Masala Toast", 180, "Spiced potato, chutney and cheese, grilled crisp.", true, "kitchen", "none"],
+      ["Paneer Kathi Roll", 240, "Paneer tikka, onions and mint chutney in a flaky paratha.", true, "kitchen", "none"],
+      ["Chicken Tikka Wrap", 280, "Chargrilled chicken tikka with slaw in a soft wrap.", false, "kitchen", "none"],
+      ["Peri Peri Fries", 160, "Crisp fries tossed in peri peri spice.", true, "kitchen", "none"],
+      ["Cheese Garlic Bread", 170, "Toasted baguette with garlic butter and mozzarella.", true, "kitchen", "none"],
+    ],
+  },
+  {
+    category: "Pasta & Bowls",
+    items: [
+      ["Penne Arrabbiata", 320, "Penne in a spicy tomato and garlic sauce.", true, "kitchen", "none"],
+      ["Chicken Alfredo Pasta", 380, "Creamy parmesan sauce with grilled chicken.", false, "kitchen", "none"],
+      ["Rajma Chawal Bowl", 260, "Slow-cooked kidney beans with steamed rice.", true, "kitchen", "none"],
+      ["Butter Chicken Rice Bowl", 340, "Butter chicken over jeera rice.", false, "kitchen", "none", ["bestseller"]],
     ],
   },
 ];
@@ -70,6 +126,8 @@ export async function seedDemo(db: Db) {
         slug: DEMO_TENANT_SLUG,
         name: "400 Coffee Cafe",
         taxRateBps: 500,
+        // SO-6, confirmed by Amit on 13 Nov 2026: GST is added on the complete bill when the order is placed.
+        pricesIncludeTax: false,
         demoData: true,
         // The pilot client has three cafés, so it isn't held to Starter limits.
         plan: "multi",

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, ne, or } from "drizzle-orm";
 import type { DaySummary, OrderView, StaffSession } from "@brew-haven/contracts";
 import { verifyPin, type AttemptLimiter, type StaffClaims, type StaffTokens } from "../auth.js";
 import type { Db } from "../db/client.js";
@@ -77,7 +77,14 @@ export async function listOutletOrders(db: Db, staff: StaffClaims, outletId: str
   const since = new Date(Date.now() - 18 * 60 * 60 * 1000);
   const cond =
     scope === "live"
-      ? and(eq(orders.tenantId, staff.tenantId), eq(orders.outletId, outletId), inArray(orders.state, LIVE_STATES))
+      ? and(
+          eq(orders.tenantId, staff.tenantId),
+          eq(orders.outletId, outletId),
+          // Counter orders waiting for the customer to pay show on the till, so the cashier can mark them paid.
+          staff.role === "KITCHEN"
+            ? inArray(orders.state, LIVE_STATES)
+            : or(inArray(orders.state, LIVE_STATES), and(eq(orders.state, "AWAITING_PAYMENT"), eq(orders.channel, "COUNTER"))),
+        )
       : and(eq(orders.tenantId, staff.tenantId), eq(orders.outletId, outletId), ne(orders.state, "AWAITING_PAYMENT"), gte(orders.createdAt, since));
   const rows = await db.select({ id: orders.id }).from(orders).where(cond).orderBy(scope === "live" ? asc(orders.placedAt) : desc(orders.createdAt)).limit(200);
   return db.transaction(async (tx) => Promise.all(rows.map((r) => orderView(tx, r.id))));

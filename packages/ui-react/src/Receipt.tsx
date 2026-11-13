@@ -2,6 +2,8 @@ import type { ReceiptView } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
 
 const METHOD: Record<string, string> = { ONLINE: "Paid online", CASH: "Cash", UPI_COUNTER: "UPI at counter", CARD_COUNTER: "Card at counter" };
+const INSTRUMENT: Record<string, string> = { upi: "UPI", card: "card", netbanking: "net banking", wallet: "wallet" };
+const methodWords = (p: ReceiptView["payments"][number]) => (p.method === "ONLINE" && p.instrument ? `Paid online (${INSTRUMENT[p.instrument] ?? p.instrument})` : (METHOD[p.method] ?? p.method));
 const pct = (bps: number) => `${(bps / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}%`;
 
 /**
@@ -91,8 +93,20 @@ export function Receipt({ r }: { r: ReceiptView }) {
           </>
         ) : (
           <div>
-            <dt>GST {pct(r.totals.taxRateBps)} included</dt>
+            <dt>
+              GST {pct(r.totals.taxRateBps)}
+              {r.totals.pricesIncludeTax ? " included" : ""}
+            </dt>
             <dd>{formatInr(r.totals.cgstPaise + r.totals.sgstPaise)}</dd>
+          </div>
+        )}
+        {r.totals.roundOffPaise !== 0 && (
+          <div>
+            <dt>Round-off</dt>
+            <dd>
+              {r.totals.roundOffPaise < 0 ? "−" : "+"}
+              {formatInr(Math.abs(r.totals.roundOffPaise))}
+            </dd>
           </div>
         )}
         <div className="grand">
@@ -101,10 +115,20 @@ export function Receipt({ r }: { r: ReceiptView }) {
         </div>
         {r.payments.map((p, i) => (
           <div key={i}>
-            <dt>{METHOD[p.method] ?? p.method}</dt>
+            <dt>{methodWords(p)}</dt>
             <dd>{formatInr(p.amountPaise)}</dd>
           </div>
         ))}
+        {r.payments.map((p, i) =>
+          p.tenderedPaise != null ? (
+            <div key={`cash-${i}`} className="sub">
+              <dt>Cash received · change</dt>
+              <dd>
+                {formatInr(p.tenderedPaise)} · {formatInr(p.changePaise ?? 0)}
+              </dd>
+            </div>
+          ) : null,
+        )}
         {r.refundedPaise > 0 && (
           <div>
             <dt>Refunded</dt>
@@ -113,7 +137,7 @@ export function Receipt({ r }: { r: ReceiptView }) {
         )}
       </dl>
       <footer>
-        <p>Prices include GST.</p>
+        <p>{r.totals.pricesIncludeTax ? "Prices include GST." : "GST charged on the bill total."}</p>
         {r.footer && <p>{r.footer}</p>}
       </footer>
     </article>

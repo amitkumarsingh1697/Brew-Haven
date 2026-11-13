@@ -83,7 +83,7 @@ export async function exportCsv(db: Db, staff: StaffClaims, kind: string, q: { f
       return {
         filename,
         csv: toCsv(
-          ["Business date", "Placed at", "Café", "Order", "Receipt no", "Channel", "State", "Customer", "Total (₹)", "GST included (₹)", "Paid (₹)", "Refunded (₹)", "Payment methods", "Cancel reason"],
+          ["Business date", "Placed at", "Café", "Order", "Receipt no", "Channel", "State", "Customer", "Total (₹)", "GST (₹)", "Round-off (₹)", "Paid (₹)", "Refunded (₹)", "Payment methods", "Cancel reason"],
           rows.map((o) => [
             o.businessDate,
             istTime(o.placedAt),
@@ -95,6 +95,7 @@ export async function exportCsv(db: Db, staff: StaffClaims, kind: string, q: { f
             o.customerName,
             rupees(o.totalPaise),
             rupees(o.taxPaise),
+            rupees(o.roundOffPaise),
             rupees(sumBy(paid, o.id)),
             rupees(sumBy(back, o.id)),
             [...new Set(paid.filter((p) => p.orderId === o.id).map((p) => p.method))].join(" + "),

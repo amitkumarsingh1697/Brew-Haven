@@ -171,7 +171,7 @@ function Workspace({ session, onLogout }: { session: StaffSession; onLogout: () 
       <main className="content">
         {tab === "orders" && <Board live={live} role={role} now={now} />}
         {tab === "kitchen" && <Kitchen live={live} role={role} now={now} menu={menu} stations={outlet.stations ?? []} />}
-        {tab === "new" && <NewOrder outletId={outlet.id} menu={menu} onCreated={live.upsert} />}
+        {tab === "new" && <NewOrder outletId={outlet.id} menu={menu} onCreated={live.upsert} live={live.orders} />}
         {tab === "stock" && <Stock key={outlet.id} outletId={outlet.id} role={role} />}
         {tab === "today" && <Today key={outlet.id} outletId={outlet.id} />}
         {tab === "setup" && <Admin onOutletsChanged={refreshOutlets} />}

@@ -90,6 +90,27 @@ export function Track({ token }: { token: string }) {
               </li>
             ))}
         </ul>
+        {!order.pricesIncludeTax && (
+          <>
+            <div className="row small">
+              <span>Subtotal</span>
+              <Rs paise={order.subtotalPaise} />
+            </div>
+            <div className="row small">
+              <span>GST {order.taxRateBps / 100}%</span>
+              <Rs paise={order.taxPaise} />
+            </div>
+            {order.roundOffPaise !== 0 && (
+              <div className="row small">
+                <span>Round-off</span>
+                <span>
+                  {order.roundOffPaise < 0 ? "−" : "+"}
+                  <Rs paise={Math.abs(order.roundOffPaise)} />
+                </span>
+              </div>
+            )}
+          </>
+        )}
         <div className="row total">
           <span>Total</span>
           <Rs paise={order.totalPaise} />
@@ -159,12 +180,12 @@ function PaymentPanel({ order, token, initialPaymentId, onPaid }: { order: Order
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const simulate = async (outcome: "SUCCESS" | "FAILURE") => {
+  const simulate = async (outcome: "SUCCESS" | "FAILURE", instrument: "upi" | "card" = "upi") => {
     if (!checkout) return;
     setBusy(true);
     setError(null);
     try {
-      const r = await api.simulatePayment(checkout.paymentId, outcome);
+      const r = await api.simulatePayment(checkout.paymentId, outcome, instrument);
       if (outcome === "FAILURE") {
         setError("The payment didn't go through. No money was taken. You can try again.");
         sessionStorage.removeItem(`bh:checkout:${token}`);
@@ -205,9 +226,12 @@ function PaymentPanel({ order, token, initialPaymentId, onPaid }: { order: Order
       ) : checkout.provider === "simulated" ? (
         <div className="demo-gateway">
           <span className="demo-badge">Demo payment</span>
-          <p>No real money moves in the demo. Choose what happens:</p>
-          <button className="btn btn-primary btn-block" onClick={() => simulate("SUCCESS")} disabled={busy}>
-            Pay <Rs paise={checkout.amountPaise} /> (demo)
+          <p>No real money moves in the demo. Choose how you'd pay:</p>
+          <button className="btn btn-primary btn-block" onClick={() => simulate("SUCCESS", "upi")} disabled={busy}>
+            Pay <Rs paise={checkout.amountPaise} /> by UPI (demo)
+          </button>
+          <button className="btn btn-primary btn-block" onClick={() => simulate("SUCCESS", "card")} disabled={busy}>
+            Pay <Rs paise={checkout.amountPaise} /> by card (demo)
           </button>
           <button className="btn btn-ghost btn-block" onClick={() => simulate("FAILURE")} disabled={busy}>
             Simulate a failed payment
@@ -292,7 +316,7 @@ function AdjustmentPanel({ order, token, onChange }: { order: OrderView; token: 
                   Swap for something else
                 </button>
                 <button className="btn btn-ghost" onClick={() => run(() => api.resolve(token, a.id, { kind: "REMOVE" }))} disabled={busy}>
-                  Remove it · refund <Rs paise={line.lineTotalPaise} />
+                  Remove it · refund <Rs paise={a.removeRefundPaise} />
                 </button>
                 <button className="btn btn-danger-ghost" onClick={() => run(() => api.resolve(token, a.id, { kind: "CANCEL_ORDER" }))} disabled={busy}>
                   Cancel the whole order (full refund)

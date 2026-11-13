@@ -1,7 +1,8 @@
 import { useDialog } from "@brew-haven/ui-react";
 import { useEffect, useMemo, useState } from "react";
 import type { DaySummary, MenuItemDto, MenuResponse, OrderView, StaffRole } from "@brew-haven/contracts";
-import { formatInr } from "@brew-haven/domain";
+import { billTotals, formatInr } from "@brew-haven/domain";
+import QRCode from "qrcode";
 import { IngredientStockPanel } from "./Inventory";
 import { ApiError, api, type DayClose, type StockRow } from "./api";
 import { ReceiptModal } from "./ReceiptModal";
@@ -92,20 +93,70 @@ export function Kitchen({ live, role, now, menu, stations }: { live: Live; role:
 }
 
 type PosLine = { key: string; item: MenuItemDto; modifierIds: string[]; quantity: number; unit: number; label: string };
+type CounterMethod = "CASH" | "CARD_COUNTER" | "UPI_COUNTER";
+/** Extra details the cashier types when marking an order paid. */
+type PaidDetails = { tenderedPaise?: number; cardReference?: string; upiReference?: string };
 
-/** Counter ordering for walk-ins (D-11). */
-export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu: MenuResponse | null; onCreated: (o: OrderView) => void }) {
+const PAY_LABEL: Record<CounterMethod, string> = { CASH: "Cash", CARD_COUNTER: "Card machine", UPI_COUNTER: "Café's own UPI QR" };
+
+/** Subtotal, GST, round-off and total, as the receipt will show them. */
+function BillLines({ subtotalPaise, menu }: { subtotalPaise: number; menu: MenuResponse }) {
+  const bill = billTotals(subtotalPaise, menu.tenant.taxRateBps, menu.tenant.pricesIncludeTax);
+  const pct = `${menu.tenant.taxRateBps / 100}%`;
+  return (
+    <div className="bill-lines">
+      {!menu.tenant.pricesIncludeTax && (
+        <>
+          <div>
+            <span>Subtotal</span>
+            <span>{formatInr(bill.subtotalPaise)}</span>
+          </div>
+          <div>
+            <span>GST {pct} (CGST + SGST)</span>
+            <span>{formatInr(bill.taxPaise)}</span>
+          </div>
+          {bill.roundOffPaise !== 0 && (
+            <div className="muted">
+              <span>Round-off</span>
+              <span>
+                {bill.roundOffPaise < 0 ? "−" : "+"}
+                {formatInr(Math.abs(bill.roundOffPaise))}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+      <div className="pos-total">
+        <span>Total</span>
+        <strong>{formatInr(bill.totalPaise)}</strong>
+      </div>
+      {menu.tenant.pricesIncludeTax && bill.taxPaise > 0 && <p className="muted small">Includes GST {formatInr(bill.taxPaise)}</p>}
+    </div>
+  );
+}
+
+/**
+ * Counter ordering (D-11, Point 5). Every order goes through the app. The cashier rings the order
+ * up, then either takes the money (cash, card machine or the café's own UPI QR) and marks it paid,
+ * or shows a QR code the customer scans to pay by UPI or card on their own phone. Nothing goes to
+ * the kitchen until it is paid.
+ */
+export function NewOrder({ outletId, menu, onCreated, live }: { outletId: string; menu: MenuResponse | null; onCreated: (o: OrderView) => void; live: OrderView[] }) {
   const [lines, setLines] = useState<PosLine[]>([]);
   const [cat, setCat] = useState<string | null>(null);
   const [picking, setPicking] = useState<MenuItemDto | null>(null);
   const [name, setName] = useState("");
-  const [utr, setUtr] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string; orderId?: string } | null>(null);
   const [printing, setPrinting] = useState<string | null>(null);
+  /** Taking money for the basket (one step: placed and paid together), or for an order already waiting. */
+  const [paying, setPaying] = useState<{ method: CounterMethod; order?: OrderView } | null>(null);
+  const [qr, setQr] = useState<{ orderId: string; payUrl: string } | null>(null);
   if (!menu) return <p className="muted">Loading menu…</p>;
   const active = menu.categories.find((c) => c.id === cat) ?? menu.categories[0]!;
-  const total = lines.reduce((s, l) => s + l.unit * l.quantity, 0);
+  const subtotal = lines.reduce((s, l) => s + l.unit * l.quantity, 0);
+  const total = lines.length ? billTotals(subtotal, menu.tenant.taxRateBps, menu.tenant.pricesIncludeTax).totalPaise : 0;
+  const waiting = live.filter((o) => o.state === "AWAITING_PAYMENT" && o.channel === "COUNTER");
 
   const add = (item: MenuItemDto, modifierIds: string[]) => {
     const opts = item.modifierGroups.flatMap((g) => g.options).filter((o) => modifierIds.includes(o.id));
@@ -121,38 +172,74 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
     if (item.modifierGroups.length === 0) add(item, []);
     else setPicking(item);
   };
-  const charge = async (method: "CASH" | "UPI_COUNTER" | "CARD_COUNTER") => {
-    setBusy(true);
-    setMsg(null);
+  const clear = () => {
+    setLines([]);
+    setName("");
+  };
+  const basket = () => lines.map((l) => ({ itemId: l.item.id, quantity: l.quantity, modifierIds: l.modifierIds }));
+  const done = (o: OrderView) => {
+    onCreated(o);
+    const how = o.payments[0];
+    const change = how?.tenderedPaise != null ? ` · give back ${formatInr(Math.max(0, how.tenderedPaise - how.amountPaise))} change` : "";
+    setMsg({ kind: "ok", text: `Order ${o.pickupCode} placed and paid (${formatInr(o.paidPaise)}), sent to the kitchen${change}`, orderId: o.id });
+  };
+
+  /** Basket paid at the till: one step, and it still works offline (queued on this till). */
+  const chargeBasket = async (method: CounterMethod, details: PaidDetails) => {
     const body = {
       outletId,
       method,
-      lines: lines.map((l) => ({ itemId: l.item.id, quantity: l.quantity, modifierIds: l.modifierIds })),
+      lines: basket(),
       ...(name.trim() ? { customer: { name: name.trim() } } : {}),
-      ...(method === "UPI_COUNTER" && utr ? { upiReference: utr } : {}),
+      ...details,
     };
     const clientRef = newClientRef();
-    const clear = () => {
-      setLines([]);
-      setName("");
-      setUtr("");
-    };
     try {
       const o = await api.walkIn({ ...body, clientRef });
-      onCreated(o);
       clear();
-      setMsg({ kind: "ok", text: `Order ${o.pickupCode} sent to the kitchen · ${formatInr(o.paidPaise)} recorded`, orderId: o.id });
+      done(o);
     } catch (e) {
-      if (isOffline(e)) {
-        const summary = lines.map((l) => `${l.quantity}× ${l.item.name}${l.label ? ` (${l.label})` : ""}`).join(", ");
-        const q = enqueue({ clientRef, outletName: menu.outlet.name, body, totalPaise: total, summary });
-        clear();
-        setMsg({ kind: "ok", text: `No connection. Saved as ${q.ticket} (${formatInr(total)}). Tell the kitchen: ${summary}. It will be sent as soon as the connection is back.` });
-      } else {
-        setMsg({ kind: "err", text: (e as ApiError).message });
-      }
+      if (!isOffline(e)) throw e;
+      const summary = lines.map((l) => `${l.quantity}× ${l.item.name}${l.label ? ` (${l.label})` : ""}`).join(", ");
+      const q = enqueue({ clientRef, outletName: menu.outlet.name, body, totalPaise: total, summary });
+      clear();
+      setMsg({ kind: "ok", text: `No connection. Saved as ${q.ticket} (${formatInr(total)}). Tell the kitchen: ${summary}. It will be sent as soon as the connection is back.` });
+    }
+  };
+
+  /** Basket paid on the customer's phone: place it now, show the QR, and wait for the gateway. */
+  const startQr = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await api.counterOrder({ outletId, lines: basket(), ...(name.trim() ? { customer: { name: name.trim() } } : {}), clientRef: newClientRef() });
+      onCreated(r.order);
+      clear();
+      setQr({ orderId: r.order.id, payUrl: r.payUrl });
+    } catch (e) {
+      setMsg({ kind: "err", text: isOffline(e) ? "Paying by QR needs an internet connection. Take cash or use the card machine instead." : (e as ApiError).message });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const showQr = async (o: OrderView) => {
+    try {
+      const link = await api.payLink(o.id);
+      setQr({ orderId: o.id, payUrl: link.payUrl });
+    } catch (e) {
+      setMsg({ kind: "err", text: (e as ApiError).message });
+    }
+  };
+  const cancelUnpaid = async (o: OrderView) => {
+    const reason = window.prompt("Why is this order being cancelled?", "Customer left without paying");
+    if (!reason?.trim()) return;
+    try {
+      onCreated(await api.voidUnpaid(o.id, reason.trim()));
+      setQr(null);
+      setMsg({ kind: "ok", text: "Unpaid order cancelled. Nothing was charged." });
+    } catch (e) {
+      setMsg({ kind: "err", text: (e as ApiError).message });
     }
   };
 
@@ -174,6 +261,7 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
             </button>
           ))}
         </div>
+        {!menu.tenant.pricesIncludeTax && <p className="muted small">Prices are before GST. GST is added on the whole bill.</p>}
       </div>
       <aside className="pos-cart">
         <h2>Counter order</h2>
@@ -199,30 +287,50 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
           ))}
         </ul>
         <input aria-label="Customer name" placeholder="Customer name (optional)" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
-        <input
-          aria-label="UPI reference (UTR)"
-          placeholder="UPI reference, 12 digits (optional)"
-          value={utr}
-          onChange={(e) => setUtr(e.target.value.replace(/\D/g, "").slice(0, 12))}
-          inputMode="numeric"
-          autoComplete="off"
-        />
-        <div className="pos-total">
-          <span>Total</span>
-          <strong>{formatInr(total)}</strong>
-        </div>
+        {lines.length > 0 && <BillLines subtotalPaise={subtotal} menu={menu} />}
         <div className="pay-methods">
-          <button className="btn btn-primary" disabled={busy || !lines.length} onClick={() => charge("CASH")}>
+          <button className="btn btn-primary" disabled={busy || !lines.length} onClick={() => setPaying({ method: "CASH" })}>
             Cash
           </button>
-          <button className="btn btn-primary" disabled={busy || !lines.length} onClick={() => charge("UPI_COUNTER")}>
-            UPI
+          <button className="btn btn-primary" disabled={busy || !lines.length} onClick={() => setPaying({ method: "CARD_COUNTER" })}>
+            Card machine
           </button>
-          <button className="btn btn-primary" disabled={busy || !lines.length} onClick={() => charge("CARD_COUNTER")}>
-            Card
+          <button className="btn btn-primary" disabled={busy || !lines.length} onClick={() => void startQr()}>
+            Scan to pay
           </button>
         </div>
-        <p className="muted small">Take the payment first, then tap how the customer paid. With no connection, the order is saved on this till and sent later.</p>
+        <p className="muted small">
+          <strong>Cash or card machine:</strong> take the money, then mark it paid. <strong>Scan to pay:</strong> the customer scans the QR and pays by UPI or card on their phone; the order goes to the kitchen when the payment is confirmed.{" "}
+          <button className="link-btn" disabled={busy || !lines.length} onClick={() => setPaying({ method: "UPI_COUNTER" })}>
+            Paid to the café's own UPI QR?
+          </button>
+        </p>
+        {waiting.length > 0 && (
+          <section className="awaiting" aria-label="Waiting for payment">
+            <h3 className="small">Waiting for the customer to pay ({waiting.length})</h3>
+            <ul>
+              {waiting.map((o) => (
+                <li key={o.id}>
+                  <span>
+                    <strong>{formatInr(o.totalPaise)}</strong> · {o.lines.map((l) => `${l.quantity}× ${l.name}`).join(", ")}
+                    {o.customerName ? ` · ${o.customerName}` : ""}
+                  </span>
+                  <span className="row-actions">
+                    <button className="link-btn" onClick={() => void showQr(o)}>
+                      Show QR
+                    </button>
+                    <button className="link-btn" onClick={() => setPaying({ method: "CASH", order: o })}>
+                      Mark paid
+                    </button>
+                    <button className="link-btn danger" onClick={() => void cancelUnpaid(o)}>
+                      Cancel
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <OfflineQueue onPrint={setPrinting} />
         {msg && (
           <p className={msg.kind === "ok" ? "ok" : "error"} role="status">
@@ -240,6 +348,206 @@ export function NewOrder({ outletId, menu, onCreated }: { outletId: string; menu
       </aside>
       {printing && <ReceiptModal orderId={printing} autoPrint onClose={() => setPrinting(null)} />}
       {picking && <ModifierPicker item={picking} onClose={() => setPicking(null)} onAdd={(ids) => (add(picking, ids), setPicking(null))} />}
+      {paying && (
+        <MarkPaidModal
+          method={paying.method}
+          totalPaise={paying.order ? paying.order.totalPaise : total}
+          onMethod={(method) => setPaying({ ...paying, method })}
+          onClose={() => setPaying(null)}
+          onConfirm={async (details) => {
+            if (paying.order) {
+              const o = await api.markPaid(paying.order.id, { method: paying.method, ...details });
+              setQr(null);
+              done(o);
+            } else {
+              await chargeBasket(paying.method, details);
+            }
+            setPaying(null);
+          }}
+        />
+      )}
+      {qr && (
+        <QrPayModal
+          payUrl={qr.payUrl}
+          order={live.find((o) => o.id === qr.orderId) ?? null}
+          onClose={() => setQr(null)}
+          onPrint={(id) => setPrinting(id)}
+          onPaidOtherWay={(o) => (setQr(null), setPaying({ method: "CASH", order: o }))}
+          onCancel={(o) => void cancelUnpaid(o)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Take the money at the till, then confirm: cash (with change), card machine, or the café's own UPI QR. */
+function MarkPaidModal({
+  method,
+  totalPaise,
+  onMethod,
+  onClose,
+  onConfirm,
+}: {
+  method: CounterMethod;
+  totalPaise: number;
+  onMethod: (m: CounterMethod) => void;
+  onClose: () => void;
+  onConfirm: (d: PaidDetails) => Promise<void>;
+}) {
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
+  const [cash, setCash] = useState("");
+  const [ref, setRef] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const tendered = cash.trim() ? Math.round(Number(cash) * 100) : null;
+  const short = method === "CASH" && tendered !== null && (!Number.isFinite(tendered) || tendered < totalPaise);
+  // Notes a customer is likely to hand over for this bill.
+  const quick = [...new Set([totalPaise, ...[10_000, 20_000, 50_000, 200_000].filter((n) => n > totalPaise), Math.ceil(totalPaise / 5_000) * 5_000])].sort((a, b) => a - b).slice(0, 5);
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const details: PaidDetails =
+        method === "CASH"
+          ? tendered !== null
+            ? { tenderedPaise: tendered }
+            : {}
+          : method === "CARD_COUNTER"
+            ? ref.trim()
+              ? { cardReference: ref.trim() }
+              : {}
+            : ref.trim()
+              ? { upiReference: ref.trim() }
+              : {};
+      await onConfirm(details);
+    } catch (e) {
+      setError((e as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div ref={dialogRef} className="modal pay-modal" role="dialog" aria-modal="true" aria-label="Mark paid" onClick={(e) => e.stopPropagation()}>
+        <h2>
+          Take {formatInr(totalPaise)}
+        </h2>
+        <div className="station-bar" role="tablist" aria-label="How the customer paid">
+          {(Object.keys(PAY_LABEL) as CounterMethod[]).map((m) => (
+            <button key={m} role="tab" aria-selected={m === method} className={m === method ? "chip chip-on" : "chip"} onClick={() => (setRef(""), onMethod(m))}>
+              {PAY_LABEL[m]}
+            </button>
+          ))}
+        </div>
+        {method === "CASH" && (
+          <>
+            <label>
+              Cash received (₹)
+              <input autoFocus inputMode="decimal" value={cash} onChange={(e) => setCash(e.target.value.replace(/[^\d.]/g, ""))} placeholder={(totalPaise / 100).toString()} />
+            </label>
+            <div className="opt-row">
+              {quick.map((q) => (
+                <button key={q} className="chip" onClick={() => setCash(String(q / 100))}>
+                  {q === totalPaise ? "Exact" : formatInr(q)}
+                </button>
+              ))}
+            </div>
+            {tendered !== null && !short && (
+              <p className="change-due">
+                Give back <strong>{formatInr(tendered - totalPaise)}</strong>
+              </p>
+            )}
+            {short && <p className="error">That's less than the bill.</p>}
+          </>
+        )}
+        {method === "CARD_COUNTER" && (
+          <label>
+            Approval code or last 4 digits (optional)
+            <input autoFocus value={ref} onChange={(e) => setRef(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12))} autoComplete="off" />
+          </label>
+        )}
+        {method === "UPI_COUNTER" && (
+          <label>
+            UPI reference (UTR), 12 digits
+            <input autoFocus inputMode="numeric" value={ref} onChange={(e) => setRef(e.target.value.replace(/\D/g, "").slice(0, 12))} autoComplete="off" />
+            <small className="muted">Check the customer's payment screen shows {formatInr(totalPaise)} paid to the café.</small>
+          </label>
+        )}
+        {error && <p className="error">{error}</p>}
+        <button className="btn btn-primary btn-lg" disabled={busy || short} onClick={() => void submit()}>
+          Mark paid · send to kitchen
+        </button>
+        <button className="btn btn-ghost" onClick={onClose}>
+          Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** The QR the customer scans to pay on their phone. Closes itself into a "paid" note when the gateway confirms. */
+function QrPayModal({
+  payUrl,
+  order,
+  onClose,
+  onPrint,
+  onPaidOtherWay,
+  onCancel,
+}: {
+  payUrl: string;
+  order: OrderView | null;
+  onClose: () => void;
+  onPrint: (orderId: string) => void;
+  onPaidOtherWay: (o: OrderView) => void;
+  onCancel: (o: OrderView) => void;
+}) {
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
+  const [svg, setSvg] = useState("");
+  useEffect(() => {
+    void QRCode.toString(payUrl, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#120D0A", light: "#FFFFFF" } }).then(setSvg);
+  }, [payUrl]);
+  const paid = order && order.state !== "AWAITING_PAYMENT";
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div ref={dialogRef} className="modal qr-pay" role="dialog" aria-modal="true" aria-label="Scan to pay" onClick={(e) => e.stopPropagation()}>
+        {!order ? (
+          <>
+            <h2>This order is no longer waiting</h2>
+            <p className="muted">It was paid, cancelled or ran out of time. Check the orders board.</p>
+          </>
+        ) : paid ? (
+          <>
+            <h2>Paid ✓</h2>
+            <p className="ok">
+              Order <strong>{order.pickupCode}</strong> is paid ({formatInr(order.paidPaise)}
+              {order.payments[0]?.instrument ? ` by ${order.payments[0].instrument === "upi" ? "UPI" : order.payments[0].instrument}` : ""}) and has gone to the kitchen.
+            </p>
+            <button className="btn btn-primary" onClick={() => onPrint(order.id)}>
+              Print receipt
+            </button>
+          </>
+        ) : (
+          <>
+            <h2>Scan to pay {formatInr(order.totalPaise)}</h2>
+            <div className="qr-box" aria-label="Payment QR code" dangerouslySetInnerHTML={{ __html: svg }} />
+            <p className="muted small">Pay by any UPI app or a debit or credit card. This screen updates as soon as the payment is confirmed. The order lapses after 20 minutes if it isn't paid.</p>
+            <p className="waiting-pulse" role="status">
+              Waiting for payment…
+            </p>
+            <div className="row-actions">
+              <button className="btn btn-ghost" onClick={() => onPaidOtherWay(order)}>
+                Customer paid another way
+              </button>
+              <button className="btn btn-ghost danger" onClick={() => onCancel(order)}>
+                Cancel order
+              </button>
+            </div>
+          </>
+        )}
+        <button className="btn btn-ghost" onClick={onClose}>
+          Close
+        </button>
+      </div>
     </div>
   );
 }

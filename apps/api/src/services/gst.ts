@@ -45,7 +45,7 @@ export async function gstInvoices(db: Db, staff: StaffClaims, q: { from?: string
   const name = new Map(cafes.map((c) => [c.id, c.name]));
 
   const rows = await db
-    .select({ invoiceNo: orders.invoiceNo, businessDate: orders.businessDate, outletId: orders.outletId, state: orders.state, total: orders.totalPaise, tax: orders.taxPaise, rate: orders.taxRateBps })
+    .select({ invoiceNo: orders.invoiceNo, businessDate: orders.businessDate, outletId: orders.outletId, state: orders.state, total: orders.totalPaise, tax: orders.taxPaise, roundOff: orders.roundOffPaise, rate: orders.taxRateBps })
     .from(orders)
     .where(and(eq(orders.tenantId, staff.tenantId), inArray(orders.outletId, ids), isNotNull(orders.invoiceNo), gte(orders.businessDate, from), lte(orders.businessDate, to)))
     .orderBy(asc(orders.invoiceNo));
@@ -54,8 +54,9 @@ export async function gstInvoices(db: Db, staff: StaffClaims, q: { from?: string
     const cancelled = !ISSUED.includes(o.state);
     const tax = cancelled ? 0 : o.tax;
     const total = cancelled ? 0 : o.total;
+    const roundOff = cancelled ? 0 : o.roundOff;
     const { cgstPaise, sgstPaise } = splitGst(tax);
-    return { invoiceNo: o.invoiceNo!, businessDate: o.businessDate!, outlet: name.get(o.outletId) ?? "", cancelled, rateBps: o.rate, taxablePaise: total - tax, cgstPaise, sgstPaise, totalPaise: total };
+    return { invoiceNo: o.invoiceNo!, businessDate: o.businessDate!, outlet: name.get(o.outletId) ?? "", cancelled, rateBps: o.rate, taxablePaise: total - tax - roundOff, cgstPaise, sgstPaise, totalPaise: total };
   });
   const [tenant] = await db.select({ billing: tenants.billing }).from(tenants).where(eq(tenants.id, staff.tenantId));
   return { from, to, billing: tenant?.billing ?? {}, invoices, cafes: cafes.filter((c) => ids.includes(c.id)) };

@@ -1082,3 +1082,10 @@ h3 {
 .legal table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
 .legal th, .legal td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--bh-parchment); }
 .legal h1 { font-size: 1.8rem; margin: 16px 0 4px; }
+
+.menu-tax-note {
+  text-align: center;
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin: 8px 16px 96px;
+}

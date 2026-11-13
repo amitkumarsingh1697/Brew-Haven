@@ -9,8 +9,8 @@ export interface ProviderOrder {
 }
 
 export type WebhookEvent =
-  | { eventId: string; type: "payment.captured"; providerOrderId: string; providerPaymentId: string; amountPaise: number }
-  | { eventId: string; type: "payment.failed"; providerOrderId: string; providerPaymentId: string; amountPaise: number }
+  | { eventId: string; type: "payment.captured"; providerOrderId: string; providerPaymentId: string; amountPaise: number; instrument?: string | null }
+  | { eventId: string; type: "payment.failed"; providerOrderId: string; providerPaymentId: string; amountPaise: number; instrument?: string | null }
   | { eventId: string; type: "refund.processed" | "refund.failed"; providerRefundId: string; providerPaymentId: string; amountPaise: number }
   | { eventId: string; type: "ignored" };
 

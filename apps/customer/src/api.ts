@@ -54,7 +54,7 @@ export const api = {
   retryPayment: (token: string) => call<CheckoutInfo>(`/v1/track/${token}/pay`, { method: "POST" }),
   resolve: (token: string, adjustmentId: string, body: ResolveAdjustmentRequest) =>
     call<OrderView>(`/v1/track/${token}/adjustments/${adjustmentId}/resolve`, { method: "POST", body: JSON.stringify(body) }),
-  simulatePayment: (paymentId: string, outcome: "SUCCESS" | "FAILURE") =>
-    call<{ result: string; order: OrderView }>(`/v1/payments/simulate`, { method: "POST", body: JSON.stringify({ paymentId, outcome }) }),
+  simulatePayment: (paymentId: string, outcome: "SUCCESS" | "FAILURE", instrument: "upi" | "card" = "upi") =>
+    call<{ result: string; order: OrderView }>(`/v1/payments/simulate`, { method: "POST", body: JSON.stringify({ paymentId, outcome, instrument }) }),
   streamUrl: (token: string) => `${API_URL}/v1/track/${token}/stream`,
 };

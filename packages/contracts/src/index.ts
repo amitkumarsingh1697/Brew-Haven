@@ -63,7 +63,14 @@ export const Branding = z.object({
   baristaVideo: z.object({ idle: z.string(), wave: z.string().optional(), keyColor: z.string().optional() }).nullable().optional(),
 });
 export const MenuResponse = z.object({
-  tenant: z.object({ slug: Slug, name: z.string(), branding: Branding, taxRateBps: z.number().int() }),
+  tenant: z.object({
+    slug: Slug,
+    name: z.string(),
+    branding: Branding,
+    taxRateBps: z.number().int(),
+    /** False when GST is added on the bill, so the menu shows prices before tax. */
+    pricesIncludeTax: z.boolean(),
+  }),
   outlet: z.object({ id: Id, slug: Slug, name: z.string(), isOpen: z.boolean() }),
   outlets: z.array(z.object({ slug: Slug, name: z.string() })),
   categories: z.array(MenuCategory),
@@ -94,10 +101,14 @@ export const QuoteLine = z.object({
 });
 export const QuoteResponse = z.object({
   lines: z.array(QuoteLine),
-  totalPaise: Paise,
+  subtotalPaise: Paise,
+  taxablePaise: Paise,
   taxPaise: Paise,
+  roundOffPaise: z.number().int(),
+  totalPaise: Paise,
   netPaise: Paise,
   taxRateBps: z.number().int(),
+  pricesIncludeTax: z.boolean(),
 });
 export type QuoteResponse = z.infer<typeof QuoteResponse>;
 
@@ -152,6 +163,8 @@ export const AdjustmentView = z.object({
   choice: z.enum(["REPLACE", "REMOVE", "CANCEL_ORDER"]).nullable(),
   refundPaise: Paise,
   topUpPaise: Paise,
+  /** What the customer gets back if they choose to remove the item (its share of the bill, with GST). */
+  removeRefundPaise: Paise,
   expiresAt: z.string(),
   note: z.string().nullable(),
   topUpCheckout: CheckoutInfo.nullable(),
@@ -162,9 +175,15 @@ export const OrderView = z.object({
   channel: z.enum(["ONLINE", "COUNTER"]),
   state: OrderStateSchema,
   pickupCode: z.string().nullable(),
-  totalPaise: Paise,
+  subtotalPaise: Paise,
   taxPaise: Paise,
+  roundOffPaise: z.number().int(),
+  totalPaise: Paise,
+  taxRateBps: z.number().int(),
+  pricesIncludeTax: z.boolean(),
   paidPaise: Paise,
+  /** How each captured payment was made, e.g. CASH, CARD_COUNTER, ONLINE (upi). */
+  payments: z.array(z.object({ method: z.string(), instrument: z.string().nullable(), amountPaise: Paise, tenderedPaise: Paise.nullable(), recordedBy: z.string().nullable() })),
   refundedPaise: Paise,
   cancelReason: z.string().nullable(),
   customerName: z.string().nullable(),
@@ -184,9 +203,12 @@ export const ResolveAdjustmentRequest = z.discriminatedUnion("kind", [
 ]);
 export type ResolveAdjustmentRequest = z.infer<typeof ResolveAdjustmentRequest>;
 
+export const PaymentInstrument = z.enum(["upi", "card", "netbanking", "wallet"]);
 export const SimulatePaymentRequest = z.object({
   paymentId: Id,
   outcome: z.enum(["SUCCESS", "FAILURE"]),
+  /** How the demo customer "paid", so reports can split UPI from cards. */
+  instrument: PaymentInstrument.default("upi"),
 });
 
 // ---------- Staff ----------
@@ -228,6 +250,8 @@ export const FlagUnavailableRequest = z.object({
   markSoldOut: z.boolean().default(true),
 });
 export const CounterPaymentMethod = z.enum(["CASH", "UPI_COUNTER", "CARD_COUNTER"]);
+/** Card machine approval code or the card's last 4 digits: 4 to 12 letters or digits. */
+export const CardReference = z.string().trim().toUpperCase().pipe(z.string().regex(/^[A-Z0-9]{4,12}$/, "Type the approval code or the last 4 digits from the card machine slip"));
 /** The 12-digit UPI transaction reference (UTR) shown on the customer's payment screen. */
 export const UpiReference = z.string().trim().regex(/^\d{12}$/, "The UPI reference (UTR) is the 12-digit number on the customer's payment screen");
 export const WalkInOrderRequest = QuoteRequest.extend({
@@ -236,6 +260,10 @@ export const WalkInOrderRequest = QuoteRequest.extend({
   customer: z.object({ name: z.string().trim().max(60).optional(), phone: IndianMobile.optional() }).optional(),
   /** Optional for UPI at the counter; when given it must be new, so one payment can't be used twice. */
   upiReference: UpiReference.optional(),
+  /** Cash handed over, so the till can show the change and the drawer can be checked. */
+  tenderedPaise: z.number().int().min(0).max(100_000_00).optional(),
+  /** Card machine approval code or last 4 digits. */
+  cardReference: CardReference.optional(),
   /**
    * Set by the till for every counter order, so sending it twice (a retry, or a queue sent after
    * the connection came back) never makes two orders.
@@ -243,7 +271,42 @@ export const WalkInOrderRequest = QuoteRequest.extend({
   clientRef: z.string().uuid().optional(),
   /** When the order was taken, if the till saved it while offline and is sending it now. */
   takenOfflineAt: z.string().datetime().optional(),
-}).refine((b) => !b.upiReference || b.method === "UPI_COUNTER", { message: "A UPI reference only goes with a UPI payment", path: ["upiReference"] });
+})
+  .refine((b) => !b.upiReference || b.method === "UPI_COUNTER", { message: "A UPI reference only goes with a UPI payment", path: ["upiReference"] })
+  .refine((b) => b.tenderedPaise === undefined || b.method === "CASH", { message: "Cash received only goes with a cash payment", path: ["tenderedPaise"] })
+  .refine((b) => !b.cardReference || b.method === "CARD_COUNTER", { message: "A card reference only goes with a card payment", path: ["cardReference"] });
+
+/**
+ * The cashier places an order for a customer and lets them pay on their own phone: the till shows
+ * a QR code that opens the order's payment page (UPI or card through the gateway). The order goes to
+ * the kitchen when the gateway confirms the payment, or when the cashier marks it paid another way.
+ */
+export const CounterOrderRequest = QuoteRequest.extend({
+  outletId: Id,
+  customer: z.object({ name: z.string().trim().max(60).optional(), phone: IndianMobile.optional() }).optional(),
+  clientRef: z.string().uuid().optional(),
+});
+export const CounterOrderResponse = z.object({
+  order: OrderView,
+  /** Link the QR code opens: the customer's payment page for this order. */
+  payUrl: z.string(),
+  expiresAt: z.string(),
+});
+export type CounterOrderResponse = z.infer<typeof CounterOrderResponse>;
+
+/** The cashier confirms a counter order is paid: cash in hand, the card machine, or the café's own UPI QR. */
+export const MarkPaidRequest = z
+  .object({
+    method: CounterPaymentMethod,
+    tenderedPaise: z.number().int().min(0).max(100_000_00).optional(),
+    upiReference: UpiReference.optional(),
+    cardReference: CardReference.optional(),
+  })
+  .refine((b) => !b.upiReference || b.method === "UPI_COUNTER", { message: "A UPI reference only goes with a UPI payment", path: ["upiReference"] })
+  .refine((b) => b.tenderedPaise === undefined || b.method === "CASH", { message: "Cash received only goes with a cash payment", path: ["tenderedPaise"] })
+  .refine((b) => !b.cardReference || b.method === "CARD_COUNTER", { message: "A card reference only goes with a card payment", path: ["cardReference"] });
+export type MarkPaidRequest = z.input<typeof MarkPaidRequest>;
+export const VoidOrderRequest = z.object({ reason: z.string().trim().min(2).max(200) });
 export const StockUpdateRequest = z.object({
   outletId: Id,
   itemId: Id,
@@ -292,8 +355,10 @@ export const AdminSettingsRequest = z.object({
   tagline: z.string().trim().max(80).optional(),
   greeting: z.string().trim().max(140).optional(),
   managerName: z.string().trim().max(30).optional(),
-  /** GST in basis points, e.g. 500 = 5% (SO-6 pending with the owner). */
+  /** GST in basis points, e.g. 500 = 5%. */
   taxRateBps: z.number().int().min(0).max(2800),
+  /** False: GST is added on the whole bill at checkout (SO-6, the 400 Coffee setting). */
+  pricesIncludeTax: z.boolean().optional(),
   billing: BillingDetails.optional(),
 });
 
@@ -372,6 +437,7 @@ export const AdminSetup = z.object({
     slug: z.string(),
     name: z.string(),
     taxRateBps: z.number().int(),
+    pricesIncludeTax: z.boolean(),
     branding: Branding,
     billing: BillingDetails,
     plan: z.object({
@@ -448,8 +514,10 @@ export const ReceiptView = z.object({
     taxRateBps: z.number().int(),
     cgstPaise: Paise,
     sgstPaise: Paise,
+    roundOffPaise: z.number().int(),
+    pricesIncludeTax: z.boolean(),
   }),
-  payments: z.array(z.object({ method: z.string(), amountPaise: Paise, reference: z.string().nullable() })),
+  payments: z.array(z.object({ method: z.string(), instrument: z.string().nullable().optional(), amountPaise: Paise, reference: z.string().nullable(), tenderedPaise: Paise.nullable().optional(), changePaise: Paise.nullable().optional() })),
   refundedPaise: Paise,
   footer: z.string().nullable(),
 });
