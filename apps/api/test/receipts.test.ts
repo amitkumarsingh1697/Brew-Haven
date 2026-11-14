@@ -50,7 +50,7 @@ describe("receipts", () => {
     expect(inv.seller).toMatchObject({ legalName: "400 Coffee Pvt Ltd", gstin: "29ABCDE1234F1Z5", fssaiLicence: "11223344556677", outlet: "Tower A" });
     expect(inv.lines).toEqual([expect.objectContaining({ name: "Cappuccino", quantity: 2, amountPaise: 36000 })]);
     // ₹360 inclusive of 5%: GST = 360 × 5/105 = ₹17.14, split 8.57 + 8.57.
-    expect(inv.totals).toEqual({ totalPaise: 36000, taxablePaise: 36000 - 1714, taxRateBps: 500, cgstPaise: 857, sgstPaise: 857 });
+    expect(inv.totals).toEqual({ totalPaise: 36000, taxablePaise: 36000 - 1714, taxRateBps: 500, cgstPaise: 857, sgstPaise: 857, roundOffPaise: 0, pricesIncludeTax: true });
     expect(inv.payments).toEqual([expect.objectContaining({ method: "ONLINE", amountPaise: 36000 })]);
     expect(inv.footer).toBe("Thank you, see you tomorrow!");
 

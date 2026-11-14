@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { OrderView } from "@brew-haven/contracts";
 import { api } from "./api";
 
-const LIVE = new Set(["PLACED", "PREPARING", "ACTION_REQUIRED", "READY"]);
+// AWAITING_PAYMENT only arrives for counter orders waiting on the customer, so the till can mark them paid.
+const LIVE = new Set(["AWAITING_PAYMENT", "PLACED", "PREPARING", "ACTION_REQUIRED", "READY"]);
 
 /** A short two-note chime for a new order (no audio file needed). */
 function chime() {

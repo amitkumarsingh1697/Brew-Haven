@@ -9,7 +9,7 @@ describe("Razorpay adapter", () => {
     const rp = new RazorpayProvider("rzp_test_key", "s", secret);
     const body = JSON.stringify({ event: "payment.captured", payload: { payment: { entity: { id: "pay_1", order_id: "order_1", amount: 18000 } } } });
     const ev = rp.parseWebhook(body, { "x-razorpay-signature": hmacHex(secret, body), "x-razorpay-event-id": "evt_1" });
-    expect(ev).toEqual({ eventId: "evt_1", type: "payment.captured", providerOrderId: "order_1", providerPaymentId: "pay_1", amountPaise: 18000 });
+    expect(ev).toEqual({ eventId: "evt_1", type: "payment.captured", providerOrderId: "order_1", providerPaymentId: "pay_1", amountPaise: 18000, instrument: null });
   });
 
   it("rejects a bad or missing signature", () => {

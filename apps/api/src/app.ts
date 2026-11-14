@@ -35,6 +35,9 @@ import {
   PlatformBusinessUpdate,
   StockUpdateRequest,
   WalkInOrderRequest,
+  CounterOrderRequest,
+  MarkPaidRequest,
+  VoidOrderRequest,
 } from "@brew-haven/contracts";
 import { quote } from "@brew-haven/domain";
 import { createAlerter, type Alerter } from "./alerts.js";
@@ -51,6 +54,10 @@ import { getMenu, loadTenantOutlet, resolveLines } from "./services/catalog.js";
 import {
   createOnlineOrder,
   createWalkInOrder,
+  createCounterOrder,
+  counterPayLink,
+  markCounterPaid,
+  voidCounterOrder,
   flagUnavailable,
   handleWebhook,
   rejectOrder,
@@ -274,7 +281,7 @@ export async function buildApp(deps: AppDeps) {
     const body = parse(QuoteRequest, req.body);
     const { tenant, outlet } = await loadTenantOutlet(deps.db, req.params.tenant, req.params.outlet);
     const lines = await resolveLines(deps.db, tenant.id, outlet.id, body.lines, { requireAvailable: true });
-    const q = quote(lines, tenant.taxRateBps);
+    const q = quote(lines, tenant.taxRateBps, tenant.pricesIncludeTax);
     return { ...q, lines: q.lines.map((l, i) => ({ itemId: l.itemId, name: l.name, quantity: l.quantity, modifiers: l.modifiers, unitTotalPaise: l.unitTotalPaise, lineTotalPaise: l.lineTotalPaise, ...(lines[i]?.note ? { note: lines[i]!.note } : {}) })) };
   });
 
@@ -345,7 +352,7 @@ export async function buildApp(deps: AppDeps) {
       const body = parse(SimulatePaymentRequest, req.body);
       const [pay] = await deps.db.select().from(payments).where(eq(payments.id, body.paymentId));
       if (!pay || pay.provider !== "simulated") throw notFound("Payment");
-      const signed = provider.paymentEvent(body.outcome === "SUCCESS" ? "payment.captured" : "payment.failed", pay.providerOrderId!, pay.amountPaise);
+      const signed = provider.paymentEvent(body.outcome === "SUCCESS" ? "payment.captured" : "payment.failed", pay.providerOrderId!, pay.amountPaise, body.instrument);
       const result = await handleWebhook(ctx, provider.parseWebhook(signed.body, signed.headers));
       return { result, order: await deps.db.transaction((tx) => orderView(tx, pay.orderId)) };
     });
@@ -390,7 +397,7 @@ export async function buildApp(deps: AppDeps) {
       if (e.tenantId !== s.tenantId || e.outletId !== req.query.outletId) return;
       void deps.db
         .transaction((tx) => orderView(tx, e.orderId))
-        .then((v) => v.state !== "AWAITING_PAYMENT" && sse.send("order", v))
+        .then((v) => (v.state !== "AWAITING_PAYMENT" || (v.channel === "COUNTER" && s.role !== "KITCHEN")) && sse.send("order", v))
         .catch(() => undefined);
     });
     sse.onClose(off);
@@ -409,6 +416,11 @@ export async function buildApp(deps: AppDeps) {
   app.post("/v1/staff/orders/walk-in", async (req, reply) =>
     reply.status(201).send(await createWalkInOrder(ctx, await staff(req), parse(WalkInOrderRequest, req.body))),
   );
+  // Point 5: the cashier places the order for the customer; it is paid by QR on the customer's phone, or marked paid at the till.
+  app.post("/v1/staff/orders/counter", async (req, reply) => reply.status(201).send(await createCounterOrder(ctx, await staff(req), parse(CounterOrderRequest, req.body))));
+  app.get<{ Params: { id: string } }>("/v1/staff/orders/:id/pay-link", async (req) => counterPayLink(ctx, await staff(req), req.params.id));
+  app.post<{ Params: { id: string } }>("/v1/staff/orders/:id/mark-paid", async (req) => markCounterPaid(ctx, await staff(req), req.params.id, parse(MarkPaidRequest, req.body)));
+  app.post<{ Params: { id: string } }>("/v1/staff/orders/:id/void", async (req) => voidCounterOrder(ctx, await staff(req), req.params.id, parse(VoidOrderRequest, req.body).reason));
   app.get<{ Querystring: { outletId: string } }>("/v1/staff/stock", async (req) => stockList(deps.db, await staff(req), req.query.outletId));
   app.put("/v1/staff/stock", async (req) => updateStock(deps.db, await staff(req), parse(StockUpdateRequest, req.body)));
   app.get<{ Querystring: { outletId: string } }>("/v1/staff/inventory", async (req) => inventory.inventoryFor(deps.db, await staff(req), req.query.outletId));

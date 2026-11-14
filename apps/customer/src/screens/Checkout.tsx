@@ -129,14 +129,37 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
           <ErrorNote message={quoteError} />
         ) : quote ? (
           <>
+            {!quote.pricesIncludeTax && (
+              <>
+                <div className="row small">
+                  <span>Subtotal</span>
+                  <Rs paise={quote.subtotalPaise} />
+                </div>
+                <div className="row small">
+                  <span>GST {quote.taxRateBps / 100}% (CGST {quote.taxRateBps / 200}% + SGST {quote.taxRateBps / 200}%)</span>
+                  <Rs paise={quote.taxPaise} />
+                </div>
+                {quote.roundOffPaise !== 0 && (
+                  <div className="row small">
+                    <span>Round-off</span>
+                    <span>
+                      {quote.roundOffPaise < 0 ? "−" : "+"}
+                      <Rs paise={Math.abs(quote.roundOffPaise)} />
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
             <div className="row total">
               <span>To pay</span>
               <Rs paise={quote.totalPaise} />
             </div>
-            <div className="row small">
-              <span>Includes GST ({(quote.taxRateBps / 100).toFixed(0)}%)</span>
-              <Rs paise={quote.taxPaise} />
-            </div>
+            {quote.pricesIncludeTax && (
+              <div className="row small">
+                <span>Includes GST ({(quote.taxRateBps / 100).toFixed(0)}%)</span>
+                <Rs paise={quote.taxPaise} />
+              </div>
+            )}
           </>
         ) : (
           <div className="row">

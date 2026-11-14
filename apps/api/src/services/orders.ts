@@ -4,10 +4,10 @@ import type { LineRequest, OrderView } from "@brew-haven/contracts";
 import {
   ADJUSTMENT_TIMEOUT_MS,
   assertRefundAllowed,
+  billTotals,
   financialYear,
   formatInvoiceNo,
   formatPickupCode,
-  inclusiveTax,
   transition,
   type Actor,
   type OrderAction,
@@ -26,6 +26,7 @@ import {
   outlets,
   payments,
   refunds,
+  staffUsers,
   tenants,
 } from "../db/schema.js";
 import { consumeIngredients } from "./inventory.js";
@@ -153,14 +154,40 @@ export async function takeStock(tx: Tx, outletId: string, itemId: string, qty: n
     .where(and(eq(outletItemStock.outletId, outletId), eq(outletItemStock.itemId, itemId), sql`${outletItemStock.stockCount} IS NOT NULL`));
 }
 
-/** Recomputes total and tax from the lines that are still being made. */
-export async function recomputeTotals(tx: Tx, order: OrderRow) {
+/** Lines that count towards the bill: being made, or flagged unavailable and not yet resolved. */
+const COUNTED = ["ACTIVE", "UNAVAILABLE"] as const;
+
+export async function countedSubtotal(tx: Tx, orderId: string): Promise<number> {
   const [row] = await tx
     .select({ total: sql<number>`COALESCE(SUM(${orderLines.lineTotalPaise}), 0)::int` })
     .from(orderLines)
-    .where(and(eq(orderLines.orderId, order.id), inArray(orderLines.status, ["ACTIVE", "UNAVAILABLE"])));
-  const total = row?.total ?? 0;
-  await tx.update(orders).set({ totalPaise: total, taxPaise: inclusiveTax(total, order.taxRateBps), updatedAt: new Date() }).where(eq(orders.id, order.id));
+    .where(and(eq(orderLines.orderId, orderId), inArray(orderLines.status, [...COUNTED])));
+  return row?.total ?? 0;
+}
+
+export function orderBill(order: Pick<OrderRow, "taxRateBps" | "pricesIncludeTax">, subtotalPaise: number) {
+  return billTotals(subtotalPaise, order.taxRateBps, order.pricesIncludeTax);
+}
+
+/**
+ * What the bill total changes by when one line's value changes (removed: `newLinePaise` 0;
+ * swapped: the replacement's price). GST is on the whole bill and, when added on top, the total is
+ * rounded to the rupee, so the difference is worked out on the bill before and after, never on
+ * the line alone. Applied one change at a time, the differences add up exactly to the change in
+ * the bill.
+ */
+export async function billDelta(tx: Tx, order: OrderRow, oldLinePaise: number, newLinePaise: number) {
+  const sub = await countedSubtotal(tx, order.id);
+  const before = orderBill(order, sub).totalPaise;
+  const after = orderBill(order, sub - oldLinePaise + newLinePaise).totalPaise;
+  return { before, after };
+}
+
+/** Recomputes the bill from the lines that are still being made. */
+export async function recomputeTotals(tx: Tx, order: OrderRow) {
+  const bill = orderBill(order, await countedSubtotal(tx, order.id));
+  await tx.update(orders).set({ totalPaise: bill.totalPaise, taxPaise: bill.taxPaise, roundOffPaise: bill.roundOffPaise, updatedAt: new Date() }).where(eq(orders.id, order.id));
+  return bill;
 }
 
 // ---------- Money on an order ----------
@@ -238,8 +265,13 @@ export async function settleIfAllResolved(tx: Tx, after: After, bus: EventBus, o
   if (order.state !== "ACTION_REQUIRED") return order;
   const pending = await tx.select({ id: adjustments.id }).from(adjustments).where(and(eq(adjustments.orderId, orderId), ne(adjustments.status, "RESOLVED")));
   if (pending.length > 0) return order;
-  await recomputeTotals(tx, order);
+  const bill = await recomputeTotals(tx, order);
   const fresh = await lockOrder(tx, { id: orderId });
+  // Safety net: if rounding across several changes left the customer paying more than the final
+  // bill, give the difference back. (The café absorbs a shortfall of a few paise.)
+  const money = await moneyOnOrder(tx, orderId);
+  const over = money.captured - money.refunded - bill.totalPaise;
+  if (bill.totalPaise > 0 && over > 0) await issueRefund(tx, fresh, over, "Rounding difference after changes to your order", `order:${orderId}:rounding`);
   const active = await tx.select({ id: orderLines.id }).from(orderLines).where(and(eq(orderLines.orderId, orderId), eq(orderLines.status, "ACTIVE")));
   if (active.length === 0) {
     const reason = "All items on this order became unavailable";
@@ -260,6 +292,10 @@ export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
   const adjs = await tx.select().from(adjustments).where(eq(adjustments.orderId, o.id)).orderBy(asc(adjustments.createdAt));
   const pays = await tx.select().from(payments).where(eq(payments.orderId, o.id));
   const refs = await tx.select().from(refunds).where(eq(refunds.orderId, o.id)).orderBy(desc(refunds.createdAt));
+  const staffIds = [...new Set(pays.map((p) => p.recordedByStaffId).filter((x): x is string => !!x))];
+  const staffNames = new Map(staffIds.length ? (await tx.select({ id: staffUsers.id, name: staffUsers.name }).from(staffUsers).where(inArray(staffUsers.id, staffIds))).map((s) => [s.id, s.name]) : []);
+  const counted = lines.filter((l) => (COUNTED as readonly string[]).includes(l.status)).reduce((s, l) => s + l.lineTotalPaise, 0);
+  const currentTotal = orderBill(o, counted).totalPaise;
   const paid = pays.filter((p) => p.status === "CAPTURED").reduce((s, p) => s + p.amountPaise, 0);
   const refunded = refs.filter((r) => r.status !== "FAILED").reduce((s, r) => s + r.amountPaise, 0);
   return {
@@ -268,9 +304,16 @@ export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
     channel: o.channel,
     state: o.state as OrderView["state"],
     pickupCode: o.pickupCode,
-    totalPaise: o.totalPaise,
+    subtotalPaise: o.totalPaise - o.roundOffPaise - (o.pricesIncludeTax ? 0 : o.taxPaise),
     taxPaise: o.taxPaise,
+    roundOffPaise: o.roundOffPaise,
+    totalPaise: o.totalPaise,
+    taxRateBps: o.taxRateBps,
+    pricesIncludeTax: o.pricesIncludeTax,
     paidPaise: paid,
+    payments: pays
+      .filter((p) => p.status === "CAPTURED")
+      .map((p) => ({ method: p.method, instrument: p.instrument, amountPaise: p.amountPaise, tenderedPaise: p.tenderedPaise, recordedBy: p.recordedByStaffId ? (staffNames.get(p.recordedByStaffId) ?? null) : null })),
     refundedPaise: refunded,
     cancelReason: o.cancelReason,
     customerName: o.customerName,
@@ -294,6 +337,7 @@ export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
         choice: a.choice,
         refundPaise: a.refundPaise,
         topUpPaise: a.topUpPaise,
+        removeRefundPaise: a.status === "OPEN" ? Math.max(0, currentTotal - orderBill(o, counted - (lines.find((l) => l.id === a.lineId)?.lineTotalPaise ?? 0)).totalPaise) : 0,
         expiresAt: a.expiresAt.toISOString(),
         note: a.note,
         topUpCheckout:

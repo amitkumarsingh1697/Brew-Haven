@@ -431,7 +431,7 @@ h2 {
 /* POS */
 .pos {
   display: grid;
-  grid-template-columns: 1fr minmax(280px, 360px);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   gap: 16px;
   align-items: start;
 }
@@ -1485,3 +1485,73 @@ a.btn {
 .help-body h2 { font-size: 1.3rem; margin: 18px 0 4px; }
 .help-body ul, .help-body ol { padding-left: 20px; }
 .user .help-btn { margin-right: 4px; }
+
+/* Counter payments (Point 5) */
+.bill-lines {
+  display: grid;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.bill-lines > div {
+  display: flex;
+  justify-content: space-between;
+}
+.pay-modal .change-due {
+  font-size: 1.4rem;
+  margin: 0;
+}
+.qr-pay {
+  max-width: 420px;
+  text-align: center;
+}
+.qr-box {
+  width: min(280px, 70vw);
+  margin: 0 auto;
+  background: #fff;
+  padding: 8px;
+  border-radius: 12px;
+}
+.qr-box svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.waiting-pulse {
+  font-weight: 700;
+  animation: bh-pulse 1.6s ease-in-out infinite;
+}
+@keyframes bh-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .waiting-pulse {
+    animation: none;
+  }
+}
+.awaiting ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.awaiting li {
+  display: grid;
+  gap: 2px;
+  font-size: 0.9rem;
+}
+.row-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.radio-set {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
