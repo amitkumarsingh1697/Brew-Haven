@@ -45,6 +45,15 @@ services:
       # The Brew Haven console needs two-step sign-in (on by default in production; "false" turns it off).
       - key: PLATFORM_REQUIRE_TWO_STEP
         value: "true"
+      # Brew Haven as the seller on its invoices to cafés (see docs/delivery/PLANS.md).
+      - key: BREW_HAVEN_LEGAL_NAME
+        sync: false
+      - key: BREW_HAVEN_GSTIN
+        sync: false
+      - key: BREW_HAVEN_ADDRESS
+        sync: false
+      - key: BREW_HAVEN_EMAIL
+        sync: false
       # Operational alerts (server errors, background jobs that gave up): a Slack / Google Chat / Discord webhook URL.
       - key: ALERT_WEBHOOK_URL
         sync: false

@@ -35,6 +35,7 @@ import {
   PlatformLoginRequest,
   PlatformLoginCodeRequest,
   PlatformTwoStepConfirm,
+  PlatformSubscriptionPayment,
   PlatformBusinessUpdate,
   StockUpdateRequest,
   WalkInOrderRequest,
@@ -82,6 +83,7 @@ import { assertSignupOpen, signup } from "./services/signup.js";
 import { readiness } from "./services/health.js";
 import { orderView } from "./services/orders.js";
 import { receiptByToken, receiptForStaff } from "./services/receipts.js";
+import { businessSubscriptionInvoices, ownerSubscriptionInvoices, recordSubscriptionPayment } from "./services/subscriptions.js";
 import { MAX_LOGO_BYTES, configureLogoUrls, readLogo, removeLogo, saveLogo } from "./services/logo.js";
 import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login, stockList, updateStock } from "./services/staff.js";
 import * as admin from "./services/admin.js";
@@ -476,11 +478,17 @@ export async function buildApp(deps: AppDeps) {
     platform.confirmTwoStep(deps.db, platformTokens, await platformAdmin(req, { setupOnly: true }), serverSecret, parse(PlatformTwoStepConfirm, req.body).code),
   );
   app.get("/v1/platform/businesses", async (req) => (await platformAdmin(req), platform.listBusinesses(deps.db)));
+  const seller = deps.config.brewHaven ?? { legalName: "Brew Haven", gstin: null, address: null, email: null };
+  app.post<{ Params: { id: string } }>("/v1/platform/businesses/:id/payments", async (req) =>
+    recordSubscriptionPayment(deps.db, seller, await platformAdmin(req), req.params.id, parse(PlatformSubscriptionPayment, req.body), req.ip),
+  );
+  app.get<{ Params: { id: string } }>("/v1/platform/businesses/:id/invoices", async (req) => (await platformAdmin(req), businessSubscriptionInvoices(deps.db, req.params.id)));
   app.patch<{ Params: { id: string } }>("/v1/platform/businesses/:id", async (req) => platform.updateBusiness(deps.db, await platformAdmin(req), req.params.id, parse(PlatformBusinessUpdate, req.body), req.ip));
 
   // ---------- Owner admin (D-17) ----------
   type IdParams = { Params: { id: string } };
   app.get("/v1/admin/setup", async (req) => admin.getSetup(deps.db, await staff(req)));
+  app.get("/v1/admin/subscription-invoices", async (req) => ownerSubscriptionInvoices(deps.db, await staff(req)));
   app.get<{ Querystring: { outletId?: string } }>("/v1/admin/payment-checks", async (req) => listPaymentExceptions(deps.db, await staff(req), { outletId: req.query.outletId || undefined }));
   app.get<{ Params: { kind: string }; Querystring: { from?: string; to?: string; outletId?: string } }>("/v1/admin/exports/:kind", async (req, reply) => {
     const { filename, csv } = await exportCsv(deps.db, await staff(req), req.params.kind, { from: req.query.from, to: req.query.to, outletId: req.query.outletId || undefined });

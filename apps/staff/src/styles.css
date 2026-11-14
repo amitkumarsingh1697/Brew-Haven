@@ -1665,3 +1665,91 @@ a.btn {
   font-size: 1.05rem;
   user-select: all;
 }
+.plan-invoices h3 {
+  margin: 16px 0 6px;
+  font-size: 1rem;
+}
+.plan-invoices ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.plan-invoices li {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--bh-line, #e8dcc8);
+  font-size: 0.92rem;
+}
+.plan-invoices li span {
+  flex: 1;
+}
+.pay-form {
+  display: grid;
+  gap: 12px;
+}
+.pay-form label {
+  display: grid;
+  gap: 4px;
+}
+.sub-invoice-modal {
+  max-width: 760px;
+}
+.sub-invoice {
+  background: #fff;
+  color: #1b1410;
+  padding: 28px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.sub-invoice header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  border-bottom: 2px solid #1b1410;
+  padding-bottom: 14px;
+}
+.sub-invoice header h2 {
+  margin: 0 0 4px;
+}
+.sub-invoice header p {
+  margin: 0;
+  font-size: 13px;
+}
+.sub-invoice-title {
+  text-align: right;
+}
+.sub-invoice-title strong {
+  font-size: 1.2rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.sub-invoice-to {
+  display: grid;
+  margin: 16px 0;
+}
+.sub-invoice table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+}
+.sub-invoice th,
+.sub-invoice td {
+  padding: 8px 6px;
+  text-align: left;
+  border-bottom: 1px solid #e3d8c6;
+}
+.sub-invoice .num {
+  text-align: right;
+}
+.sub-invoice tfoot td {
+  border-bottom: none;
+  padding: 4px 6px;
+}
+.sub-invoice tfoot .total td {
+  border-top: 2px solid #1b1410;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding-top: 8px;
+}

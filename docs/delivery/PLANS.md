@@ -30,8 +30,22 @@ Live payment collection for subscriptions is not built yet (it comes with the pa
 Until then the owner pays by UPI or bank transfer, and the Brew Haven team records it on the team
 page (`/platform`):
 
-- **Record payment** asks for the paid-until date, suggesting one month after the later of today
-  and the current end date. A yearly payment is the same with a date a year on.
+- **Record payment** asks for a month or a year, how they paid (UPI, bank transfer, card, cash) and
+  an optional reference. The paid period runs on from the later of today and the current end date,
+  and Brew Haven's invoice is issued for it (numbered `BH2627-00001`, one series per financial year).
+  The owner sees every invoice under Café settings → Your plan, and can print it or save it as a PDF.
+- **Fix date** corrects the paid-until date without issuing an invoice.
+
+### Brew Haven's invoices
+
+- Seller details come from the API's environment: `BREW_HAVEN_LEGAL_NAME`, `BREW_HAVEN_GSTIN`,
+  `BREW_HAVEN_ADDRESS`, `BREW_HAVEN_EMAIL`. **Action required (Amit):** the company's registered name,
+  address and GSTIN.
+- With a GSTIN set, it is a tax invoice with 18% GST (SAC 998314): CGST + SGST when the café's GSTIN
+  is in the same state (or the café has none), IGST when it is in another state. Without Brew Haven's
+  GSTIN it is a plain invoice with no GST.
+- The buyer's name, GSTIN and address (the first café's) are copied in when the invoice is issued,
+  so later edits never change it.
 - **Change trial** extends or ends a free trial.
 
 Both are written to the business's own Activity log ("Brew Haven recorded a payment: paid until
