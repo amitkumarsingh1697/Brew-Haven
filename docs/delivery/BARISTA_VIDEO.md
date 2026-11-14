@@ -50,13 +50,36 @@ pnpm --filter @brew-haven/api barista-video 400-coffee /baristas/400-coffee/idle
 Each clip comes out at 540×960, 24 fps, silent, about 0.5 to 1.5 MB. If the cloth isn't standard
 chroma green, pass its colour with `--key=#3fae4a` (pick it from a frame).
 
+## AI clips (what the 400 Coffee demo uses now)
+
+Until the café films its own barista, the demo uses AI clips of "Aarav", made for free on Hugging
+Face Spaces on 13 Nov 2026 (Amit approved them the same day). Aarav is not a real person, so no
+consent is needed; swap in the filmed clips when they exist.
+
+1. Still: FLUX.1-schnell (`black-forest-labs/FLUX.1-schnell`, `/infer`, 576×1024, seed 21), a
+   young barista in a white T-shirt and dark brown apron against a green screen.
+2. Motion: Wan 2.2 image-to-video (`zerogpu-aoti/wan2-2-fp8da-aoti-faster`, `/generate_video`,
+   4 s, 6 steps, seed 11), once with an idle prompt and once with a wave prompt.
+3. Clean-up: `tools/barista-ai-clip.py idle.mp4 apps/customer/public/baristas/400-coffee/idle.mp4 --loop`
+   and the same without `--loop` for the wave. The generated backdrop is uneven green, so the tool
+   rebuilds it as flat #00b140 (a plain chroma key also removed the white shirt and black hair).
+
+Both Spaces run on free ZeroGPU time with a free Hugging Face token. Call them with plain HTTP
+(`POST /gradio_api/call/<fn>`, then read the event stream) and an `Authorization: Bearer` token;
+the `gradio_client` library was refused ZeroGPU time from a cloud server even with the token.
+
+The demo seed sets the clips for 400 Coffee. For a database that already exists (the hosted demo),
+run the `barista-video` command above once against it.
+
 ## How it works
 
 - `branding.baristaVideo` on the business: `{ idle, wave?, keyColor? }`. The menu API passes it to
   the customer app; saving café settings keeps it.
 - `VideoBarista` in `apps/customer/src/components/Cafe3D.tsx` draws the clip on a plane behind the
   counter with a chroma-key shader (soft edges, green spill removed), warmed slightly to match the
-  lamps. A tap plays the wave clip once.
+  lamps. A tap blends in the wave clip, which plays once. Both clips stay bound to the shader, and the
+  wave is switched on through the material's own uniforms (react-three-fiber copies the `uniforms`
+  object, so changing the original does nothing).
 - Reduced motion shows the first frame, still. If the clip fails to load or play, the drawn barista
   is used. Devices that get the 2D scene are unaffected.
 - The scene is lighter with video: 62 draw calls instead of 82.

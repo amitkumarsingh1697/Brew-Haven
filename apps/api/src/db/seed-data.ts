@@ -138,6 +138,7 @@ export async function seedDemo(db: Db) {
           managerName: "Aarav",
           primaryColor: "#57331F",
           accentColor: "#6F8F5A",
+          baristaVideo: { idle: "/baristas/400-coffee/idle.mp4", wave: "/baristas/400-coffee/wave.mp4" },
           // The café's seal logo, served by the customer app (docs/brand/400_COFFEE_LOGO.md).
           logoUrl: "/brands/400-coffee/logo.svg",
         },
