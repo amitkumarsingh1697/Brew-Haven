@@ -80,6 +80,8 @@ export async function seedDemo(db: Db) {
           managerName: "Aarav",
           primaryColor: "#57331F",
           accentColor: "#6F8F5A",
+          // The café's seal logo, served by the customer app (docs/brand/400_COFFEE_LOGO.md).
+          logoUrl: "/brands/400-coffee/logo.svg",
         },
       })
       .returning();
