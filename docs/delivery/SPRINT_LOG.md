@@ -75,7 +75,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Customer cancels from the order link: free before the kitchen starts (race-safe), and for a full refund once the order is late; "late after" minutes per café in Settings (default 30); counter orders stay with the cashier. Refund policy K1, K2, K4, C8 | Done (PR #37) |
 | Refund tools for the cashier and owner: refund items or the whole order after service, priced on the whole bill with GST; GST credit notes with their own number series, in the GST report and a CSV download; cashier refund limit in Settings with the owner's PIN above it; refund reference for counter card and UPI. Refund policy K12, K13 (partly), C4, C5, T1, P14 | Done (PR #38) |
 | "Not collected" order status: the cashier can close a ready order after a 30-minute hold, and orders still waiting at the end of the day close on their own, with no refund and the sale kept. Extra or wrong-amount payments are refunded in full automatically. Refund policy K10, P2, P3, P4 | Done (PR #39) |
-| Café logo upload in Settings (PNG, JPG or WebP, shrunk to 512 px, kept in the database, checked by its real file type). The logo shows on the customer welcome screen, printed receipts and QR posters. New setting `PUBLIC_API_URL` on the API | In review |
+| Café logo upload in Settings (PNG, JPG or WebP, shrunk to 512 px, kept in the database, checked by its real file type). The logo shows on the customer welcome screen, printed receipts and QR posters. New setting `PUBLIC_API_URL` on the API | Done (PR #40) |
+| Two-step sign-in for the Brew Haven console: an authenticator app code (TOTP) after the password, 8 one-time recovery codes, the secret kept encrypted, no code used twice. Required in production (`PLATFORM_REQUIRE_TWO_STEP`); lost phones reset with `platform-admin <email> --reset-two-step` | In review |
 
 ## Waiting on Amit
 

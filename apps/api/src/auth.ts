@@ -64,6 +64,8 @@ export interface PlatformClaims {
   sub: string;
   email: string;
   name: string;
+  /** Signed in with an authenticator code as well as the password. */
+  mfa: boolean;
 }
 
 /** Sign-ins for Brew Haven's own team. A different audience, so a café token never works here. */
@@ -73,14 +75,26 @@ export class PlatformTokens {
     this.key = new TextEncoder().encode(secret);
   }
   async issue(c: PlatformClaims): Promise<string> {
-    return new SignJWT({ email: c.email, name: c.name }).setProtectedHeader({ alg: "HS256" }).setSubject(c.sub).setIssuedAt().setExpirationTime("8h").setAudience("brew-haven-platform").sign(this.key);
+    return new SignJWT({ email: c.email, name: c.name, mfa: c.mfa }).setProtectedHeader({ alg: "HS256" }).setSubject(c.sub).setIssuedAt().setExpirationTime("8h").setAudience("brew-haven-platform").sign(this.key);
   }
   async verify(token: string): Promise<PlatformClaims> {
     try {
       const { payload } = await jwtVerify(token, this.key, { audience: "brew-haven-platform" });
-      return { sub: String(payload.sub), email: String(payload.email), name: String(payload.name) };
+      return { sub: String(payload.sub), email: String(payload.email), name: String(payload.name), mfa: payload.mfa === true };
     } catch {
       throw new AppError("UNAUTHORIZED", "Please sign in again.");
+    }
+  }
+  /** Between the password and the authenticator code: proves the password was right, for 5 minutes, and opens nothing else. */
+  async issueCodeTicket(adminId: string): Promise<string> {
+    return new SignJWT({}).setProtectedHeader({ alg: "HS256" }).setSubject(adminId).setIssuedAt().setExpirationTime("5m").setAudience("brew-haven-platform-code").sign(this.key);
+  }
+  async verifyCodeTicket(ticket: string): Promise<string> {
+    try {
+      const { payload } = await jwtVerify(ticket, this.key, { audience: "brew-haven-platform-code" });
+      return String(payload.sub);
+    } catch {
+      throw new AppError("UNAUTHORIZED", "That took too long. Sign in again.");
     }
   }
 }

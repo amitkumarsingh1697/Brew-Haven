@@ -56,6 +56,15 @@ export const platformAdmins = pgTable("platform_admins", {
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
   active: boolean("active").notNull().default(true),
+  /** Two-step sign-in: the authenticator secret, encrypted (see totp.ts). Set once a first code is confirmed. */
+  totpSecret: text("totp_secret"),
+  /** A secret being set up, not yet confirmed with a code. */
+  totpPendingSecret: text("totp_pending_secret"),
+  totpEnabledAt: timestamp("totp_enabled_at", { withTimezone: true }),
+  /** The last 30-second step a code was accepted for, so a code works only once. */
+  totpLastStep: integer("totp_last_step"),
+  /** SHA-256 hashes of the unused one-time recovery codes. */
+  recoveryCodeHashes: jsonb("recovery_code_hashes").$type<string[]>().notNull().default([]),
   createdAt: createdAt(),
 });
 

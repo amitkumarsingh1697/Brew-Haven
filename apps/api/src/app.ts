@@ -33,6 +33,8 @@ import {
   StaffActionRequest,
   StaffLoginRequest,
   PlatformLoginRequest,
+  PlatformLoginCodeRequest,
+  PlatformTwoStepConfirm,
   PlatformBusinessUpdate,
   StockUpdateRequest,
   WalkInOrderRequest,
@@ -458,12 +460,21 @@ export async function buildApp(deps: AppDeps) {
   app.get("/v1/staff/outlets", async (req) => admin.accessibleOutlets(deps.db, await staff(req)));
 
   // ---------- Brew Haven's own team: every business, totals only ----------
-  async function platformAdmin(req: FastifyRequest): Promise<PlatformClaims> {
+  /** A signed-in team member. Business data also needs two-step sign-in, where it is required. */
+  async function platformAdmin(req: FastifyRequest, opts: { setupOnly?: boolean } = {}): Promise<PlatformClaims> {
     const h = req.headers.authorization;
     if (!h?.startsWith("Bearer ")) throw new AppError("UNAUTHORIZED", "Please sign in");
-    return platformTokens.verify(h.slice(7));
+    const who = await platformTokens.verify(h.slice(7));
+    if (!opts.setupOnly && deps.config.platformRequireTwoStep && !who.mfa) throw new AppError("FORBIDDEN", "Turn on two-step sign-in to open the Brew Haven console.");
+    return who;
   }
+  const serverSecret = deps.config.staffTokenSecret;
   app.post("/v1/platform/login", perMinute(10), async (req) => platform.platformLogin(deps.db, platformTokens, limiter, parse(PlatformLoginRequest, req.body), req.ip));
+  app.post("/v1/platform/login/code", perMinute(10), async (req) => platform.platformLoginCode(deps.db, platformTokens, limiter, serverSecret, parse(PlatformLoginCodeRequest, req.body)));
+  app.post("/v1/platform/two-step/setup", perMinute(10), async (req) => platform.startTwoStep(deps.db, await platformAdmin(req, { setupOnly: true }), serverSecret));
+  app.post("/v1/platform/two-step/confirm", perMinute(10), async (req) =>
+    platform.confirmTwoStep(deps.db, platformTokens, await platformAdmin(req, { setupOnly: true }), serverSecret, parse(PlatformTwoStepConfirm, req.body).code),
+  );
   app.get("/v1/platform/businesses", async (req) => (await platformAdmin(req), platform.listBusinesses(deps.db)));
   app.patch<{ Params: { id: string } }>("/v1/platform/businesses/:id", async (req) => platform.updateBusiness(deps.db, await platformAdmin(req), req.params.id, parse(PlatformBusinessUpdate, req.body), req.ip));
 

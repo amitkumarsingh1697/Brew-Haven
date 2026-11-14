@@ -19,6 +19,20 @@ pnpm --filter @brew-haven/api platform-admin team@inferra.example "Asha"
 The script asks for the password (at least 12 characters), so it stays out of shell history. For
 automation, `PLATFORM_ADMIN_PASSWORD` can supply it instead.
 
+### Two-step sign-in
+
+After the password, the console asks for a 6-digit code from an authenticator app (Google
+Authenticator, Microsoft Authenticator, 1Password and others). In production it is required
+(`PLATFORM_REQUIRE_TWO_STEP`, on by default when `NODE_ENV=production`). Until it is on, a
+password-only sign-in opens only the set-up card: scan the QR code, enter the first code, and keep
+the 8 recovery codes shown (each works once, instead of a code).
+
+- The secret is stored encrypted with a key derived from `STAFF_TOKEN_SECRET`. Changing that secret
+  means everyone sets two-step sign-in up again.
+- A code is accepted for its 30-second window and one either side, and never twice.
+- Lost phone and recovery codes: `pnpm --filter @brew-haven/api platform-admin <email> --reset-two-step`,
+  then they set it up again after signing in with their password.
+
 ## What the page shows
 
 For each business: name, link, when it joined, owner's email and phone from sign-up, cafés, active
@@ -44,6 +58,8 @@ the Growth plan", "Brew Haven paused the account…"), so the owner can see what
 
 ## API
 
-- `POST /v1/platform/login` `{ email, password }` → `{ token, name, email }` (8-hour token)
+- `POST /v1/platform/login` `{ email, password }` → `{ step: "DONE", token, name, email, twoStep: false }` (8-hour token), or `{ step: "CODE", ticket }` once two-step sign-in is on
+- `POST /v1/platform/login/code` `{ ticket, code }` → `{ step: "DONE", token, … }` (code or recovery code; the ticket lasts 5 minutes)
+- `POST /v1/platform/two-step/setup` → `{ secret, otpauthUrl }`; `POST /v1/platform/two-step/confirm` `{ code }` → `{ recoveryCodes, token }`
 - `GET /v1/platform/businesses`
 - `PATCH /v1/platform/businesses/:id` `{ plan?, suspended?, paidUntil?: "YYYY-MM-DD" | null, trialEndsOn?: "YYYY-MM-DD" | null }`

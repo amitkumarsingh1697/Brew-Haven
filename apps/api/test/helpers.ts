@@ -34,13 +34,13 @@ export async function resetDatabase() {
  * mode with round numbers. The demo café itself adds GST on the bill (SO-6); gst-on-bill.test.ts
  * and counter-payments.test.ts run in that mode.
  */
-export async function setup(opts: { pricesIncludeTax?: boolean } = {}) {
+export async function setup(opts: { pricesIncludeTax?: boolean; config?: Partial<Config> } = {}) {
   await resetDatabase();
   const { db, pool } = createDb(TEST_DB);
   await migrate(db);
   await seedDemo(db);
   await db.update(tenants).set({ pricesIncludeTax: opts.pricesIncludeTax ?? true }).where(eq(tenants.slug, DEMO_TENANT_SLUG));
-  const { app, ctx } = await buildApp({ config: testConfig, db });
+  const { app, ctx } = await buildApp({ config: { ...testConfig, ...opts.config }, db });
   await app.ready();
 
   const menu = (await app.inject({ method: "GET", url: `/v1/cafes/${DEMO_TENANT_SLUG}/tower-a/menu` }).then((r) => r.json())) as MenuResponse;

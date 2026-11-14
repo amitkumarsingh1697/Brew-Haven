@@ -230,6 +230,9 @@ export const StaffLoginRequest = z.object({
 });
 /** Brew Haven's own team signs in with email and password, never a café PIN. */
 export const PlatformLoginRequest = z.object({ email: z.string().trim().email().max(200), password: z.string().min(1).max(200) });
+/** Second step of the team sign-in: the ticket from the first step and an authenticator or recovery code. */
+export const PlatformLoginCodeRequest = z.object({ ticket: z.string().min(10).max(2000), code: z.string().trim().min(6).max(20) });
+export const PlatformTwoStepConfirm = z.object({ code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code from your app") });
 const DateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-12-31");
 export const PlatformBusinessUpdate = z.object({
   plan: z.enum(["starter", "growth", "multi"]).optional(),
