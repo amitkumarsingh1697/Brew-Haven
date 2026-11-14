@@ -1555,3 +1555,34 @@ a.btn {
   display: grid;
   gap: 6px;
 }
+
+/* Refund after service (refund policy K12-K14, C4, C5). */
+.refund-modal {
+  display: grid;
+  gap: 12px;
+  max-width: 520px;
+}
+.refund-modal fieldset {
+  border: 1px solid var(--bh-warm-grey);
+  border-radius: var(--bh-radius-sm);
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+.refund-modal label {
+  display: grid;
+  gap: 4px;
+}
+.refund-modal .refund-line {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.refund-modal label.check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.refund-total {
+  margin: 0;
+  font-size: 1.05rem;
+}

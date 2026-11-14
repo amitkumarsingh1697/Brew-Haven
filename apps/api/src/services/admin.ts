@@ -83,6 +83,7 @@ export async function getSetup(db: Db, staff: StaffClaims): Promise<AdminSetup> 
       taxRateBps: tenant!.taxRateBps,
       pricesIncludeTax: tenant!.pricesIncludeTax,
       lateCancelMinutes: tenant!.lateCancelMinutes,
+      cashierRefundLimitPaise: tenant!.cashierRefundLimitPaise,
       branding: { displayName: b.displayName ?? tenant!.name, tagline: b.tagline, greeting: b.greeting, managerName: b.managerName, logoUrl: b.logoUrl ?? null },
       billing: tenant!.billing,
       plan: await planUsage(db, t),
@@ -121,7 +122,7 @@ export async function updateSettings(db: Db, staff: StaffClaims, body: z.output<
   const [tenant] = await db.select().from(tenants).where(eq(tenants.id, staff.tenantId));
   const branding = { ...(tenant!.branding as Record<string, unknown>), displayName: body.displayName, tagline: body.tagline, greeting: body.greeting, managerName: body.managerName };
   const billing = body.billing ? Object.fromEntries(Object.entries({ ...tenant!.billing, ...body.billing }).filter(([, v]) => v)) : tenant!.billing;
-  await db.update(tenants).set({ branding, taxRateBps: body.taxRateBps, billing, ...(body.pricesIncludeTax === undefined ? {} : { pricesIncludeTax: body.pricesIncludeTax }), ...(body.lateCancelMinutes === undefined ? {} : { lateCancelMinutes: body.lateCancelMinutes }) }).where(eq(tenants.id, staff.tenantId));
+  await db.update(tenants).set({ branding, taxRateBps: body.taxRateBps, billing, ...(body.pricesIncludeTax === undefined ? {} : { pricesIncludeTax: body.pricesIncludeTax }), ...(body.lateCancelMinutes === undefined ? {} : { lateCancelMinutes: body.lateCancelMinutes }), ...(body.cashierRefundLimitPaise === undefined ? {} : { cashierRefundLimitPaise: body.cashierRefundLimitPaise }) }).where(eq(tenants.id, staff.tenantId));
   return getSetup(db, staff);
 }
 

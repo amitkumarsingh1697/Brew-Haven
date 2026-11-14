@@ -30,6 +30,8 @@ export const tenants = pgTable("tenants", {
   pricesIncludeTax: boolean("prices_include_tax").notNull().default(true),
   /** Refund policy K4: minutes after an order is placed when, still not ready, the customer may cancel it for a full refund. */
   lateCancelMinutes: integer("late_cancel_minutes").notNull().default(30),
+  /** Refund policy C5: the largest refund a cashier may give on one order without the owner's PIN. */
+  cashierRefundLimitPaise: integer("cashier_refund_limit_paise").notNull().default(50_000),
   branding: jsonb("branding").$type<Record<string, unknown>>().notNull().default({}),
   /** Seller details printed on receipts: legal name, GSTIN, FSSAI licence, footer. */
   billing: jsonb("billing").$type<{ legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string }>().notNull().default({}),
@@ -321,9 +323,41 @@ export const refunds = pgTable("refunds", {
   status: text("status", { enum: ["PENDING", "PROCESSED", "FAILED"] }).notNull().default("PENDING"),
   providerRefundId: text("provider_refund_id"),
   manual: boolean("manual").notNull().default(false),
+  /** Refund policy C4: the card machine's or UPI app's reference for a counter refund. */
+  reference: text("reference"),
+  /** Who gave it, and who approved it when it was over the cashier's limit. */
+  staffId: uuid("staff_id").references(() => staffUsers.id),
+  approvedByStaffId: uuid("approved_by_staff_id").references(() => staffUsers.id),
   createdAt: createdAt(),
   processedAt: timestamp("processed_at", { withTimezone: true }),
 });
+
+/**
+ * Refund policy T1: a GST credit note (Section 34 CGST Act) for a refund on an order whose tax
+ * invoice stands. Numbered per café per financial year, e.g. CN-A2627-00001. The invoice itself is
+ * never edited.
+ */
+export const creditNotes = pgTable(
+  "credit_notes",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    outletId: uuid("outlet_id").notNull().references(() => outlets.id),
+    orderId: uuid("order_id").notNull().references(() => orders.id),
+    number: text("number").notNull(),
+    invoiceNo: text("invoice_no").notNull(),
+    businessDate: date("business_date").notNull(),
+    reason: text("reason").notNull(),
+    taxRateBps: integer("tax_rate_bps").notNull(),
+    taxablePaise: integer("taxable_paise").notNull(),
+    taxPaise: integer("tax_paise").notNull(),
+    totalPaise: integer("total_paise").notNull(),
+    /** Which lines (and how many of each) it covers; empty for a whole-order goodwill refund. */
+    lines: jsonb("lines").$type<Array<{ lineId: string; name: string; quantity: number; amountPaise: number }>>().notNull().default([]),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("credit_notes_tenant_number").on(t.tenantId, t.number), index("credit_notes_order").on(t.orderId)],
+);
 
 export const webhookEvents = pgTable(
   "webhook_events",

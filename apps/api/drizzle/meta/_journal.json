@@ -113,6 +113,13 @@
       "when": 1794694731867,
       "tag": "0015_customer_cancel",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794695156824,
+      "tag": "0016_refund_tools_credit_notes",
+      "breakpoints": true
     }
   ]
 }

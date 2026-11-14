@@ -1,4 +1,4 @@
-import type { AdminSetup, CounterOrderResponse, MarkPaidRequest, SignupRequest, DaySummary, MenuResponse, OrderView, OutletWithStations, ReceiptView, StaffSession } from "@brew-haven/contracts";
+import type { AdminSetup, CounterOrderResponse, MarkPaidRequest, SignupRequest, DaySummary, MenuResponse, OrderView, OutletWithStations, ReceiptView, StaffSession, StaffRefundPreview, StaffRefundRequest } from "@brew-haven/contracts";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:8080";
 export const CUSTOMER_URL = (import.meta.env.VITE_CUSTOMER_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5173";
@@ -135,6 +135,7 @@ export interface GstSummary {
   byRate: Array<GstSums & { rateBps: number }>;
   byCafe: Array<GstSums & { outlet: string }>;
   documents: Array<{ series: string; outlet: string; first: string; last: string; issued: number; cancelled: number }>;
+  creditNotes: { count: number; taxablePaise: number; cgstPaise: number; sgstPaise: number; totalPaise: number; first: string | null; last: string | null };
 }
 
 export interface SpeedSpread {
@@ -227,6 +228,7 @@ export const api = {
   login: (staffUserId: string, pin: string) => post<StaffSession>("/v1/staff/login", { tenantSlug: getTenant(), staffUserId, pin }),
   orders: (outletId: string, scope: "live" | "today" = "live") => call<OrderView[]>(`/v1/staff/orders?outletId=${outletId}&scope=${scope}`),
   action: (id: string, action: "START" | "MARK_READY" | "HAND_OVER") => post<OrderView>(`/v1/staff/orders/${id}/actions`, { action }),
+  refund: (id: string, body: StaffRefundRequest) => post<{ preview: StaffRefundPreview | null; order: OrderView | null }>(`/v1/staff/orders/${id}/refund`, body),
   reject: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/reject`, { reason }),
   flag: (id: string, lineIds: string[], note: string) => post<OrderView>(`/v1/staff/orders/${id}/flag-unavailable`, { lineIds, note: note || undefined, markSoldOut: true }),
   walkIn: (body: {
@@ -305,14 +307,14 @@ export const api = {
       if (q.before) p.set("before", String(q.before));
       return call<{ entries: ActivityEntry[]; nextBefore: number | null }>(`/v1/admin/activity?${p}`);
     },
-    settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number; pricesIncludeTax?: boolean; lateCancelMinutes?: number; billing?: { legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string } }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),
+    settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number; pricesIncludeTax?: boolean; lateCancelMinutes?: number; cashierRefundLimitPaise?: number; billing?: { legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string } }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),
     createIngredient: (b: { name: string; unit: Unit }) => post<{ id: string }>("/v1/admin/ingredients", b),
     updateIngredient: (id: string, b: { name?: string; active?: boolean }) => send<{ id: string }>("PATCH", `/v1/admin/ingredients/${id}`, b),
     recipes: () => call<{ items: RecipeItem[] }>("/v1/admin/recipes"),
     setRecipe: (itemId: string, rows: Array<{ groupName?: string; optionName?: string; ingredientId: string; quantity: number }>) => send<unknown>("PUT", `/v1/admin/recipes/${itemId}`, { rows }),
     setLowStock: (b: { outletId: string; ingredientId: string; lowAt: number | null }) => send<unknown>("PUT", "/v1/admin/low-stock", b),
     lowStock: () => call<{ items: Array<{ outlet: string; ingredient: string; unit: Unit; onHand: number; lowAt: number | null; status: "LOW" | "OUT" }> }>("/v1/admin/low-stock"),
-    exportCsv: (kind: "orders" | "items" | "payments" | "closes" | "stock" | "gst", q: { from: string; to: string; outletId?: string }) => {
+    exportCsv: (kind: "orders" | "items" | "payments" | "closes" | "stock" | "gst" | "credit-notes", q: { from: string; to: string; outletId?: string }) => {
       const p = new URLSearchParams({ from: q.from, to: q.to });
       if (q.outletId) p.set("outletId", q.outletId);
       return saveFile(`/v1/admin/exports/${kind}?${p}`, `brew-haven-${kind}-${q.from}-to-${q.to}.csv`);
