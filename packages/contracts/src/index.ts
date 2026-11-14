@@ -186,6 +186,8 @@ export const OrderView = z.object({
   payments: z.array(z.object({ method: z.string(), instrument: z.string().nullable(), amountPaise: Paise, tenderedPaise: Paise.nullable(), recordedBy: z.string().nullable() })),
   refundedPaise: Paise,
   cancelReason: z.string().nullable(),
+  /** Can the customer cancel from their order link now: before the kitchen starts, or once the order is late. */
+  cancel: z.object({ allowed: z.boolean(), kind: z.enum(["BEFORE_KITCHEN", "LATE"]).nullable(), lateFrom: z.string().nullable() }),
   customerName: z.string().nullable(),
   lines: z.array(OrderLineView),
   adjustments: z.array(AdjustmentView),
@@ -359,6 +361,8 @@ export const AdminSettingsRequest = z.object({
   taxRateBps: z.number().int().min(0).max(2800),
   /** False: GST is added on the whole bill at checkout (SO-6, the 400 Coffee setting). */
   pricesIncludeTax: z.boolean().optional(),
+  /** Refund policy K4: minutes after an order is placed when, still not ready, the customer may cancel it. */
+  lateCancelMinutes: z.number().int().min(10).max(120).optional(),
   billing: BillingDetails.optional(),
 });
 
@@ -438,6 +442,7 @@ export const AdminSetup = z.object({
     name: z.string(),
     taxRateBps: z.number().int(),
     pricesIncludeTax: z.boolean(),
+    lateCancelMinutes: z.number().int(),
     branding: Branding,
     billing: BillingDetails,
     plan: z.object({

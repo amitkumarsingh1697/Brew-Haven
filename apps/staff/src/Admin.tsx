@@ -855,6 +855,7 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
   const [managerName, setManagerName] = useState(b.managerName ?? "");
   const [gst, setGst] = useState(String(setup.tenant.taxRateBps / 100));
   const [inclusive, setInclusive] = useState(setup.tenant.pricesIncludeTax);
+  const [lateMin, setLateMin] = useState(String(setup.tenant.lateCancelMinutes));
   const bill = setup.tenant.billing;
   const [legalName, setLegalName] = useState(bill.legalName ?? "");
   const [gstin, setGstin] = useState(bill.gstin ?? "");
@@ -874,6 +875,7 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
               managerName: managerName.trim() || undefined,
               taxRateBps: Math.round(Number(gst) * 100),
               pricesIncludeTax: inclusive,
+              lateCancelMinutes: Math.round(Number(lateMin)),
               billing: { legalName: legalName.trim(), gstin: gstin.trim().toUpperCase(), fssaiLicence: fssai.trim(), footer: footer.trim() },
             }),
           "Settings saved. Customers see them straight away.",
@@ -915,6 +917,13 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
         </label>
         <small className="muted">Changes apply to new orders. Orders already placed keep the way they were billed.</small>
       </fieldset>
+      <h2>Cancellations</h2>
+      <p className="muted small">Customers can cancel online orders for free until the kitchen starts. After that, they can cancel for a full refund only if the order is late.</p>
+      <label>
+        Late after (minutes from placing the order)
+        <input value={lateMin} onChange={(e) => setLateMin(e.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={3} />
+        <small className="muted">Between 10 and 120. The refund policy suggests your usual making time plus 15 minutes.</small>
+      </label>
       <h2>On the receipt</h2>
       <p className="muted small">With a GSTIN saved, receipts become tax invoices showing CGST and SGST. Leave it empty if the café isn't registered for GST.</p>
       <label>

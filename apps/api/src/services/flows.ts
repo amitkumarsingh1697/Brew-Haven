@@ -24,6 +24,7 @@ import {
   UNPAID_ORDER_TTL_MS,
   announce,
   applyTransition,
+  customerCancelOption,
   billDelta,
   insertLines,
   issueRefund,
@@ -564,6 +565,35 @@ export async function voidCounterOrder(ctx: Ctx, staff: StaffClaims, orderId: st
     await tx.update(payments).set({ status: "FAILED" }).where(and(eq(payments.orderId, o.id), eq(payments.status, "CREATED")));
     await applyTransition(tx, after, ctx.bus, o, "VOID_UNPAID", staff.role, { actorId: staff.sub, reason });
     return orderView(tx, o.id);
+  });
+}
+
+// ---------- Customer cancels (refund policy K1, K2, K4) ----------
+
+/**
+ * The customer cancels from their order link: free before the kitchen starts, or once the order is late.
+ * The order row is locked, so if the kitchen starts it at the same moment, whichever reaches the server
+ * first wins and the other gets a clear message (K2). Everything paid is refunded to the source.
+ */
+export async function customerCancel(ctx: Ctx, trackingToken: string) {
+  return withTx(ctx.db, async (tx, after) => {
+    const order = await lockOrder(tx, { trackingToken });
+    if (order.state === "CANCELLED") return orderView(tx, order.id);
+    const [tenant] = await tx.select({ lateCancelMinutes: tenants.lateCancelMinutes }).from(tenants).where(eq(tenants.id, order.tenantId));
+    const option = customerCancelOption(order, tenant!.lateCancelMinutes);
+    if (!option.allowed) {
+      if (order.channel !== "ONLINE") throw new AppError("CONFLICT", "This order was placed at the counter. Please ask the cashier to cancel it.");
+      if (order.state === "PREPARING") throw new AppError("CONFLICT", "The café has started making your order, so it can't be cancelled now. If it isn't ready in time you can cancel it for a full refund.");
+      if (order.state === "AWAITING_PAYMENT") throw new AppError("CONFLICT", "This order isn't paid yet, so there is nothing to cancel. It will expire on its own.");
+      throw new AppError("CONFLICT", "This order can't be cancelled any more.");
+    }
+    const late = option.kind === "LATE";
+    const reason = late ? "Cancelled by the customer: the order was late" : "Cancelled by the customer before the kitchen started";
+    await tx.update(adjustments).set({ status: "RESOLVED", choice: "CANCEL_ORDER", resolvedAt: new Date() }).where(and(eq(adjustments.orderId, order.id), inArray(adjustments.status, ["OPEN", "AWAITING_TOPUP"])));
+    await tx.update(payments).set({ status: "FAILED" }).where(and(eq(payments.orderId, order.id), eq(payments.status, "CREATED")));
+    const updated = await applyTransition(tx, after, ctx.bus, order, late ? "LATE_CANCEL" : "CUSTOMER_CANCEL", "CUSTOMER", { reason });
+    await refundEverything(tx, updated, reason, `order:${order.id}:customer-cancel`);
+    return orderView(tx, order.id);
   });
 }
 

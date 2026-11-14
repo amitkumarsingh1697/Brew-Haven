@@ -68,6 +68,12 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | AI barista clips of Aarav (idle and wave, made free on Hugging Face) live in the demo until real filming; tap-to-wave fixed. See BARISTA_VIDEO.md | Merged (#33) |
 | 400 Coffee Cafe logo: the seal Amit chose, as SVG (main, light, one-colour, icon), shown on the customer welcome screen through the tenant's logo setting. See docs/brand/400_COFFEE_LOGO.md | Merged (#36) |
 
+## Sprint 8: refund policy, owner logo, team sign-in
+
+| Item | Status |
+|---|---|
+| Customer cancels from the order link: free before the kitchen starts (race-safe), and for a full refund once the order is late; "late after" minutes per café in Settings (default 30); counter orders stay with the cashier. Refund policy K1, K2, K4, C8 | In review |
+
 ## Waiting on Amit
 
 | Item | What's needed |

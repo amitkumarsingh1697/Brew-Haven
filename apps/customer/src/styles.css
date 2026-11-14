@@ -84,6 +84,10 @@ h3 {
   color: var(--bh-danger);
   box-shadow: inset 0 0 0 1.5px var(--bh-danger);
 }
+.btn-danger {
+  background: var(--bh-danger);
+  color: #fff;
+}
 .btn-block {
   width: 100%;
   justify-content: space-between;
@@ -1095,4 +1099,22 @@ h3 {
   font-size: 0.85rem;
   opacity: 0.8;
   margin: 8px 16px 96px;
+}
+
+/* Refund policy K1/K4: cancel from the order page. */
+.cancel-panel {
+  display: grid;
+  gap: 10px;
+}
+.cancel-panel p {
+  margin: 0;
+}
+.cancel-confirm {
+  display: grid;
+  gap: 8px;
+}
+.cancel-hint {
+  margin: 4px 4px 0;
+  font-size: 0.85rem;
+  color: var(--bh-ink-muted);
 }

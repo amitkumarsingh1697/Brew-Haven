@@ -62,6 +62,7 @@ import {
   handleWebhook,
   rejectOrder,
   resolveCustomerAdjustment,
+  customerCancel,
   retryPayment,
   staffAction,
   type Ctx,
@@ -313,6 +314,8 @@ export async function buildApp(deps: AppDeps) {
   });
 
   app.post<{ Params: { token: string } }>("/v1/track/:token/pay", perMinute(10), async (req) => retryPayment(ctx, req.params.token));
+
+  app.post<{ Params: { token: string } }>("/v1/track/:token/cancel", perMinute(10), async (req) => customerCancel(ctx, req.params.token));
 
   app.post<{ Params: { token: string; id: string } }>("/v1/track/:token/adjustments/:id/resolve", async (req) =>
     resolveCustomerAdjustment(ctx, req.params.token, req.params.id, parse(ResolveAdjustmentRequest, req.body)),
