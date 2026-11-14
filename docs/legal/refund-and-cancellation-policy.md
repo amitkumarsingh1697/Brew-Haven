@@ -90,7 +90,7 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 | P11 | Gateway balance too low to fund a refund (Razorpay deducts refunds from settlements) | Refund fails; it appears in Payment checks. Owner keeps a refund float in the gateway account. | Adm | Process only; add to owner training |
 | P12 | Customer raises a chargeback or UPI dispute after we already refunded | Reply to the dispute with the refund reference within the gateway's deadline. Never refund twice. | Adm | Gap: export of refund proof per order |
 | P13 | Chargeback for an order that was collected | Submit the order record, pickup event and receipt as evidence. | Adm | Gap: same export |
-| P14 | Customer asks to receive the refund to a different UPI ID, card or in cash | Refuse; refund to source only. Exception only for P9/P10, decided by admin and logged. | Csh/Adm | Policy; Gap: block cash refunds against online payments in the till |
+| P14 | Customer asks to receive the refund to a different UPI ID, card or in cash | Refuse; refund to source only. Exception only for P9/P10, decided by admin and logged. | Csh/Adm | Policy; Built: staff refunds always go back the way the customer paid |
 | P15 | Partial refunds on a discounted order | Refund what the customer actually paid for that line (pro-rata after discount), never the list price. Total refunds never exceed total captured. | Sys | Built (cap); Gap (pro-rata if coupons are added) |
 | P16 | Rounding when a line is refunded | Round each refund in paise in the customer's favour; the cap stops over-refunding. | Sys | Built (integer paise) |
 
@@ -100,8 +100,8 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 | C1 | Cash order rejected or an item can't be made | Hand the cash back immediately; Brew Haven records a manual refund against that order. | Csh | Built |
 | C2 | Cashier marks an order "paid by cash" by mistake, or the customer walks away without paying | Admin voids it with a reason; it shows on the day close as a cash difference. | Adm | Gap: void-with-reason for a mistaken cash mark |
 | C3 | Counter UPI paid to the static QR, but the money is not seen | Do not mark paid until the UPI reference is seen and entered. Orders without a reference appear in Payment checks. | Csh | Built |
-| C4 | Counter card refund | Same day: void on the card machine. Later: refund on the machine. Record the machine's reference in Brew Haven. | Csh | Gap: reference field on manual refunds |
-| C5 | Cashier gives a refund the customer is not entitled to, or a large refund | Cashier can refund up to ₹[500] per order alone; above that, admin approval (PIN). Every refund needs a reason. | Csh/Adm | Gap (Q-R3-08 left this open) |
+| C4 | Counter card refund | Same day: void on the card machine. Later: refund on the machine. Record the machine's reference in Brew Haven. | Csh | Built: refund reference required for counter card and UPI refunds |
+| C5 | Cashier gives a refund the customer is not entitled to, or a large refund | Cashier can refund up to ₹[500] per order alone; above that, admin approval (PIN). Every refund needs a reason. | Csh/Adm | Built: limit in Settings (default ₹500), owner PIN above it, reason category on every refund |
 | C6 | Offline till order (OFF-1…) not accepted when the connection returns | Cashier either retries or removes it; only remove after the customer is refunded or the order is re-entered. | Csh | Built |
 | C7 | Customer has no phone or the battery died while an item-unavailable choice is open | Cashier makes the choice at the counter with the customer's say-so; the event log records "chosen by cashier for customer". | Csh | Gap: let the cashier answer the adjustment |
 | C8 | Cashier places an order for the customer and the customer then changes their mind before it starts | Same as self-cancel: free before the kitchen starts. | Csh | Built (the cashier rejects it with a reason; full refund) |
@@ -120,8 +120,8 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 | K9 | Café rejects because of a customer's behaviour | Still a full refund; a rejection reason is required. | Csh/Adm | Built |
 | K10 | Order READY but never collected | Hold for [30] minutes; at day close it becomes "not collected", with no refund. | Sys | Gap: no state for this; READY orders stay open |
 | K11 | Customer collects someone else's order | Check the pickup code at handover; remake for the rightful customer at no cost; log it. | Csh | Built (pickup code); Gap (log reason "wrong handover") |
-| K12 | Wrong item or customisation served | Remake free, or refund the line. | Csh | Gap: line-level refund after COLLECTED |
-| K13 | Foreign object, allergen not declared, veg/non-veg mix-up | Full refund, incident record, owner told immediately. | Csh/Adm | Gap: incident record and post-collection refund |
+| K12 | Wrong item or customisation served | Remake free, or refund the line. | Csh | Built: refund one or more items after collection |
+| K13 | Foreign object, allergen not declared, veg/non-veg mix-up | Full refund, incident record, owner told immediately. | Csh/Adm | Partly built: full refund after collection with a food-safety reason, logged in Activity; owner alert still a gap |
 | K14 | Quality complaint after the customer has left | Accept in-app reports for [24 h]; admin reviews and refunds the line or the order. | Adm | Gap: "Report a problem" |
 | K15 | Every line removed by item-unavailable choices | Cancel and full refund. | Sys | Built |
 | K16 | Customer never answers the item-unavailable choice | Remove and refund after 5 min; order resumes. | Sys | Built |
@@ -129,7 +129,7 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 ### 2.4 Tax, records and reporting
 | # | Situation | Rule | Actor | Status |
 |---|---|---|---|---|
-| T1 | Partial refund on an order that already has a tax invoice | Issue a **credit note** (Section 34 CGST Act) for the refunded value and its GST, linked to the original invoice, and report it in GSTR-1. Do not edit the original invoice. | Sys | Gap: no credit notes today |
+| T1 | Partial refund on an order that already has a tax invoice | Issue a **credit note** (Section 34 CGST Act) for the refunded value and its GST, linked to the original invoice, and report it in GSTR-1. Do not edit the original invoice. | Sys | Built: credit notes (CN series per café) in the GST report and CSV download |
 | T2 | Whole order cancelled and refunded | Mark the invoice cancelled only if it has not been reported in GSTR-1 yet; otherwise issue a full credit note. Confirm the café's approach with their CA. | Sys/Adm | Partly built (invoice cancelled flag) |
 | T3 | Refund on a later day than the sale | The sale stays on its day; the refund and credit note sit on the refund day. Day close and reports must show both. | Sys | Check reports |
 | T4 | Credit-note deadline | Credit notes for a financial year must be issued by 30 November of the next year (or the annual return, if earlier). Late refunds still go to the customer, but without a GST reduction. | Adm | Policy |

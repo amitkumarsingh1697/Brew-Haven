@@ -245,11 +245,11 @@ export async function handleWebhook(ctx: Ctx, event: WebhookEvent): Promise<"pro
 
 // ---------- Staff ----------
 
-function assertOutlet(staff: StaffClaims, outletId: string) {
+export function assertOutlet(staff: StaffClaims, outletId: string) {
   if (staff.role !== "ADMIN" && !staff.outletIds.includes(outletId)) throw new AppError("FORBIDDEN", "You are not assigned to this café");
 }
 
-async function lockStaffOrder(tx: Tx, staff: StaffClaims, orderId: string) {
+export async function lockStaffOrder(tx: Tx, staff: StaffClaims, orderId: string) {
   const o = await lockOrder(tx, { id: orderId });
   if (o.tenantId !== staff.tenantId) throw notFound("Order");
   assertOutlet(staff, o.outletId);

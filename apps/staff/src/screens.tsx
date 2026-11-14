@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { IngredientStockPanel } from "./Inventory";
 import { ApiError, api, type DayClose, type StockRow } from "./api";
 import { ReceiptModal } from "./ReceiptModal";
+import { RefundModal } from "./RefundModal";
 import { OrderCard } from "./OrderCard";
 import { discard, dismissNote, enqueue, isOffline, newClientRef, retry, useCounterQueue } from "./counterQueue";
 
@@ -726,6 +727,7 @@ export function Today({ outletId }: { outletId: string }) {
   const [s, setS] = useState<DaySummary | null>(null);
   const [orders, setOrders] = useState<OrderView[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [refunding, setRefunding] = useState<OrderView | null>(null);
   useEffect(() => {
     api.summary(outletId).then(setS).catch((e: ApiError) => setError(e.message));
     api.orders(outletId, "today").then(setOrders).catch(() => undefined);
@@ -799,10 +801,28 @@ export function Today({ outletId }: { outletId: string }) {
               <td>{o.customerName ?? "Walk-in"}</td>
               <td>{o.state.replace("_", " ").toLowerCase()}</td>
               <td className="num">{formatInr(o.paidPaise - o.refundedPaise)}</td>
+              <td>
+                {["PLACED", "PREPARING", "READY", "COLLECTED"].includes(o.state) && o.paidPaise > o.refundedPaise && (
+                  <button className="link-btn" onClick={() => setRefunding(o)}>
+                    Refund
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {refunding && (
+        <RefundModal
+          order={refunding}
+          onClose={() => setRefunding(null)}
+          onDone={(o) => {
+            setOrders((xs) => xs.map((x) => (x.id === o.id ? o : x)));
+            setRefunding(null);
+            api.summary(outletId).then(setS, () => undefined);
+          }}
+        />
+      )}
     </div>
   );
 }

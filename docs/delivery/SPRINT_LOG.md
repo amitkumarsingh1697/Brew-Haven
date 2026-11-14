@@ -72,7 +72,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 
 | Item | Status |
 |---|---|
-| Customer cancels from the order link: free before the kitchen starts (race-safe), and for a full refund once the order is late; "late after" minutes per café in Settings (default 30); counter orders stay with the cashier. Refund policy K1, K2, K4, C8 | In review |
+| Customer cancels from the order link: free before the kitchen starts (race-safe), and for a full refund once the order is late; "late after" minutes per café in Settings (default 30); counter orders stay with the cashier. Refund policy K1, K2, K4, C8 | Done (PR #37) |
+| Refund tools for the cashier and owner: refund items or the whole order after service, priced on the whole bill with GST; GST credit notes with their own number series, in the GST report and a CSV download; cashier refund limit in Settings with the owner's PIN above it; refund reference for counter card and UPI. Refund policy K12, K13 (partly), C4, C5, T1, P14 | In review |
 
 ## Waiting on Amit
 

@@ -38,9 +38,11 @@ import {
   CounterOrderRequest,
   MarkPaidRequest,
   VoidOrderRequest,
+  StaffRefundRequest,
 } from "@brew-haven/contracts";
 import { quote } from "@brew-haven/domain";
 import { createAlerter, type Alerter } from "./alerts.js";
+import { staffRefund } from "./services/refunds.js";
 import { AttemptLimiter, PlatformTokens, StaffTokens, type PlatformClaims, type StaffClaims } from "./auth.js";
 import type { Config } from "./config.js";
 import type { Db } from "./db/client.js";
@@ -423,6 +425,10 @@ export async function buildApp(deps: AppDeps) {
   app.post("/v1/staff/orders/counter", async (req, reply) => reply.status(201).send(await createCounterOrder(ctx, await staff(req), parse(CounterOrderRequest, req.body))));
   app.get<{ Params: { id: string } }>("/v1/staff/orders/:id/pay-link", async (req) => counterPayLink(ctx, await staff(req), req.params.id));
   app.post<{ Params: { id: string } }>("/v1/staff/orders/:id/mark-paid", async (req) => markCounterPaid(ctx, await staff(req), req.params.id, parse(MarkPaidRequest, req.body)));
+  // Refund policy K12-K14, C4, C5, T1: refund lines or the whole order after service, with a credit note.
+  app.post<{ Params: { id: string } }>("/v1/staff/orders/:id/refund", perMinute(30), async (req) =>
+    staffRefund(ctx, limiter, await staff(req), req.params.id, parse(StaffRefundRequest, req.body), req.ip),
+  );
   app.post<{ Params: { id: string } }>("/v1/staff/orders/:id/void", async (req) => voidCounterOrder(ctx, await staff(req), req.params.id, parse(VoidOrderRequest, req.body).reason));
   app.get<{ Querystring: { outletId: string } }>("/v1/staff/stock", async (req) => stockList(deps.db, await staff(req), req.query.outletId));
   app.put("/v1/staff/stock", async (req) => updateStock(deps.db, await staff(req), parse(StockUpdateRequest, req.body)));

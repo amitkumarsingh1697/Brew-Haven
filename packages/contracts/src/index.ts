@@ -192,6 +192,8 @@ export const OrderView = z.object({
   lines: z.array(OrderLineView),
   adjustments: z.array(AdjustmentView),
   refunds: z.array(z.object({ id: Id, amountPaise: Paise, reason: z.string(), status: z.enum(["PENDING", "PROCESSED", "FAILED"]) })),
+  /** GST credit notes issued against this order's invoice (refund policy T1). */
+  creditNotes: z.array(z.object({ number: z.string(), totalPaise: Paise, taxPaise: Paise, reason: z.string(), createdAt: z.string() })),
   createdAt: z.string(),
   placedAt: z.string().nullable(),
   updatedAt: z.string(),
@@ -309,6 +311,27 @@ export const MarkPaidRequest = z
   .refine((b) => !b.cardReference || b.method === "CARD_COUNTER", { message: "A card reference only goes with a card payment", path: ["cardReference"] });
 export type MarkPaidRequest = z.input<typeof MarkPaidRequest>;
 export const VoidOrderRequest = z.object({ reason: z.string().trim().min(2).max(200) });
+
+/** Refund policy K12, K13, K14, C4, C5: a refund after the order was served, by line or for the whole order. */
+export const RefundCategory = z.enum(["WRONG_ITEM", "QUALITY", "SAFETY", "MISSING", "GOODWILL", "OTHER"]);
+export const StaffRefundRequest = z
+  .object({
+    lines: z.array(z.object({ lineId: Id, quantity: z.number().int().min(1).max(20) })).max(50).default([]),
+    /** Refund everything still unrefunded instead of chosen lines. */
+    wholeOrder: z.boolean().default(false),
+    category: RefundCategory,
+    note: z.string().trim().max(200).optional(),
+    /** The card machine's or UPI app's refund reference, for counter payments. */
+    reference: z.string().trim().max(40).optional(),
+    /** The owner's PIN when the refund is over the cashier's limit. */
+    approver: z.object({ staffUserId: Id, pin: z.string().regex(/^\d{4,6}$/) }).optional(),
+    /** Work out the amount without refunding anything. */
+    preview: z.boolean().default(false),
+  })
+  .refine((b) => b.wholeOrder !== (b.lines.length > 0), { message: "Choose the items to refund, or the whole order" });
+export type StaffRefundRequest = z.input<typeof StaffRefundRequest>;
+export const StaffRefundPreview = z.object({ amountPaise: Paise, needsApproval: z.boolean(), limitPaise: Paise, creditNote: z.boolean(), toOriginalPayment: z.string() });
+export type StaffRefundPreview = z.infer<typeof StaffRefundPreview>;
 export const StockUpdateRequest = z.object({
   outletId: Id,
   itemId: Id,
@@ -363,6 +386,8 @@ export const AdminSettingsRequest = z.object({
   pricesIncludeTax: z.boolean().optional(),
   /** Refund policy K4: minutes after an order is placed when, still not ready, the customer may cancel it. */
   lateCancelMinutes: z.number().int().min(10).max(120).optional(),
+  /** Refund policy C5: the largest refund a cashier may give alone, in paise (₹0 to ₹5,000). */
+  cashierRefundLimitPaise: z.number().int().min(0).max(500_000).optional(),
   billing: BillingDetails.optional(),
 });
 
@@ -443,6 +468,7 @@ export const AdminSetup = z.object({
     taxRateBps: z.number().int(),
     pricesIncludeTax: z.boolean(),
     lateCancelMinutes: z.number().int(),
+    cashierRefundLimitPaise: z.number().int(),
     branding: Branding,
     billing: BillingDetails,
     plan: z.object({

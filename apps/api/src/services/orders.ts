@@ -16,6 +16,7 @@ import {
 import type { After, Tx } from "../db/client.js";
 import {
   adjustments,
+  creditNotes,
   dailyCounters,
   invoiceCounters,
   orderEvents,
@@ -155,7 +156,7 @@ export async function takeStock(tx: Tx, outletId: string, itemId: string, qty: n
 }
 
 /** Lines that count towards the bill: being made, or flagged unavailable and not yet resolved. */
-const COUNTED = ["ACTIVE", "UNAVAILABLE"] as const;
+export const COUNTED = ["ACTIVE", "UNAVAILABLE"] as const;
 
 export async function countedSubtotal(tx: Tx, orderId: string): Promise<number> {
   const [row] = await tx
@@ -310,6 +311,7 @@ export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
   const adjs = await tx.select().from(adjustments).where(eq(adjustments.orderId, o.id)).orderBy(asc(adjustments.createdAt));
   const pays = await tx.select().from(payments).where(eq(payments.orderId, o.id));
   const refs = await tx.select().from(refunds).where(eq(refunds.orderId, o.id)).orderBy(desc(refunds.createdAt));
+  const notes = await tx.select().from(creditNotes).where(eq(creditNotes.orderId, o.id)).orderBy(asc(creditNotes.createdAt));
   const staffIds = [...new Set(pays.map((p) => p.recordedByStaffId).filter((x): x is string => !!x))];
   const staffNames = new Map(staffIds.length ? (await tx.select({ id: staffUsers.id, name: staffUsers.name }).from(staffUsers).where(inArray(staffUsers.id, staffIds))).map((s) => [s.id, s.name]) : []);
   const counted = lines.filter((l) => (COUNTED as readonly string[]).includes(l.status)).reduce((s, l) => s + l.lineTotalPaise, 0);
@@ -366,6 +368,7 @@ export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
       };
     }),
     refunds: refs.map((r) => ({ id: r.id, amountPaise: r.amountPaise, reason: r.reason, status: r.status })),
+    creditNotes: notes.map((n) => ({ number: n.number, totalPaise: n.totalPaise, taxPaise: n.taxPaise, reason: n.reason, createdAt: n.createdAt.toISOString() })),
     createdAt: o.createdAt.toISOString(),
     placedAt: o.placedAt?.toISOString() ?? null,
     updatedAt: o.updatedAt.toISOString(),

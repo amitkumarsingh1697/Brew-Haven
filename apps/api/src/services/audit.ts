@@ -94,6 +94,19 @@ export async function describe(
     }
     case "POST /v1/staff/orders/:id/mark-paid":
       return { action: "order.mark_paid", summary: `Marked order ${code} paid: ${paidWords(body, Number(result.totalPaise ?? 0))}`, targetId: id, outletId: outletOfOrder };
+    case "POST /v1/staff/orders/:id/refund": {
+      if (body.preview) return null;
+      const notes = ((result.order as Obj | undefined)?.creditNotes ?? []) as Obj[];
+      const last = notes[notes.length - 1];
+      const refunded = ((result.order as Obj | undefined)?.refunds ?? []) as Obj[];
+      const amount = Number(refunded[0]?.amountPaise ?? 0);
+      return {
+        action: "order.refund",
+        summary: `Refunded ${rupees(amount)} on order ${str((result.order as Obj | undefined)?.pickupCode)}: ${str(refunded[0]?.reason)}${body.approver ? " (approved with the owner's PIN)" : ""}${last ? `, credit note ${str(last.number)}` : ""}`,
+        targetId: id,
+        outletId: outletOfOrder,
+      };
+    }
     case "POST /v1/staff/orders/:id/void":
       return { action: "order.void_unpaid", summary: `Cancelled an unpaid counter order: ${str(body.reason)}`, targetId: id, outletId: outletOfOrder };
     case "PUT /v1/staff/stock": {

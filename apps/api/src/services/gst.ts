@@ -2,7 +2,7 @@ import { and, asc, eq, gte, inArray, isNotNull, lte } from "drizzle-orm";
 import { splitGst } from "@brew-haven/domain";
 import type { StaffClaims } from "../auth.js";
 import type { Db } from "../db/client.js";
-import { orders, outlets, tenants } from "../db/schema.js";
+import { creditNotes, orders, outlets, tenants } from "../db/schema.js";
 import { AppError } from "../errors.js";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -59,7 +59,30 @@ export async function gstInvoices(db: Db, staff: StaffClaims, q: { from?: string
     return { invoiceNo: o.invoiceNo!, businessDate: o.businessDate!, outlet: name.get(o.outletId) ?? "", cancelled, rateBps: o.rate, taxablePaise: total - tax - roundOff, cgstPaise, sgstPaise, totalPaise: total };
   });
   const [tenant] = await db.select({ billing: tenants.billing }).from(tenants).where(eq(tenants.id, staff.tenantId));
-  return { from, to, billing: tenant?.billing ?? {}, invoices, cafes: cafes.filter((c) => ids.includes(c.id)) };
+  // Credit notes sit on the day they were issued, not on the sale's day (refund policy T3).
+  const notes = await db
+    .select()
+    .from(creditNotes)
+    .where(and(eq(creditNotes.tenantId, staff.tenantId), inArray(creditNotes.outletId, ids), gte(creditNotes.businessDate, from), lte(creditNotes.businessDate, to)))
+    .orderBy(asc(creditNotes.number));
+  const credits: GstCreditNoteRow[] = notes.map((n) => {
+    const { cgstPaise, sgstPaise } = splitGst(n.taxPaise);
+    return { number: n.number, invoiceNo: n.invoiceNo, businessDate: n.businessDate, outlet: name.get(n.outletId) ?? "", reason: n.reason, rateBps: n.taxRateBps, taxablePaise: n.taxablePaise, cgstPaise, sgstPaise, totalPaise: n.totalPaise };
+  });
+  return { from, to, billing: tenant?.billing ?? {}, invoices, credits, cafes: cafes.filter((c) => ids.includes(c.id)) };
+}
+
+export interface GstCreditNoteRow {
+  number: string;
+  invoiceNo: string;
+  businessDate: string;
+  outlet: string;
+  reason: string;
+  rateBps: number;
+  taxablePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  totalPaise: number;
 }
 
 /**
@@ -68,7 +91,7 @@ export async function gstInvoices(db: Db, staff: StaffClaims, q: { from?: string
  * were cancelled.
  */
 export async function gstSummary(db: Db, staff: StaffClaims, q: { from?: string | undefined; to?: string | undefined; outletId?: string | undefined }) {
-  const { from, to, billing, invoices, cafes } = await gstInvoices(db, staff, q);
+  const { from, to, billing, invoices, credits, cafes } = await gstInvoices(db, staff, q);
   const add = (s: Sums, i: GstInvoiceRow) => {
     s.invoices++;
     s.taxablePaise += i.taxablePaise;
@@ -109,5 +132,15 @@ export async function gstSummary(db: Db, staff: StaffClaims, q: { from?: string 
     byRate: [...byRate.values()].sort((a, b) => a.rateBps - b.rateBps),
     byCafe: [...byCafe.values()],
     documents: [...series.values()].sort((a, b) => a.series.localeCompare(b.series)),
+    /** Credit notes issued in the range; their value reduces the tax due (shown separately, not netted above). */
+    creditNotes: {
+      count: credits.length,
+      taxablePaise: credits.reduce((s, c) => s + c.taxablePaise, 0),
+      cgstPaise: credits.reduce((s, c) => s + c.cgstPaise, 0),
+      sgstPaise: credits.reduce((s, c) => s + c.sgstPaise, 0),
+      totalPaise: credits.reduce((s, c) => s + c.totalPaise, 0),
+      first: credits[0]?.number ?? null,
+      last: credits[credits.length - 1]?.number ?? null,
+    },
   };
 }
