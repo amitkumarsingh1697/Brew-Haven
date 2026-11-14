@@ -29,6 +29,8 @@
 | ACTION_REQUIRED | PLACED or PREPARING (whichever it came from) | Every flagged item resolved | Customer, or the timeout |
 | PLACED, PREPARING, ACTION_REQUIRED | CANCELLED | Reject whole order (reason required) | Cashier, admin |
 | ACTION_REQUIRED | CANCELLED | Customer cancels the order, or every line was removed | Customer, or system |
+| PLACED | CANCELLED | Customer cancels before the kitchen starts (online orders; full refund) | Customer |
+| PREPARING | CANCELLED | Customer cancels a late order: not ready within the café's "late after" minutes of being placed (online orders; full refund) | Customer |
 | PREPARING | READY | Mark ready | Kitchen |
 | READY | COLLECTED | Hand over | Cashier |
 

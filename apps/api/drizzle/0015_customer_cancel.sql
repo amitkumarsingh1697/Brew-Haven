@@ -1,0 +1,1 @@
+ALTER TABLE "tenants" ADD COLUMN "late_cancel_minutes" integer DEFAULT 30 NOT NULL;

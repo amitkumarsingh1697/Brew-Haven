@@ -46,4 +46,12 @@ describe("order state machine", () => {
       expect(Object.values(RULES).some((r) => r.from.includes(s))).toBe(true);
     }
   });
+
+  it("customers cancel before the kitchen starts, and once started only when late", () => {
+    expect(transition({ state: "PLACED", action: "CUSTOMER_CANCEL", actor: "CUSTOMER" }).to).toBe("CANCELLED");
+    expect(() => transition({ state: "PREPARING", action: "CUSTOMER_CANCEL", actor: "CUSTOMER" })).toThrow(TransitionError);
+    expect(transition({ state: "PREPARING", action: "LATE_CANCEL", actor: "CUSTOMER" }).to).toBe("CANCELLED");
+    expect(() => transition({ state: "READY", action: "LATE_CANCEL", actor: "CUSTOMER" })).toThrow(TransitionError);
+    expect(() => transition({ state: "PLACED", action: "CUSTOMER_CANCEL", actor: "CASHIER" })).toThrow(TransitionError);
+  });
 });

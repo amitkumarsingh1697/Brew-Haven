@@ -104,15 +104,15 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 | C5 | Cashier gives a refund the customer is not entitled to, or a large refund | Cashier can refund up to ₹[500] per order alone; above that, admin approval (PIN). Every refund needs a reason. | Csh/Adm | Gap (Q-R3-08 left this open) |
 | C6 | Offline till order (OFF-1…) not accepted when the connection returns | Cashier either retries or removes it; only remove after the customer is refunded or the order is re-entered. | Csh | Built |
 | C7 | Customer has no phone or the battery died while an item-unavailable choice is open | Cashier makes the choice at the counter with the customer's say-so; the event log records "chosen by cashier for customer". | Csh | Gap: let the cashier answer the adjustment |
-| C8 | Cashier places an order for the customer and the customer then changes their mind before it starts | Same as self-cancel: free before the kitchen starts. | Csh | Gap (follows customer self-cancel) |
+| C8 | Cashier places an order for the customer and the customer then changes their mind before it starts | Same as self-cancel: free before the kitchen starts. | Csh | Built (the cashier rejects it with a reason; full refund) |
 
 ### 2.3 Order and kitchen edge cases
 | # | Situation | Rule | Actor | Status |
 |---|---|---|---|---|
-| K1 | Customer wants to cancel while PLACED | Free cancel and full refund. | Cust | Gap: customer cancel is not built (only from ACTION_REQUIRED) |
-| K2 | Kitchen starts the order a second after the customer taps Cancel | Whichever reaches the server first wins; the loser sees a clear message. | Sys | Gap: handle the race in the transition |
+| K1 | Customer wants to cancel while PLACED | Free cancel and full refund. | Cust | Built |
+| K2 | Kitchen starts the order a second after the customer taps Cancel | Whichever reaches the server first wins; the loser sees a clear message. | Sys | Built (the order row is locked) |
 | K3 | Customer wants to cancel while PREPARING | Not allowed, unless the order is late (K4) or the café is at fault. Admin may still refund as goodwill. | Cust/Adm | Policy |
-| K4 | Order late beyond the promised time + [15] min and not READY | Customer may cancel for a full refund. | Cust | Gap: needs a promised time per order |
+| K4 | Order late beyond the promised time + [15] min and not READY | Customer may cancel for a full refund. | Cust | Built: "late after" minutes per café in Settings (default 30) |
 | K5 | Customer ordered at the wrong café (two towers) | Before the kitchen starts: free cancel, re-order at the right café. After: the cashier may cancel and refund at their discretion. | Cust/Csh | Gap: show the café name loudly at checkout |
 | K6 | Same order placed twice by mistake (same items within [2] minutes) | Warn before payment ("You ordered this 1 minute ago"); if paid twice anyway, free cancel of either before the kitchen starts. | Sys/Cust | Gap |
 | K7 | Price changed on the menu while the customer was paying | The price shown when they paid is the price. Never charge more after payment. | Sys | Built (order totals are fixed at creation) |
@@ -170,7 +170,7 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 ### 3.3 Gaps in the current build
 In order of importance. None of these are built yet; each is small.
 
-1. **Customer self-cancel before the kitchen starts** (K1, K2, C8): new transition PLACED → CANCELLED by the customer, with a race-safe check.
+1. ~~**Customer self-cancel before the kitchen starts** (K1, K2, C8)~~: built, with late cancel (K4).
 2. **Credit notes** for partial and post-reporting refunds (T1, T2), shown in the GST export.
 3. **Automatic refund of late or duplicate captures** (P2, P3, P4) instead of only flagging them.
 4. **Not-collected orders** (K10): a state or day-close step for READY orders nobody collected.

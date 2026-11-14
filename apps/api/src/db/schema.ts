@@ -28,6 +28,8 @@ export const tenants = pgTable("tenants", {
   taxRateBps: integer("tax_rate_bps").notNull().default(500),
   /** True: menu prices include GST. False: GST is added on the whole bill at checkout (SO-6). */
   pricesIncludeTax: boolean("prices_include_tax").notNull().default(true),
+  /** Refund policy K4: minutes after an order is placed when, still not ready, the customer may cancel it for a full refund. */
+  lateCancelMinutes: integer("late_cancel_minutes").notNull().default(30),
   branding: jsonb("branding").$type<Record<string, unknown>>().notNull().default({}),
   /** Seller details printed on receipts: legal name, GSTIN, FSSAI licence, footer. */
   billing: jsonb("billing").$type<{ legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string }>().notNull().default({}),

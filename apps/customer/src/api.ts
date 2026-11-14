@@ -52,6 +52,7 @@ export const api = {
   track: (token: string) => call<OrderView>(`/v1/track/${token}`),
   receipt: (token: string) => call<ReceiptView>(`/v1/track/${token}/receipt`),
   retryPayment: (token: string) => call<CheckoutInfo>(`/v1/track/${token}/pay`, { method: "POST" }),
+  cancel: (token: string) => call<OrderView>(`/v1/track/${token}/cancel`, { method: "POST" }),
   resolve: (token: string, adjustmentId: string, body: ResolveAdjustmentRequest) =>
     call<OrderView>(`/v1/track/${token}/adjustments/${adjustmentId}/resolve`, { method: "POST", body: JSON.stringify(body) }),
   simulatePayment: (paymentId: string, outcome: "SUCCESS" | "FAILURE", instrument: "upi" | "card" = "upi") =>

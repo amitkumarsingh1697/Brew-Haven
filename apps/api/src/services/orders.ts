@@ -283,6 +283,24 @@ export async function settleIfAllResolved(tx: Tx, after: After, bus: EventBus, o
 
 // ---------- Views ----------
 
+/**
+ * Whether the customer may cancel from their order link now (refund policy K1, K4). Online orders only:
+ * a counter order was paid at the till, so the cashier cancels it there.
+ */
+export function customerCancelOption(
+  o: Pick<OrderRow, "channel" | "state" | "placedAt">,
+  lateCancelMinutes: number,
+  now = new Date(),
+): OrderView["cancel"] {
+  if (o.channel !== "ONLINE") return { allowed: false, kind: null, lateFrom: null };
+  if (o.state === "PLACED" || o.state === "ACTION_REQUIRED") return { allowed: true, kind: "BEFORE_KITCHEN", lateFrom: null };
+  if (o.state === "PREPARING" && o.placedAt) {
+    const lateFrom = new Date(o.placedAt.getTime() + lateCancelMinutes * 60_000);
+    return { allowed: now >= lateFrom, kind: now >= lateFrom ? "LATE" : null, lateFrom: lateFrom.toISOString() };
+  }
+  return { allowed: false, kind: null, lateFrom: null };
+}
+
 export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
   const [o] = await tx.select().from(orders).where(eq(orders.id, orderId));
   if (!o) throw notFound("Order");
@@ -316,6 +334,7 @@ export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
       .map((p) => ({ method: p.method, instrument: p.instrument, amountPaise: p.amountPaise, tenderedPaise: p.tenderedPaise, recordedBy: p.recordedByStaffId ? (staffNames.get(p.recordedByStaffId) ?? null) : null })),
     refundedPaise: refunded,
     cancelReason: o.cancelReason,
+    cancel: customerCancelOption(o, tenant!.lateCancelMinutes),
     customerName: o.customerName,
     lines: lines.map((l) => ({
       id: l.id,

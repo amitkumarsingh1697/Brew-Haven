@@ -69,6 +69,7 @@ export function Track({ token }: { token: string }) {
             </ol>
           </section>
           {order.state === "ACTION_REQUIRED" && <AdjustmentPanel order={order} token={token} onChange={setOrder} />}
+          {order.state !== "ACTION_REQUIRED" && <CancelPanel order={order} token={token} onChange={setOrder} />}
         </>
       )}
 
@@ -127,6 +128,62 @@ export function Track({ token }: { token: string }) {
         )}
       </section>
     </main>
+  );
+}
+
+/** Refund policy K1/K4: cancel for free before the kitchen starts, or once the order is late. */
+function CancelPanel({ order, token, onChange }: { order: OrderView; token: string; onChange: (o: OrderView) => void }) {
+  const now = useNow(15_000);
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const lateFrom = order.cancel.lateFrom ? new Date(order.cancel.lateFrom) : null;
+  const lateNow = !!lateFrom && order.state === "PREPARING" && now >= lateFrom.getTime();
+  const allowed = order.cancel.allowed || lateNow;
+  if (!allowed) {
+    if (order.state === "PREPARING" && lateFrom && order.channel === "ONLINE")
+      return <p className="cancel-hint">If it isn't ready by {lateFrom.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}, you can cancel it here for a full refund.</p>;
+    return null;
+  }
+  const refund = order.paidPaise - order.refundedPaise;
+  const go = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      onChange(await api.cancel(token));
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Couldn't cancel. Check your connection and try again.");
+      setAsking(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="card cancel-panel">
+      {lateNow || order.cancel.kind === "LATE" ? (
+        <p>Sorry, your order is taking longer than it should. You can still wait, or cancel it for a full refund.</p>
+      ) : (
+        <p>Changed your mind? You can cancel for free until the café starts making it.</p>
+      )}
+      {err && <p className="error-text" role="alert">{err}</p>}
+      {!asking ? (
+        <button className="btn btn-danger-ghost" onClick={() => setAsking(true)}>
+          Cancel order
+        </button>
+      ) : (
+        <div className="cancel-confirm" role="group" aria-label="Confirm cancelling">
+          <p>
+            <strong>Cancel this order?</strong> {refund > 0 && <>We'll refund <Rs paise={refund} /> to the way you paid.</>}
+          </p>
+          <button className="btn btn-danger" onClick={go} disabled={busy} autoFocus>
+            {busy ? "Cancelling…" : "Yes, cancel it"}
+          </button>
+          <button className="btn btn-ghost" onClick={() => setAsking(false)} disabled={busy}>
+            Keep my order
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 

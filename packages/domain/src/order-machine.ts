@@ -26,6 +26,7 @@ export type OrderAction =
   | "ADJUSTMENTS_RESOLVED"
   | "REJECT"
   | "CUSTOMER_CANCEL"
+  | "LATE_CANCEL"
   | "ALL_LINES_REMOVED"
   | "MARK_READY"
   | "HAND_OVER";
@@ -53,7 +54,10 @@ export const RULES: Record<OrderAction, Rule> = {
   FLAG_UNAVAILABLE: { from: ["PLACED", "PREPARING"], to: "ACTION_REQUIRED", actors: ["CASHIER", "KITCHEN", "ADMIN"] },
   ADJUSTMENTS_RESOLVED: { from: ["ACTION_REQUIRED"], to: "RESUME", actors: ["CUSTOMER", "SYSTEM"] },
   REJECT: { from: ["PLACED", "PREPARING", "ACTION_REQUIRED"], to: "CANCELLED", actors: STAFF, requiresReason: true },
-  CUSTOMER_CANCEL: { from: ["ACTION_REQUIRED"], to: "CANCELLED", actors: ["CUSTOMER"] },
+  // Refund policy K1/K2: free cancel until the kitchen starts (and while an item choice is open).
+  CUSTOMER_CANCEL: { from: ["PLACED", "ACTION_REQUIRED"], to: "CANCELLED", actors: ["CUSTOMER"] },
+  // Refund policy K4: once the kitchen has started, only when the order is late (the service checks the time).
+  LATE_CANCEL: { from: ["PREPARING"], to: "CANCELLED", actors: ["CUSTOMER"] },
   ALL_LINES_REMOVED: { from: ["ACTION_REQUIRED"], to: "CANCELLED", actors: ["SYSTEM", "CUSTOMER"] },
   MARK_READY: { from: ["PREPARING"], to: "READY", actors: ["KITCHEN", "ADMIN"] },
   HAND_OVER: { from: ["READY"], to: "COLLECTED", actors: ["CASHIER", "ADMIN"] },
