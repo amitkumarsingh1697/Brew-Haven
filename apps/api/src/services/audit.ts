@@ -37,7 +37,7 @@ export async function recordAudit(db: Db, e: AuditInput) {
 
 type Obj = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : "");
-const ACTION_WORDS: Record<string, string> = { START: "Started", MARK_READY: "Marked ready", HAND_OVER: "Handed over" };
+const ACTION_WORDS: Record<string, string> = { START: "Started", MARK_READY: "Marked ready", HAND_OVER: "Handed over", MARK_NOT_COLLECTED: "Marked not collected" };
 const METHOD_WORDS: Record<string, string> = { CASH: "cash", UPI_COUNTER: "UPI at counter", CARD_COUNTER: "card at counter" };
 
 const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;

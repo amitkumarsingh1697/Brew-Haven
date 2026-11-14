@@ -135,6 +135,7 @@ export async function daySummary(db: Db, staff: StaffClaims, outletId: string, d
     orders: {
       total: dayOrders.length,
       collected: dayOrders.filter((o) => o.state === "COLLECTED").length,
+      notCollected: dayOrders.filter((o) => o.state === "NOT_COLLECTED").length,
       cancelled: dayOrders.filter((o) => o.state === "CANCELLED").length,
       open: dayOrders.filter((o) => LIVE_STATES.includes(o.state)).length,
     },

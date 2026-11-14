@@ -8,7 +8,7 @@ import { businessDate } from "./orders.js";
 
 const LIVE = ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY"];
 /** Orders that count as sales: paid and not cancelled. */
-const SOLD = ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY", "COLLECTED"];
+const SOLD = ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY", "COLLECTED", "NOT_COLLECTED"];
 
 /** Cash that should be in the drawer: opening float + cash taken − cash handed back. */
 async function cashFor(db: Db, outletId: string, day: string) {

@@ -9,7 +9,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 /** Restaurant and café service (SAC 996331), the code a café's GST return uses. */
 export const CAFE_SAC = "996331";
 /** States in which an invoice stands; a cancelled order's invoice is reported as cancelled. */
-const ISSUED = ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY", "COLLECTED"];
+const ISSUED = ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY", "COLLECTED", "NOT_COLLECTED"];
 
 type Sums = { invoices: number; taxablePaise: number; cgstPaise: number; sgstPaise: number; totalPaise: number };
 const zero = (): Sums => ({ invoices: 0, taxablePaise: 0, cgstPaise: 0, sgstPaise: 0, totalPaise: 0 });

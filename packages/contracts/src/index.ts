@@ -19,6 +19,7 @@ export const OrderStateSchema = z.enum([
   "ACTION_REQUIRED",
   "READY",
   "COLLECTED",
+  "NOT_COLLECTED",
   "CANCELLED",
   "EXPIRED",
 ]);
@@ -196,6 +197,8 @@ export const OrderView = z.object({
   creditNotes: z.array(z.object({ number: z.string(), totalPaise: Paise, taxPaise: Paise, reason: z.string(), createdAt: z.string() })),
   createdAt: z.string(),
   placedAt: z.string().nullable(),
+  /** When the order was last marked ready, if it was. */
+  readyAt: z.string().nullable(),
   updatedAt: z.string(),
 });
 export type OrderView = z.infer<typeof OrderView>;
@@ -245,7 +248,7 @@ export const StaffSession = z.object({
 });
 export type StaffSession = z.infer<typeof StaffSession>;
 
-export const StaffActionRequest = z.object({ action: z.enum(["START", "MARK_READY", "HAND_OVER"]) });
+export const StaffActionRequest = z.object({ action: z.enum(["START", "MARK_READY", "HAND_OVER", "MARK_NOT_COLLECTED"]) });
 export const RejectRequest = z.object({ reason: z.string().trim().min(3).max(200) });
 export const FlagUnavailableRequest = z.object({
   lineIds: z.array(Id).min(1),
@@ -342,7 +345,7 @@ export const StockUpdateRequest = z.object({
 export const DaySummary = z.object({
   outletId: Id,
   businessDate: z.string(),
-  orders: z.object({ total: z.number().int(), collected: z.number().int(), cancelled: z.number().int(), open: z.number().int() }),
+  orders: z.object({ total: z.number().int(), collected: z.number().int(), notCollected: z.number().int(), cancelled: z.number().int(), open: z.number().int() }),
   capturedByMethod: z.record(z.string(), Paise),
   capturedPaise: Paise,
   refundedPaise: Paise,

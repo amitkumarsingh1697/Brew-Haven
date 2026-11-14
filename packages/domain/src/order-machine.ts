@@ -7,12 +7,17 @@ export const ORDER_STATES = [
   "ACTION_REQUIRED",
   "READY",
   "COLLECTED",
+  /** Refund policy K10: ready, held, and never picked up by the end of the day. Still a sale; no refund. */
+  "NOT_COLLECTED",
   "CANCELLED",
   "EXPIRED",
 ] as const;
 export type OrderState = (typeof ORDER_STATES)[number];
 
-export const TERMINAL_STATES: ReadonlySet<OrderState> = new Set(["COLLECTED", "CANCELLED", "EXPIRED"]);
+/** Refund policy K10: how long a ready order is held before the cashier may mark it not collected. */
+export const NOT_COLLECTED_HOLD_MINUTES = 30;
+
+export const TERMINAL_STATES: ReadonlySet<OrderState> = new Set(["COLLECTED", "NOT_COLLECTED", "CANCELLED", "EXPIRED"]);
 
 export type Actor = "SYSTEM" | "CUSTOMER" | "CASHIER" | "KITCHEN" | "ADMIN";
 
@@ -29,7 +34,8 @@ export type OrderAction =
   | "LATE_CANCEL"
   | "ALL_LINES_REMOVED"
   | "MARK_READY"
-  | "HAND_OVER";
+  | "HAND_OVER"
+  | "MARK_NOT_COLLECTED";
 
 interface Rule {
   from: readonly OrderState[];
@@ -61,6 +67,8 @@ export const RULES: Record<OrderAction, Rule> = {
   ALL_LINES_REMOVED: { from: ["ACTION_REQUIRED"], to: "CANCELLED", actors: ["SYSTEM", "CUSTOMER"] },
   MARK_READY: { from: ["PREPARING"], to: "READY", actors: ["KITCHEN", "ADMIN"] },
   HAND_OVER: { from: ["READY"], to: "COLLECTED", actors: ["CASHIER", "ADMIN"] },
+  // Refund policy K10: the cashier after the hold time (the service checks it), or the system at day close.
+  MARK_NOT_COLLECTED: { from: ["READY"], to: "NOT_COLLECTED", actors: ["CASHIER", "ADMIN", "SYSTEM"] },
 };
 
 export class TransitionError extends Error {

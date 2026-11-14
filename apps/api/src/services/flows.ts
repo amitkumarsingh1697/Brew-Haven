@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lt, lte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import {
   CreateOrderRequest,
   type CounterOrderRequest,
@@ -7,7 +7,7 @@ import {
   type ResolveAdjustmentRequest,
   type WalkInOrderRequest,
 } from "@brew-haven/contracts";
-import { cashChange, formatInr, quote, resolveAdjustment, type OrderAction } from "@brew-haven/domain";
+import { NOT_COLLECTED_HOLD_MINUTES, cashChange, formatInr, quote, resolveAdjustment, type OrderAction } from "@brew-haven/domain";
 import type { z } from "zod";
 import type { StaffClaims } from "../auth.js";
 import type { Alerter } from "../alerts.js";
@@ -26,6 +26,7 @@ import {
   applyTransition,
   customerCancelOption,
   billDelta,
+  businessDate,
   insertLines,
   issueRefund,
   lockOrder,
@@ -201,8 +202,16 @@ export async function handleWebhook(ctx: Ctx, event: WebhookEvent): Promise<"pro
 
     // payment.captured
     if (event.amountPaise !== pay.amountPaise) {
-      ctx.log.error({ event, expected: pay.amountPaise }, "captured amount does not match; order NOT placed");
+      // Refund policy P4: never place the order. Record what was actually taken and give all of it back.
+      ctx.log.error({ event, expected: pay.amountPaise }, "captured amount does not match; order NOT placed, refunding");
       await tx.insert(outbox).values({ tenantId: pay.tenantId, topic: "alert.amount_mismatch", payload: { paymentId: pay.id, got: event.amountPaise, expected: pay.amountPaise } });
+      await tx
+        .update(payments)
+        .set({ status: "CAPTURED", amountPaise: event.amountPaise, providerPaymentId: event.providerPaymentId, instrument: event.instrument ?? null, capturedAt: new Date() })
+        .where(eq(payments.id, pay.id));
+      const order = await lockOrder(tx, { id: pay.orderId });
+      await issueRefund(tx, order, event.amountPaise, "The amount paid did not match the order, so it was given back", `mismatch:${pay.id}`);
+      announce(after, ctx.bus, order);
       return "processed";
     }
     await tx
@@ -256,9 +265,15 @@ export async function lockStaffOrder(tx: Tx, staff: StaffClaims, orderId: string
   return o;
 }
 
-export async function staffAction(ctx: Ctx, staff: StaffClaims, orderId: string, action: Extract<OrderAction, "START" | "MARK_READY" | "HAND_OVER">) {
+export async function staffAction(ctx: Ctx, staff: StaffClaims, orderId: string, action: Extract<OrderAction, "START" | "MARK_READY" | "HAND_OVER" | "MARK_NOT_COLLECTED">) {
   return withTx(ctx.db, async (tx, after) => {
     const o = await lockStaffOrder(tx, staff, orderId);
+    if (action === "MARK_NOT_COLLECTED" && o.state === "READY" && staff.role !== "KITCHEN") {
+      // Refund policy K10: hold a ready order before giving up on it.
+      const [ready] = await tx.select({ at: orderEvents.at }).from(orderEvents).where(and(eq(orderEvents.orderId, o.id), eq(orderEvents.toState, "READY"))).orderBy(desc(orderEvents.at)).limit(1);
+      const waitMs = (ready?.at.getTime() ?? 0) + NOT_COLLECTED_HOLD_MINUTES * 60_000 - Date.now();
+      if (waitMs > 0) throw new AppError("CONFLICT", `Keep the order for ${NOT_COLLECTED_HOLD_MINUTES} minutes after it's ready. ${Math.ceil(waitMs / 60_000)} min to go.`);
+    }
     await applyTransition(tx, after, ctx.bus, o, action, staff.role, { actorId: staff.sub });
     return orderView(tx, o.id);
   });
@@ -706,7 +721,22 @@ export async function runSweeps(ctx: Ctx, now = new Date()) {
       await settleIfAllResolved(tx, after, ctx.bus, order.id, "SYSTEM");
     });
   }
-  return { expired: stale.length, adjustmentsTimedOut: overdue.length };
+
+  // Refund policy K10: ready orders still waiting when their business day is over were not collected.
+  const ready = await ctx.db
+    .select({ id: orders.id, day: orders.businessDate, tz: outlets.timezone })
+    .from(orders)
+    .innerJoin(outlets, eq(outlets.id, orders.outletId))
+    .where(eq(orders.state, "READY"));
+  const notCollected = ready.filter((r) => r.day && r.day < businessDate(now, r.tz));
+  for (const { id } of notCollected) {
+    await withTx(ctx.db, async (tx, after) => {
+      const o = await lockOrder(tx, { id });
+      if (o.state !== "READY") return;
+      await applyTransition(tx, after, ctx.bus, o, "MARK_NOT_COLLECTED", "SYSTEM", { reason: "Not collected by the end of the day" });
+    });
+  }
+  return { expired: stale.length, adjustmentsTimedOut: overdue.length, notCollected: notCollected.length };
 }
 
 const MAX_ATTEMPTS = 8;

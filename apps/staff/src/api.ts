@@ -227,7 +227,7 @@ export const api = {
   users: () => call<{ tenant: { name: string }; users: Array<{ id: string; name: string; role: string }> }>(`/v1/staff/${getTenant()}/users`),
   login: (staffUserId: string, pin: string) => post<StaffSession>("/v1/staff/login", { tenantSlug: getTenant(), staffUserId, pin }),
   orders: (outletId: string, scope: "live" | "today" = "live") => call<OrderView[]>(`/v1/staff/orders?outletId=${outletId}&scope=${scope}`),
-  action: (id: string, action: "START" | "MARK_READY" | "HAND_OVER") => post<OrderView>(`/v1/staff/orders/${id}/actions`, { action }),
+  action: (id: string, action: "START" | "MARK_READY" | "HAND_OVER" | "MARK_NOT_COLLECTED") => post<OrderView>(`/v1/staff/orders/${id}/actions`, { action }),
   refund: (id: string, body: StaffRefundRequest) => post<{ preview: StaffRefundPreview | null; order: OrderView | null }>(`/v1/staff/orders/${id}/refund`, body),
   reject: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/reject`, { reason }),
   flag: (id: string, lineIds: string[], note: string) => post<OrderView>(`/v1/staff/orders/${id}/flag-unavailable`, { lineIds, note: note || undefined, markSoldOut: true }),

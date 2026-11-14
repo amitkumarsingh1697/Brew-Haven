@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { OrderView, StaffRole } from "@brew-haven/contracts";
-import { formatInr } from "@brew-haven/domain";
+import { NOT_COLLECTED_HOLD_MINUTES, formatInr } from "@brew-haven/domain";
 import { ApiError, api } from "./api";
 import { minutesSince } from "./live";
 import { ReceiptModal } from "./ReceiptModal";
@@ -34,6 +34,8 @@ export function OrderCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const age = minutesSince(order.placedAt, now);
+  // Refund policy K10: after the hold time the cashier can close a ready order nobody came for.
+  const heldLongEnough = order.state === "READY" && minutesSince(order.readyAt, now) >= NOT_COLLECTED_HOLD_MINUTES;
   const lines = order.lines.filter((l) => l.status === "ACTIVE" || l.status === "UNAVAILABLE");
 
   const run = async (fn: () => Promise<OrderView>) => {
@@ -131,6 +133,11 @@ export function OrderCard({
           {(order.state === "PLACED" || order.state === "PREPARING") && order.channel === "ONLINE" && (
             <button className="btn btn-ghost" disabled={busy} onClick={() => setMode("flag")}>
               Item ran out
+            </button>
+          )}
+          {heldLongEnough && can.handOver(role) && (
+            <button className="btn btn-ghost" disabled={busy} title={`Ready for over ${NOT_COLLECTED_HOLD_MINUTES} minutes. No refund is given.`} onClick={() => run(() => api.action(order.id, "MARK_NOT_COLLECTED"))}>
+              Not collected
             </button>
           )}
           {order.state !== "READY" && can.reject(role) && (

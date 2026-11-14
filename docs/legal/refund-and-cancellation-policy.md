@@ -78,9 +78,9 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 | # | Situation | Rule | Actor | Status |
 |---|---|---|---|---|
 | P1 | Money debited, gateway shows failed or pending | Order stays AWAITING_PAYMENT, then EXPIRED. Bank reverses (RBI T+5). Customer sees "If money left your account, it will come back within 5 days" and a link to the transaction reference. | Sys | Built (expiry); Gap (message) |
-| P2 | Payment captured **after** the 15-minute expiry (late webhook) | Do not place a stale order. Refund it in full automatically and tell the customer. | Sys | Gap: today it appears in Payment checks as "paid not served"; make the refund automatic |
-| P3 | Two successful payments for one order (double tap, retry from two apps) | Keep the first capture, refund every extra capture in full automatically. | Sys | Gap: confirm webhook handler refunds the extra capture, not just ignores it |
-| P4 | Captured amount differs from the order total | Do not place the order. Refund the captured amount in full; log it for the owner. | Sys | Built (invariant 1); Gap (auto-refund) |
+| P2 | Payment captured **after** the 15-minute expiry (late webhook) | Do not place a stale order. Refund it in full automatically and tell the customer. | Sys | Built: refunded in full automatically |
+| P3 | Two successful payments for one order (double tap, retry from two apps) | Keep the first capture, refund every extra capture in full automatically. | Sys | Built: every extra capture refunded in full automatically (tested) |
+| P4 | Captured amount differs from the order total | Do not place the order. Refund the captured amount in full; log it for the owner. | Sys | Built: order not placed, captured amount recorded and refunded in full, owner alerted |
 | P5 | Customer closes the app during payment | On reopening, the tracking link shows the true state from the server. Never mark paid from the client. | Sys | Built |
 | P6 | Top-up payment (for a dearer replacement) fails or is abandoned | After 5 min the line falls back to "remove" and is refunded. | Sys | Built |
 | P7 | Refund fails at the gateway | Shows in Payment checks; admin refunds by hand, with proof, and marks it done. | Adm | Built |
@@ -118,7 +118,7 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 | K7 | Price changed on the menu while the customer was paying | The price shown when they paid is the price. Never charge more after payment. | Sys | Built (order totals are fixed at creation) |
 | K8 | Outlet closes, power cut, machine breaks with paid orders in the queue | Admin cancels the affected orders with a reason; all refunded. | Adm | Built (reject); Gap: bulk "cancel all open orders" |
 | K9 | Café rejects because of a customer's behaviour | Still a full refund; a rejection reason is required. | Csh/Adm | Built |
-| K10 | Order READY but never collected | Hold for [30] minutes; at day close it becomes "not collected", with no refund. | Sys | Gap: no state for this; READY orders stay open |
+| K10 | Order READY but never collected | Hold for [30] minutes; at day close it becomes "not collected", with no refund. | Sys | Built: "Not collected" state; cashier can close after 30 min, the system closes the rest at day end; no refund |
 | K11 | Customer collects someone else's order | Check the pickup code at handover; remake for the rightful customer at no cost; log it. | Csh | Built (pickup code); Gap (log reason "wrong handover") |
 | K12 | Wrong item or customisation served | Remake free, or refund the line. | Csh | Built: refund one or more items after collection |
 | K13 | Foreign object, allergen not declared, veg/non-veg mix-up | Full refund, incident record, owner told immediately. | Csh/Adm | Partly built: full refund after collection with a food-safety reason, logged in Activity; owner alert still a gap |

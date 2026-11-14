@@ -6,7 +6,7 @@ import { orders, outlets, platformAdmins, staffUsers, tenants } from "../db/sche
 import { AppError, notFound } from "../errors.js";
 import { recordAudit } from "./audit.js";
 
-const SOLD = ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY", "COLLECTED"];
+const SOLD = ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY", "COLLECTED", "NOT_COLLECTED"];
 
 /** Sign-in for Brew Haven's own team, by email and password. */
 export async function platformLogin(db: Db, tokens: PlatformTokens, limiter: AttemptLimiter, input: { email: string; password: string }, ip: string) {
