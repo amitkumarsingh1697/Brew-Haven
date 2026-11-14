@@ -282,6 +282,13 @@ h3 {
   gap: 12px;
   text-align: center;
 }
+.cafe-logo {
+  justify-self: center;
+  width: clamp(104px, 30vw, 132px);
+  height: auto;
+  margin-bottom: -4px;
+  filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.35));
+}
 .welcome-copy h1 {
   font-size: clamp(2.2rem, 9vw, 3rem);
   color: var(--bh-cream);
@@ -1082,3 +1089,10 @@ h3 {
 .legal table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
 .legal th, .legal td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--bh-parchment); }
 .legal h1 { font-size: 1.8rem; margin: 16px 0 4px; }
+
+.menu-tax-note {
+  text-align: center;
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin: 8px 16px 96px;
+}

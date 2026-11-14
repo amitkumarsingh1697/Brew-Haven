@@ -18,6 +18,8 @@ export type Actor = "SYSTEM" | "CUSTOMER" | "CASHIER" | "KITCHEN" | "ADMIN";
 
 export type OrderAction =
   | "PAYMENT_VERIFIED"
+  | "MARK_PAID"
+  | "VOID_UNPAID"
   | "PAYMENT_FAILED_OR_TIMEOUT"
   | "START"
   | "FLAG_UNAVAILABLE"
@@ -40,6 +42,12 @@ const STAFF: readonly Actor[] = ["CASHIER", "ADMIN"];
 
 export const RULES: Record<OrderAction, Rule> = {
   PAYMENT_VERIFIED: { from: ["AWAITING_PAYMENT"], to: "PLACED", actors: ["SYSTEM"] },
+  // Counter orders only (the service checks the channel): the cashier took cash, or a card or UPI
+  // payment on the café's own machine or QR, and confirms it. Online orders are only ever placed by
+  // a verified gateway payment.
+  MARK_PAID: { from: ["AWAITING_PAYMENT"], to: "PLACED", actors: STAFF },
+  // Counter orders only: the customer left without paying. Nothing was taken, so nothing is refunded.
+  VOID_UNPAID: { from: ["AWAITING_PAYMENT"], to: "CANCELLED", actors: STAFF, requiresReason: true },
   PAYMENT_FAILED_OR_TIMEOUT: { from: ["AWAITING_PAYMENT"], to: "EXPIRED", actors: ["SYSTEM"] },
   START: { from: ["PLACED"], to: "PREPARING", actors: ["KITCHEN", "ADMIN"] },
   FLAG_UNAVAILABLE: { from: ["PLACED", "PREPARING"], to: "ACTION_REQUIRED", actors: ["CASHIER", "KITCHEN", "ADMIN"] },

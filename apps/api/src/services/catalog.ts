@@ -58,6 +58,7 @@ export async function getMenu(db: Db, tenantSlug: string, outletSlug: string): P
       slug: tenant.slug,
       name: tenant.name,
       taxRateBps: tenant.taxRateBps,
+      pricesIncludeTax: tenant.pricesIncludeTax,
       branding: {
         displayName: b.displayName ?? tenant.name,
         tagline: b.tagline,

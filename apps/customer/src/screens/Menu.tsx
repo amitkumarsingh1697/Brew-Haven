@@ -117,12 +117,14 @@ export function Menu({ tenant, outlet }: { tenant: string; outlet: string }) {
           </ul>
         </section>
       ))}
+      {!menu.tenant.pricesIncludeTax && <p className="menu-tax-note">Prices are before GST. {menu.tenant.taxRateBps / 100}% GST is added on your bill at checkout.</p>}
 
       {count > 0 && (
         <div className="basket-bar">
           <button className="btn btn-primary btn-block" onClick={() => navigate(`/${tenant}/${outlet}/checkout`)}>
             <span>
               {count} item{count > 1 ? "s" : ""} · <Rs paise={previewPaise} />
+              {!menu.tenant.pricesIncludeTax && " + GST"}
             </span>
             <span>View basket ›</span>
           </button>

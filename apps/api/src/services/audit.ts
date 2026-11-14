@@ -40,6 +40,17 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 const ACTION_WORDS: Record<string, string> = { START: "Started", MARK_READY: "Marked ready", HAND_OVER: "Handed over" };
 const METHOD_WORDS: Record<string, string> = { CASH: "cash", UPI_COUNTER: "UPI at counter", CARD_COUNTER: "card at counter" };
 
+const rupees = (p: number) => `₹${(p / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+
+/** "cash ₹200 (received ₹500, change ₹300)", "card at counter ₹200, ref 1234". */
+function paidWords(body: Obj, totalPaise: number) {
+  const how = METHOD_WORDS[str(body.method)] ?? str(body.method);
+  const tendered = typeof body.tenderedPaise === "number" ? body.tenderedPaise : null;
+  if (tendered !== null) return `${how} ${rupees(totalPaise)} (received ${rupees(tendered)}, change ${rupees(Math.max(0, tendered - totalPaise))})`;
+  const ref = str(body.cardReference) || str(body.upiReference);
+  return `${how} ${rupees(totalPaise)}${ref ? `, ref ${ref}` : ""}`;
+}
+
 /** Never store secrets in the trail. */
 export function scrub(body: unknown): Obj | null {
   if (!body || typeof body !== "object") return null;
@@ -76,7 +87,15 @@ export async function describe(
     case "POST /v1/staff/orders/:id/flag-unavailable":
       return { action: "order.flag_unavailable", summary: `Marked items unavailable on order ${code}`, targetId: id, outletId: outletOfOrder };
     case "POST /v1/staff/orders/walk-in":
-      return { action: "order.walk_in", summary: `Took counter order ${code} (${METHOD_WORDS[str(body.method)] ?? str(body.method)})`, targetId: str(result.id), outletId: str(body.outletId) };
+      return { action: "order.walk_in", summary: `Took counter order ${code} (${paidWords(body, Number(result.totalPaise ?? 0))})`, targetId: str(result.id), outletId: str(body.outletId) };
+    case "POST /v1/staff/orders/counter": {
+      const order = (result.order ?? {}) as Obj;
+      return { action: "order.counter_place", summary: `Placed an order for a customer at the counter, ${rupees(Number(order.totalPaise ?? 0))} waiting for payment`, targetId: str(order.id), outletId: str(body.outletId) };
+    }
+    case "POST /v1/staff/orders/:id/mark-paid":
+      return { action: "order.mark_paid", summary: `Marked order ${code} paid: ${paidWords(body, Number(result.totalPaise ?? 0))}`, targetId: id, outletId: outletOfOrder };
+    case "POST /v1/staff/orders/:id/void":
+      return { action: "order.void_unpaid", summary: `Cancelled an unpaid counter order: ${str(body.reason)}`, targetId: id, outletId: outletOfOrder };
     case "PUT /v1/staff/stock": {
       const name = await itemName(str(body.itemId));
       const count = typeof body.stockCount === "number" ? `, ${body.stockCount} left` : "";

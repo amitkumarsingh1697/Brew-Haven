@@ -26,6 +26,8 @@ export const tenants = pgTable("tenants", {
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   taxRateBps: integer("tax_rate_bps").notNull().default(500),
+  /** True: menu prices include GST. False: GST is added on the whole bill at checkout (SO-6). */
+  pricesIncludeTax: boolean("prices_include_tax").notNull().default(true),
   branding: jsonb("branding").$type<Record<string, unknown>>().notNull().default({}),
   /** Seller details printed on receipts: legal name, GSTIN, FSSAI licence, footer. */
   billing: jsonb("billing").$type<{ legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string }>().notNull().default({}),
@@ -188,6 +190,10 @@ export const orders = pgTable(
     totalPaise: integer("total_paise").notNull(),
     taxPaise: integer("tax_paise").notNull(),
     taxRateBps: integer("tax_rate_bps").notNull(),
+    /** How GST was charged on this order, fixed when it was created. */
+    pricesIncludeTax: boolean("prices_include_tax").notNull().default(true),
+    /** Rounding to the nearest rupee when GST is added on the bill. total = taxable + tax + roundOff. */
+    roundOffPaise: integer("round_off_paise").notNull().default(0),
     trackingToken: text("tracking_token").notNull().unique(),
     idempotencyKey: text("idempotency_key"),
     cancelReason: text("cancel_reason"),
@@ -286,6 +292,12 @@ export const payments = pgTable(
     amountPaise: integer("amount_paise").notNull(),
     status: text("status", { enum: ["CREATED", "CAPTURED", "FAILED"] }).notNull(),
     recordedByStaffId: uuid("recorded_by_staff_id").references(() => staffUsers.id),
+    /** Cash handed over by the customer, for working out change and checking the drawer. */
+    tenderedPaise: integer("tendered_paise"),
+    /** Card machine approval code or last digits, as the cashier typed it. */
+    reference: text("reference"),
+    /** How a gateway payment was made (upi, card, netbanking, wallet), from the gateway. */
+    instrument: text("instrument"),
     createdAt: createdAt(),
     capturedAt: timestamp("captured_at", { withTimezone: true }),
   },

@@ -21,7 +21,9 @@
 | From | To | Trigger | Actor |
 |---|---|---|---|
 | AWAITING_PAYMENT | PLACED | Payment verified by server (webhook or status API, never the client) | System |
-| AWAITING_PAYMENT | EXPIRED | Payment failed or 15 min timeout | System |
+| AWAITING_PAYMENT | PLACED | Counter order only: cashier marks it paid (cash, card machine, café's own UPI QR) | Cashier, admin |
+| AWAITING_PAYMENT | CANCELLED | Counter order only: customer left without paying (reason required, nothing to refund) | Cashier, admin |
+| AWAITING_PAYMENT | EXPIRED | Payment failed or timeout (15 min online, 20 min counter) | System |
 | PLACED | PREPARING | Start | Kitchen |
 | PLACED, PREPARING | ACTION_REQUIRED | Mark item(s) unavailable | Cashier, admin, kitchen |
 | ACTION_REQUIRED | PLACED or PREPARING (whichever it came from) | Every flagged item resolved | Customer, or the timeout |
@@ -56,7 +58,27 @@ Staff flag a line as unavailable, and an **adjustment** opens for that line. The
   3. The webhook signature is verified, and duplicate webhooks have no effect.
   4. Walk-in counter payments are recorded by the cashier and never go through the gateway. A refund of a counter payment is a cash/manual refund, recorded as such.
 
+## Order channels (Point 5, confirmed 13 Nov 2026)
+
+Every order goes through the app.
+
+| Who places it | How it's paid | What confirms it |
+|---|---|---|
+| Customer, after scanning the table/counter QR or opening the app | UPI (QR or app), debit or credit card, through the gateway | The gateway's signed webhook (`PAYMENT_VERIFIED`) |
+| Cashier, for the customer, "Scan to pay" | The till shows a QR that opens the order's payment page on the customer's phone; UPI or card through the gateway | The gateway's signed webhook |
+| Cashier, for the customer, "Cash" / "Card machine" / "Café's own UPI QR" | Money taken at the till | The cashier's **Mark paid** (`MARK_PAID`), recorded with the cashier's id, cash received and change, or the card approval code / UTR |
+
+* Cash and card-machine orders are placed and paid in one step at the till, and still work offline (queued on the till). A "Scan to pay" order waits in `AWAITING_PAYMENT` and shows on the till under "Waiting for the customer to pay", where the cashier can show the QR again, mark it paid another way, or cancel it.
+* Online orders can never be marked paid by hand.
+* If the customer pays by QR after the cashier has already marked the order paid, the late gateway payment is refunded automatically.
+* Each mark-paid is in the order's event history (`order_events`, action `MARK_PAID`, actor id) and in the owner's activity log ("Marked order A-012 paid: cash ₹200 (received ₹500, change ₹300)").
+* Gateway payments record how the customer paid (`payments.instrument`: upi, card, netbanking, wallet) from the gateway, for reconciling settlements.
+
 ## Money and tax
 
 * All amounts are integer paise.
-* Menu prices are **tax-inclusive** (the norm in Indian cafés). GST is extracted for the bill using a per-tenant rate, defaulting to **5%** (restaurant service without ITC). This is a placeholder until SO-6 is confirmed with the owner, and it is config, not code.
+* **SO-6, confirmed 13 Nov 2026:** GST is applied on the **complete bill** when the order is placed. Per tenant, `prices_include_tax` chooses between:
+  * **GST added on the bill** (400 Coffee): menu prices are before GST; GST = rate × subtotal, computed once on the whole bill (never per item); the total is rounded to the nearest rupee and the difference is shown as **round-off**. `total = taxable + GST + round-off`.
+  * **Prices include GST**: GST is extracted from the bill total; no round-off.
+* The rate is per tenant, default **5%** (restaurant service without ITC), split equally into CGST and SGST for supply within the state. Each order keeps the rate and mode it was billed with.
+* When an item is removed or swapped after payment, the refund or top-up is the **change in the whole bill** (with GST and round-off), worked out one change at a time, so the refunds always add up exactly to what the customer paid minus the final bill. If rounding ever leaves the customer paying more than the final bill, the difference is refunded when the order resumes.

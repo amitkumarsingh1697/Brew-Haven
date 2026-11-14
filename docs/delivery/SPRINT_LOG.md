@@ -65,7 +65,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | WhatsApp Cloud API made ready to switch on: templates reworded to pass Meta's rules, a script that submits them for approval and shows their status, signed delivery updates (Delivered, Read, Not delivered) in the owner's message log, and no pointless retries for numbers not on WhatsApp. See WHATSAPP_SETUP.md | Merged (#30) |
 | 3D café polish without an artist: limewashed plaster wall and a tiled band behind the counter, warm pools of lamplight on the counter, dust drifting in the light (still with reduced motion), a rim light on the barista and a soft vignette. 82 draw calls, inside the 100 budget. See ADR-0003 | Merged (#31) |
 | Filmed barista: the café's own barista on video behind the 3D counter, green screen removed in the browser, wave on tap, drawn barista as fallback. Filming guide, clip tool and switch command. See BARISTA_VIDEO.md | Merged (#32) |
-| AI barista clips of Aarav (idle and wave, made free on Hugging Face) live in the demo until real filming; tap-to-wave fixed. See BARISTA_VIDEO.md | In review (#33) |
+| AI barista clips of Aarav (idle and wave, made free on Hugging Face) live in the demo until real filming; tap-to-wave fixed. See BARISTA_VIDEO.md | Merged (#33) |
+| 400 Coffee Cafe logo: the seal Amit chose, as SVG (main, light, one-colour, icon), shown on the customer welcome screen through the tenant's logo setting. See docs/brand/400_COFFEE_LOGO.md | Merged (#36) |
 
 ## Waiting on Amit
 

@@ -1,11 +1,13 @@
 import { and, eq, inArray, isNull, lt, lte, ne, sql } from "drizzle-orm";
 import {
   CreateOrderRequest,
+  type CounterOrderRequest,
   type FlagUnavailableRequest,
+  type MarkPaidRequest,
   type ResolveAdjustmentRequest,
   type WalkInOrderRequest,
 } from "@brew-haven/contracts";
-import { inclusiveTax, quote, resolveAdjustment, type OrderAction } from "@brew-haven/domain";
+import { cashChange, formatInr, quote, resolveAdjustment, type OrderAction } from "@brew-haven/domain";
 import type { z } from "zod";
 import type { StaffClaims } from "../auth.js";
 import type { Alerter } from "../alerts.js";
@@ -22,6 +24,7 @@ import {
   UNPAID_ORDER_TTL_MS,
   announce,
   applyTransition,
+  billDelta,
   insertLines,
   issueRefund,
   lockOrder,
@@ -76,7 +79,7 @@ export async function createOnlineOrder(ctx: Ctx, tenantSlug: string, outletSlug
 
   if (!outlet.isOpen || tenant.suspendedAt) throw new AppError("UNAVAILABLE", `${outlet.name} is not taking orders right now`);
   const lines = await resolveLines(ctx.db, tenant.id, outlet.id, body.lines, { requireAvailable: true });
-  const q = quote(lines, tenant.taxRateBps);
+  const q = quote(lines, tenant.taxRateBps, tenant.pricesIncludeTax);
   const trackingToken = newTrackingToken();
   const providerOrder = await ctx.provider.createOrder({ amountPaise: q.totalPaise, receipt: trackingToken, notes: { outlet: outlet.slug } });
 
@@ -115,6 +118,8 @@ export async function createOnlineOrder(ctx: Ctx, tenantSlug: string, outletSlug
           totalPaise: q.totalPaise,
           taxPaise: q.taxPaise,
           taxRateBps: q.taxRateBps,
+          pricesIncludeTax: q.pricesIncludeTax,
+          roundOffPaise: q.roundOffPaise,
           trackingToken,
           idempotencyKey,
           expiresAt: new Date(now.getTime() + UNPAID_ORDER_TTL_MS),
@@ -199,7 +204,10 @@ export async function handleWebhook(ctx: Ctx, event: WebhookEvent): Promise<"pro
       await tx.insert(outbox).values({ tenantId: pay.tenantId, topic: "alert.amount_mismatch", payload: { paymentId: pay.id, got: event.amountPaise, expected: pay.amountPaise } });
       return "processed";
     }
-    await tx.update(payments).set({ status: "CAPTURED", providerPaymentId: event.providerPaymentId, capturedAt: new Date() }).where(eq(payments.id, pay.id));
+    await tx
+      .update(payments)
+      .set({ status: "CAPTURED", providerPaymentId: event.providerPaymentId, instrument: event.instrument ?? null, capturedAt: new Date() })
+      .where(eq(payments.id, pay.id));
     const order = await lockOrder(tx, { id: pay.orderId });
 
     if (pay.kind === "ORDER") {
@@ -311,7 +319,9 @@ export async function createWalkInOrder(ctx: Ctx, staff: StaffClaims, body: z.ou
     takenAt = t;
   }
   const lines = await resolveLines(ctx.db, tenant!.id, outlet.id, body.lines, { requireAvailable: !body.takenOfflineAt });
-  const q = quote(lines, tenant!.taxRateBps);
+  const q = quote(lines, tenant!.taxRateBps, tenant!.pricesIncludeTax);
+  // Offline orders were paid at the old till price; anything else must be covered by the cash given.
+  if (body.tenderedPaise !== undefined && !body.takenOfflineAt) assertCashCovers(q.totalPaise, body.tenderedPaise);
   return withTx(ctx.db, async (tx, after) => {
     if (body.upiReference) await assertNewUpiReference(tx, tenant!.id, body.upiReference);
     let customerId: string | null = null;
@@ -336,6 +346,8 @@ export async function createWalkInOrder(ctx: Ctx, staff: StaffClaims, body: z.ou
         totalPaise: q.totalPaise,
         taxPaise: q.taxPaise,
         taxRateBps: q.taxRateBps,
+        pricesIncludeTax: q.pricesIncludeTax,
+        roundOffPaise: q.roundOffPaise,
         trackingToken: newTrackingToken(),
         createdByStaffId: staff.sub,
         idempotencyKey,
@@ -350,6 +362,8 @@ export async function createWalkInOrder(ctx: Ctx, staff: StaffClaims, body: z.ou
         kind: "ORDER",
         method: body.method,
         ...(body.upiReference ? { provider: "upi_counter", providerPaymentId: body.upiReference } : {}),
+        tenderedPaise: body.tenderedPaise ?? null,
+        reference: body.cardReference ?? null,
         amountPaise: q.totalPaise,
         status: "CAPTURED",
         capturedAt: takenAt,
@@ -398,6 +412,161 @@ async function assertNewUpiReference(tx: Tx, tenantId: string, ref: string) {
   throw new AppError("CONFLICT", `This UPI reference was already used for order ${used.code ?? ""} at ${used.outlet} on ${when}. Check the customer's payment screen.`);
 }
 
+function assertCashCovers(totalPaise: number, tenderedPaise: number) {
+  try {
+    cashChange(totalPaise, tenderedPaise);
+  } catch {
+    throw new AppError("VALIDATION", `Cash received (${formatInr(tenderedPaise)}) is less than the bill (${formatInr(totalPaise)})`);
+  }
+}
+
+/** How long a counter order waits for the customer to pay on their phone before it lapses. */
+export const COUNTER_PAY_TTL_MS = 20 * 60 * 1000;
+
+const payUrlFor = (ctx: Ctx, trackingToken: string) => `${ctx.customerAppUrl.replace(/\/$/, "")}/order/${trackingToken}`;
+
+/**
+ * The cashier places an order on behalf of a customer (Point 5). It waits for payment: the till
+ * shows a QR code that opens this order's payment page on the customer's phone (UPI or card through
+ * the gateway, confirmed by the gateway's webhook), or the cashier marks it paid in cash, on the
+ * card machine or to the café's own UPI QR. Nothing reaches the kitchen until it is paid.
+ */
+export async function createCounterOrder(ctx: Ctx, staff: StaffClaims, body: z.output<typeof CounterOrderRequest>) {
+  if (staff.role === "KITCHEN") throw new AppError("FORBIDDEN", "Only the cashier or admin can take counter orders");
+  assertOutlet(staff, body.outletId);
+  const [outlet] = await ctx.db.select().from(outlets).where(and(eq(outlets.id, body.outletId), eq(outlets.tenantId, staff.tenantId)));
+  if (!outlet) throw notFound("Café outlet");
+  const [tenant] = await ctx.db.select().from(tenants).where(eq(tenants.id, staff.tenantId));
+  if (tenant!.suspendedAt) throw new AppError("FORBIDDEN", "This account is paused, so new orders can't be taken. Contact Brew Haven support.");
+  const idempotencyKey = body.clientRef ? `counter:${body.clientRef}` : null;
+  const already = async () => {
+    if (!idempotencyKey) return null;
+    const [o] = await ctx.db.select().from(orders).where(and(eq(orders.tenantId, tenant!.id), eq(orders.idempotencyKey, idempotencyKey)));
+    return o ? { order: await ctx.db.transaction((tx) => orderView(tx, o.id)), payUrl: payUrlFor(ctx, o.trackingToken), expiresAt: (o.expiresAt ?? new Date()).toISOString() } : null;
+  };
+  const prior = await already();
+  if (prior) return prior;
+
+  const lines = await resolveLines(ctx.db, tenant!.id, outlet.id, body.lines, { requireAvailable: true });
+  const q = quote(lines, tenant!.taxRateBps, tenant!.pricesIncludeTax);
+  const trackingToken = newTrackingToken();
+  const providerOrder = await ctx.provider.createOrder({ amountPaise: q.totalPaise, receipt: trackingToken, notes: { outlet: outlet.slug, channel: "counter" } });
+  const expiresAt = new Date(Date.now() + COUNTER_PAY_TTL_MS);
+  return withTx(ctx.db, async (tx, after) => {
+    let customerId: string | null = null;
+    if (body.customer?.phone) {
+      const now = new Date();
+      const [c] = await tx
+        .insert(customers)
+        .values({ tenantId: tenant!.id, phone: body.customer.phone, name: body.customer.name ?? "Guest", consentUpdatesAt: now })
+        .onConflictDoUpdate({ target: [customers.tenantId, customers.phone], set: { consentUpdatesAt: now } })
+        .returning();
+      customerId = c!.id;
+    }
+    const [order] = await tx
+      .insert(orders)
+      .values({
+        tenantId: tenant!.id,
+        outletId: outlet.id,
+        customerId,
+        customerName: body.customer?.name ?? null,
+        channel: "COUNTER",
+        state: "AWAITING_PAYMENT",
+        totalPaise: q.totalPaise,
+        taxPaise: q.taxPaise,
+        taxRateBps: q.taxRateBps,
+        pricesIncludeTax: q.pricesIncludeTax,
+        roundOffPaise: q.roundOffPaise,
+        trackingToken,
+        createdByStaffId: staff.sub,
+        idempotencyKey,
+        expiresAt,
+      })
+      .returning();
+    await insertLines(tx, order!, lines);
+    await tx.insert(payments).values({
+      tenantId: tenant!.id,
+      orderId: order!.id,
+      kind: "ORDER",
+      method: "ONLINE",
+      provider: ctx.provider.name,
+      providerOrderId: providerOrder.providerOrderId,
+      amountPaise: q.totalPaise,
+      status: "CREATED",
+    });
+    await tx.insert(orderEvents).values({ tenantId: tenant!.id, orderId: order!.id, action: "CREATE", fromState: null, toState: "AWAITING_PAYMENT", actor: staff.role, actorId: staff.sub, reason: "Placed at the counter for the customer" });
+    announce(after, ctx.bus, order!);
+    return { order: await orderView(tx, order!.id), payUrl: payUrlFor(ctx, trackingToken), expiresAt: expiresAt.toISOString() };
+  }).catch(async (e: unknown) => {
+    const again = await already();
+    if (again) return again;
+    throw e;
+  });
+}
+
+/** The QR link for a counter order that is still waiting to be paid (to show it again). */
+export async function counterPayLink(ctx: Ctx, staff: StaffClaims, orderId: string) {
+  const [o] = await ctx.db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.tenantId, staff.tenantId)));
+  if (!o) throw notFound("Order");
+  assertOutlet(staff, o.outletId);
+  if (o.channel !== "COUNTER" || o.state !== "AWAITING_PAYMENT") throw new AppError("CONFLICT", "This order is not waiting for payment");
+  return { payUrl: payUrlFor(ctx, o.trackingToken), expiresAt: (o.expiresAt ?? new Date()).toISOString() };
+}
+
+/**
+ * The cashier confirms a counter order is paid (Point 5): cash in hand, the card machine, or the
+ * café's own UPI QR. This places the order (receipt number, pickup code, kitchen) and records who
+ * took the money. Online orders can never be marked paid by hand: only the gateway confirms them.
+ */
+export async function markCounterPaid(ctx: Ctx, staff: StaffClaims, orderId: string, body: z.output<typeof MarkPaidRequest>) {
+  if (staff.role === "KITCHEN") throw new AppError("FORBIDDEN", "Only the cashier or admin can take payments");
+  return withTx(ctx.db, async (tx, after) => {
+    const o = await lockStaffOrder(tx, staff, orderId);
+    if (o.channel !== "COUNTER") throw new AppError("CONFLICT", "Online orders are confirmed by the payment gateway, not by hand");
+    if (o.state === "EXPIRED") throw new AppError("CONFLICT", "This order lapsed before it was paid. Ring it up again.");
+    if (o.state !== "AWAITING_PAYMENT") throw new AppError("CONFLICT", o.state === "CANCELLED" ? "This order was cancelled" : "This order is already paid");
+    if (body.tenderedPaise !== undefined) assertCashCovers(o.totalPaise, body.tenderedPaise);
+    if (body.upiReference) await assertNewUpiReference(tx, o.tenantId, body.upiReference);
+    // The QR payment page can't be used any more. If the customer pays there anyway, the
+    // gateway's confirmation finds the order already paid and the money is refunded.
+    await tx.update(payments).set({ status: "FAILED" }).where(and(eq(payments.orderId, o.id), eq(payments.status, "CREATED"), eq(payments.kind, "ORDER")));
+    await tx
+      .insert(payments)
+      .values({
+        tenantId: o.tenantId,
+        orderId: o.id,
+        kind: "ORDER",
+        method: body.method,
+        ...(body.upiReference ? { provider: "upi_counter", providerPaymentId: body.upiReference } : {}),
+        tenderedPaise: body.tenderedPaise ?? null,
+        reference: body.cardReference ?? null,
+        amountPaise: o.totalPaise,
+        status: "CAPTURED",
+        capturedAt: new Date(),
+        recordedByStaffId: staff.sub,
+      })
+      .catch((e: unknown) => {
+        const err = e as { code?: string; cause?: { code?: string } };
+        if ((err.code ?? err.cause?.code) === "23505") throw new AppError("CONFLICT", "This UPI reference was just used for another order. Check the customer's payment screen.");
+        throw e;
+      });
+    await placeOrder(tx, after, ctx.bus, o, "MARK_PAID", staff.role, staff.sub);
+    return orderView(tx, o.id);
+  });
+}
+
+/** The customer left without paying: cancel the unpaid counter order. Nothing was taken, so nothing is refunded. */
+export async function voidCounterOrder(ctx: Ctx, staff: StaffClaims, orderId: string, reason: string) {
+  if (staff.role === "KITCHEN") throw new AppError("FORBIDDEN", "Only the cashier or admin can cancel unpaid orders");
+  return withTx(ctx.db, async (tx, after) => {
+    const o = await lockStaffOrder(tx, staff, orderId);
+    if (o.channel !== "COUNTER") throw new AppError("CONFLICT", "Only unpaid counter orders can be cancelled this way");
+    await tx.update(payments).set({ status: "FAILED" }).where(and(eq(payments.orderId, o.id), eq(payments.status, "CREATED")));
+    await applyTransition(tx, after, ctx.bus, o, "VOID_UNPAID", staff.role, { actorId: staff.sub, reason });
+    return orderView(tx, o.id);
+  });
+}
+
 // ---------- Customer resolves an unavailable item ----------
 
 export async function resolveCustomerAdjustment(ctx: Ctx, trackingToken: string, adjustmentId: string, body: ResolveAdjustmentRequest) {
@@ -417,8 +586,8 @@ export async function resolveCustomerAdjustment(ctx: Ctx, trackingToken: string,
     }
 
     if (body.kind === "REMOVE") {
-      const outcome = resolveAdjustment(line!.lineTotalPaise, { kind: "REMOVE" });
-      await removeLine(tx, order, adj.id, line!.id, outcome.kind === "REMOVE" ? outcome.refundPaise : 0, `${line!.name} removed (unavailable)`);
+      const { before, after: then } = await billDelta(tx, order, line!.lineTotalPaise, 0);
+      await removeLine(tx, order, adj.id, line!.id, Math.max(0, before - then), `${line!.name} removed (unavailable)`);
       await settleIfAllResolved(tx, after, ctx.bus, order.id, "CUSTOMER");
       return orderView(tx, order.id);
     }
@@ -426,7 +595,9 @@ export async function resolveCustomerAdjustment(ctx: Ctx, trackingToken: string,
     // REPLACE
     const [replacement] = await resolveLines(tx, order.tenantId, order.outletId, [body.replacement], { requireAvailable: true });
     if (replacement!.itemId === line!.itemId) throw new AppError("VALIDATION", "Choose a different item as the replacement");
-    const outcome = resolveAdjustment(line!.lineTotalPaise, { kind: "REPLACE", replacementTotalPaise: replacement!.lineTotalPaise });
+    // The difference in the whole bill (with GST), not just in the two items' prices.
+    const bill = await billDelta(tx, order, line!.lineTotalPaise, replacement!.lineTotalPaise);
+    const outcome = resolveAdjustment(bill.before, { kind: "REPLACE", replacementTotalPaise: bill.after });
     if (outcome.kind !== "REPLACE") throw new Error("unreachable");
 
     if (outcome.topUpPaise === 0) {
@@ -500,7 +671,8 @@ export async function runSweeps(ctx: Ctx, now = new Date()) {
         await tx.update(payments).set({ status: "FAILED" }).where(and(eq(payments.adjustmentId, adj.id), eq(payments.status, "CREATED")));
       }
       const [line] = await tx.select().from(orderLines).where(eq(orderLines.id, adj.lineId));
-      await removeLine(tx, order, adj.id, line!.id, line!.lineTotalPaise, `${line!.name} removed automatically (no choice made in time)`);
+      const { before, after: then } = await billDelta(tx, order, line!.lineTotalPaise, 0);
+      await removeLine(tx, order, adj.id, line!.id, Math.max(0, before - then), `${line!.name} removed automatically (no choice made in time)`);
       await settleIfAllResolved(tx, after, ctx.bus, order.id, "SYSTEM");
     });
   }

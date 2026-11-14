@@ -57,7 +57,7 @@ export class RazorpayProvider implements PaymentProvider {
     const body = JSON.parse(rawBody) as {
       event: string;
       payload: {
-        payment?: { entity: { id: string; order_id: string; amount: number } };
+        payment?: { entity: { id: string; order_id: string; amount: number; method?: string } };
         refund?: { entity: { id: string; payment_id: string; amount: number } };
       };
     };
@@ -65,7 +65,7 @@ export class RazorpayProvider implements PaymentProvider {
     const payment = body.payload.payment?.entity;
     const refund = body.payload.refund?.entity;
     if ((body.event === "payment.captured" || body.event === "payment.failed") && payment) {
-      return { eventId, type: body.event, providerOrderId: payment.order_id, providerPaymentId: payment.id, amountPaise: payment.amount };
+      return { eventId, type: body.event, providerOrderId: payment.order_id, providerPaymentId: payment.id, amountPaise: payment.amount, instrument: payment.method ?? null };
     }
     if ((body.event === "refund.processed" || body.event === "refund.failed") && refund) {
       return { eventId, type: body.event, providerRefundId: refund.id, providerPaymentId: refund.payment_id, amountPaise: refund.amount };

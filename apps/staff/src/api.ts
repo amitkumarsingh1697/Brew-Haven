@@ -1,4 +1,4 @@
-import type { AdminSetup, SignupRequest, DaySummary, MenuResponse, OrderView, OutletWithStations, ReceiptView, StaffSession } from "@brew-haven/contracts";
+import type { AdminSetup, CounterOrderResponse, MarkPaidRequest, SignupRequest, DaySummary, MenuResponse, OrderView, OutletWithStations, ReceiptView, StaffSession } from "@brew-haven/contracts";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:8080";
 export const CUSTOMER_URL = (import.meta.env.VITE_CUSTOMER_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5173";
@@ -229,8 +229,23 @@ export const api = {
   action: (id: string, action: "START" | "MARK_READY" | "HAND_OVER") => post<OrderView>(`/v1/staff/orders/${id}/actions`, { action }),
   reject: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/reject`, { reason }),
   flag: (id: string, lineIds: string[], note: string) => post<OrderView>(`/v1/staff/orders/${id}/flag-unavailable`, { lineIds, note: note || undefined, markSoldOut: true }),
-  walkIn: (body: { outletId: string; method: "CASH" | "UPI_COUNTER" | "CARD_COUNTER"; lines: Array<{ itemId: string; quantity: number; modifierIds: string[] }>; customer?: { name?: string }; upiReference?: string; clientRef?: string; takenOfflineAt?: string }) =>
-    post<OrderView>("/v1/staff/orders/walk-in", body),
+  walkIn: (body: {
+    outletId: string;
+    method: "CASH" | "UPI_COUNTER" | "CARD_COUNTER";
+    lines: Array<{ itemId: string; quantity: number; modifierIds: string[] }>;
+    customer?: { name?: string };
+    upiReference?: string;
+    tenderedPaise?: number;
+    cardReference?: string;
+    clientRef?: string;
+    takenOfflineAt?: string;
+  }) => post<OrderView>("/v1/staff/orders/walk-in", body),
+  /** Places an order for the customer to pay by scanning a QR code on the till. */
+  counterOrder: (body: { outletId: string; lines: Array<{ itemId: string; quantity: number; modifierIds: string[] }>; customer?: { name?: string }; clientRef?: string }) =>
+    post<CounterOrderResponse>("/v1/staff/orders/counter", body),
+  payLink: (id: string) => call<{ payUrl: string; expiresAt: string }>(`/v1/staff/orders/${id}/pay-link`),
+  markPaid: (id: string, body: MarkPaidRequest) => post<OrderView>(`/v1/staff/orders/${id}/mark-paid`, body),
+  voidUnpaid: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/void`, { reason }),
   stock: (outletId: string) => call<StockRow[]>(`/v1/staff/stock?outletId=${outletId}`),
   setStock: (body: { outletId: string; itemId: string; available: boolean; stockCount?: number | null }) => call<StockRow>("/v1/staff/stock", { method: "PUT", body: JSON.stringify(body) }),
   inventory: (outletId: string) => call<{ ingredients: IngredientStock[] }>(`/v1/staff/inventory?outletId=${outletId}`),
@@ -290,7 +305,7 @@ export const api = {
       if (q.before) p.set("before", String(q.before));
       return call<{ entries: ActivityEntry[]; nextBefore: number | null }>(`/v1/admin/activity?${p}`);
     },
-    settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number; billing?: { legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string } }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),
+    settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number; pricesIncludeTax?: boolean; billing?: { legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string } }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),
     createIngredient: (b: { name: string; unit: Unit }) => post<{ id: string }>("/v1/admin/ingredients", b),
     updateIngredient: (id: string, b: { name?: string; active?: boolean }) => send<{ id: string }>("PATCH", `/v1/admin/ingredients/${id}`, b),
     recipes: () => call<{ items: RecipeItem[] }>("/v1/admin/recipes"),
