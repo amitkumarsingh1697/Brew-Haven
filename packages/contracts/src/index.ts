@@ -378,6 +378,10 @@ export const BillingDetails = z.object({
 });
 export type BillingDetails = z.infer<typeof BillingDetails>;
 
+/** The owner's logo upload: a PNG, JPG or WebP as a data URL (at most 300 KB of image). */
+export const AdminLogoRequest = z.object({ dataUrl: z.string().min(20).max(420_000) });
+export type AdminLogoRequest = z.infer<typeof AdminLogoRequest>;
+
 export const AdminSettingsRequest = z.object({
   displayName: Name,
   tagline: z.string().trim().max(80).optional(),
@@ -533,6 +537,8 @@ export const ReceiptView = z.object({
   pickupCode: z.string().nullable(),
   seller: z.object({
     name: z.string(),
+    /** The café's logo (absolute URL), printed at the top when set. */
+    logoUrl: z.string().nullable(),
     legalName: z.string().nullable(),
     outlet: z.string(),
     address: z.string().nullable(),

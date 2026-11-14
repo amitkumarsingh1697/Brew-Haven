@@ -974,6 +974,32 @@ tr.off td {
 .poster h2 {
   font-size: 2rem;
 }
+.poster-logo {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
+.logo-panel .logo-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.logo-panel .logo-preview {
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--bh-line, #cbb79a);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+.logo-panel .logo-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
 .poster-outlet {
   margin: 0;
   letter-spacing: 0.14em;
@@ -1585,4 +1611,9 @@ a.btn {
 .refund-total {
   margin: 0;
   font-size: 1.05rem;
+}
+.logo-panel label.btn {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
 }

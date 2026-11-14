@@ -176,7 +176,7 @@ function Cafes({ setup, act, onOutletsChanged }: { setup: AdminSetup; act: Act; 
           {atLimit(setup.tenant.plan.maxCafes, setup.tenant.plan.cafes) && <small className="muted">Your {setup.tenant.plan.name} plan includes {setup.tenant.plan.maxCafes === 1 ? "1 café" : `${setup.tenant.plan.maxCafes} cafés`}</small>}
         </button>
       )}
-      {qr && <QrPoster outlet={qr} cafeName={setup.tenant.branding.displayName} onClose={() => setQr(null)} />}
+      {qr && <QrPoster outlet={qr} cafeName={setup.tenant.branding.displayName} logoUrl={setup.tenant.branding.logoUrl ?? null} onClose={() => setQr(null)} />}
     </div>
   );
 }
@@ -338,7 +338,7 @@ function CafeCard({ outlet, act, onQr, onOutletsChanged }: { outlet: OutletWithS
   );
 }
 
-function QrPoster({ outlet, cafeName, onClose }: { outlet: OutletWithStations; cafeName: string; onClose: () => void }) {
+function QrPoster({ outlet, cafeName, logoUrl, onClose }: { outlet: OutletWithStations; cafeName: string; logoUrl: string | null; onClose: () => void }) {
   const link = `${CUSTOMER_URL}/${getTenant()}/${outlet.slug}`;
   const [svg, setSvg] = useState<string>("");
   const [png, setPng] = useState<string>("");
@@ -352,6 +352,7 @@ function QrPoster({ outlet, cafeName, onClose }: { outlet: OutletWithStations; c
       <div ref={dialogRef} className="modal qr-modal" role="dialog" aria-modal="true" aria-label={`QR code for ${outlet.name}`} onClick={(e) => e.stopPropagation()}>
         <div className="poster" id="qr-poster">
           <span className="poster-brand">Brew Haven</span>
+          {logoUrl && <img className="poster-logo" src={logoUrl} alt="" />}
           <h2>{cafeName}</h2>
           <p className="poster-outlet">{outlet.name}</p>
           <div className="poster-qr" dangerouslySetInnerHTML={{ __html: svg }} />
@@ -863,99 +864,164 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
   const [fssai, setFssai] = useState(bill.fssaiLicence ?? "");
   const [footer, setFooter] = useState(bill.footer ?? "");
   return (
-    <form
-      className="panel settings"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void act(
-          () =>
-            api.admin.settings({
-              displayName: displayName.trim(),
-              tagline: tagline.trim() || undefined,
-              greeting: greeting.trim() || undefined,
-              managerName: managerName.trim() || undefined,
-              taxRateBps: Math.round(Number(gst) * 100),
-              pricesIncludeTax: inclusive,
-              lateCancelMinutes: Math.round(Number(lateMin)),
-              cashierRefundLimitPaise: Math.round(Number(refundLimit || "0") * 100),
-              billing: { legalName: legalName.trim(), gstin: gstin.trim().toUpperCase(), fssaiLicence: fssai.trim(), footer: footer.trim() },
-            }),
-          "Settings saved. Customers see them straight away.",
-        );
-      }}
-    >
-      <h2>What customers see</h2>
-      <label>
-        Café name
-        <input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} />
-      </label>
-      <label>
-        Tagline
-        <input value={tagline} onChange={(e) => setTagline(e.target.value)} maxLength={80} />
-      </label>
-      <label>
-        Virtual manager's name
-        <input value={managerName} onChange={(e) => setManagerName(e.target.value)} maxLength={30} />
-      </label>
-      <label>
-        Welcome line
-        <input value={greeting} onChange={(e) => setGreeting(e.target.value)} maxLength={140} />
-      </label>
-      <h2>Tax</h2>
-      <label>
-        GST rate (%)
-        <input value={gst} onChange={(e) => setGst(e.target.value)} inputMode="decimal" />
-        <small className="muted">Confirm the right rate with your accountant. Restaurants without input tax credit usually use 5%.</small>
-      </label>
-      <fieldset className="radio-set">
-        <legend>How GST is charged</legend>
-        <label className="check">
-          <input type="radio" name="gst-mode" checked={!inclusive} onChange={() => setInclusive(false)} />
-          Added on the whole bill at checkout (menu shows prices before GST; total rounded to the rupee)
+    <>
+      <LogoPanel logoUrl={b.logoUrl ?? null} act={act} />
+      <form
+        className="panel settings"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void act(
+            () =>
+              api.admin.settings({
+                displayName: displayName.trim(),
+                tagline: tagline.trim() || undefined,
+                greeting: greeting.trim() || undefined,
+                managerName: managerName.trim() || undefined,
+                taxRateBps: Math.round(Number(gst) * 100),
+                pricesIncludeTax: inclusive,
+                lateCancelMinutes: Math.round(Number(lateMin)),
+                cashierRefundLimitPaise: Math.round(Number(refundLimit || "0") * 100),
+                billing: { legalName: legalName.trim(), gstin: gstin.trim().toUpperCase(), fssaiLicence: fssai.trim(), footer: footer.trim() },
+              }),
+            "Settings saved. Customers see them straight away.",
+          );
+        }}
+      >
+        <h2>What customers see</h2>
+        <label>
+          Café name
+          <input required value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} />
         </label>
-        <label className="check">
-          <input type="radio" name="gst-mode" checked={inclusive} onChange={() => setInclusive(true)} />
-          Already included in menu prices
+        <label>
+          Tagline
+          <input value={tagline} onChange={(e) => setTagline(e.target.value)} maxLength={80} />
         </label>
-        <small className="muted">Changes apply to new orders. Orders already placed keep the way they were billed.</small>
-      </fieldset>
-      <h2>Cancellations</h2>
-      <p className="muted small">Customers can cancel online orders for free until the kitchen starts. After that, they can cancel for a full refund only if the order is late.</p>
-      <label>
-        Late after (minutes from placing the order)
-        <input value={lateMin} onChange={(e) => setLateMin(e.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={3} />
-        <small className="muted">Between 10 and 120. The refund policy suggests your usual making time plus 15 minutes.</small>
-      </label>
-      <h2>Refunds</h2>
-      <p className="muted small">Cashiers can refund an item or a whole order from the Today tab. Bigger refunds need your PIN at the counter.</p>
-      <label>
-        Cashier can refund alone up to (₹)
-        <input value={refundLimit} onChange={(e) => setRefundLimit(e.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={4} />
-        <small className="muted">Between 0 and 5,000. Set 0 to approve every refund yourself.</small>
-      </label>
-      <h2>On the receipt</h2>
-      <p className="muted small">With a GSTIN saved, receipts become tax invoices showing CGST and SGST. Leave it empty if the café isn't registered for GST.</p>
-      <label>
-        Registered business name
-        <input value={legalName} onChange={(e) => setLegalName(e.target.value)} maxLength={100} placeholder="e.g. 400 Coffee Private Limited" />
-      </label>
-      <label>
-        GSTIN
-        <input value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} maxLength={15} placeholder="15 characters, e.g. 29ABCDE1234F1Z5" autoCapitalize="characters" spellCheck={false} />
-      </label>
-      <label>
-        FSSAI licence number
-        <input value={fssai} onChange={(e) => setFssai(e.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={14} placeholder="14 digits" />
-        <small className="muted">Food businesses must print this on bills.</small>
-      </label>
-      <label>
-        Thank-you line
-        <input value={footer} onChange={(e) => setFooter(e.target.value)} maxLength={140} placeholder="e.g. Thank you! See you tomorrow." />
-      </label>
-      <button className="btn btn-primary" type="submit">
-        Save settings
-      </button>
-    </form>
+        <label>
+          Virtual manager's name
+          <input value={managerName} onChange={(e) => setManagerName(e.target.value)} maxLength={30} />
+        </label>
+        <label>
+          Welcome line
+          <input value={greeting} onChange={(e) => setGreeting(e.target.value)} maxLength={140} />
+        </label>
+        <h2>Tax</h2>
+        <label>
+          GST rate (%)
+          <input value={gst} onChange={(e) => setGst(e.target.value)} inputMode="decimal" />
+          <small className="muted">Confirm the right rate with your accountant. Restaurants without input tax credit usually use 5%.</small>
+        </label>
+        <fieldset className="radio-set">
+          <legend>How GST is charged</legend>
+          <label className="check">
+            <input type="radio" name="gst-mode" checked={!inclusive} onChange={() => setInclusive(false)} />
+            Added on the whole bill at checkout (menu shows prices before GST; total rounded to the rupee)
+          </label>
+          <label className="check">
+            <input type="radio" name="gst-mode" checked={inclusive} onChange={() => setInclusive(true)} />
+            Already included in menu prices
+          </label>
+          <small className="muted">Changes apply to new orders. Orders already placed keep the way they were billed.</small>
+        </fieldset>
+        <h2>Cancellations</h2>
+        <p className="muted small">Customers can cancel online orders for free until the kitchen starts. After that, they can cancel for a full refund only if the order is late.</p>
+        <label>
+          Late after (minutes from placing the order)
+          <input value={lateMin} onChange={(e) => setLateMin(e.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={3} />
+          <small className="muted">Between 10 and 120. The refund policy suggests your usual making time plus 15 minutes.</small>
+        </label>
+        <h2>Refunds</h2>
+        <p className="muted small">Cashiers can refund an item or a whole order from the Today tab. Bigger refunds need your PIN at the counter.</p>
+        <label>
+          Cashier can refund alone up to (₹)
+          <input value={refundLimit} onChange={(e) => setRefundLimit(e.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={4} />
+          <small className="muted">Between 0 and 5,000. Set 0 to approve every refund yourself.</small>
+        </label>
+        <h2>On the receipt</h2>
+        <p className="muted small">With a GSTIN saved, receipts become tax invoices showing CGST and SGST. Leave it empty if the café isn't registered for GST.</p>
+        <label>
+          Registered business name
+          <input value={legalName} onChange={(e) => setLegalName(e.target.value)} maxLength={100} placeholder="e.g. 400 Coffee Private Limited" />
+        </label>
+        <label>
+          GSTIN
+          <input value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} maxLength={15} placeholder="15 characters, e.g. 29ABCDE1234F1Z5" autoCapitalize="characters" spellCheck={false} />
+        </label>
+        <label>
+          FSSAI licence number
+          <input value={fssai} onChange={(e) => setFssai(e.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={14} placeholder="14 digits" />
+          <small className="muted">Food businesses must print this on bills.</small>
+        </label>
+        <label>
+          Thank-you line
+          <input value={footer} onChange={(e) => setFooter(e.target.value)} maxLength={140} placeholder="e.g. Thank you! See you tomorrow." />
+        </label>
+        <button className="btn btn-primary" type="submit">
+          Save settings
+        </button>
+      </form>
+    </>
+  );
+}
+
+/** Largest side of the stored logo. Receipts print it at about 2.5 cm, posters at about 3 cm. */
+const LOGO_PX = 512;
+
+/** Shrinks a picked image to at most LOGO_PX on its longest side, as PNG (or WebP if PNG is too big). */
+async function prepareLogo(file: File): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("That file isn't an image we can read. Use a PNG, JPG or WebP."));
+      i.src = url;
+    });
+    const scale = Math.min(1, LOGO_PX / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const png = canvas.toDataURL("image/png");
+    return png.length < 400_000 ? png : canvas.toDataURL("image/webp", 0.9);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function LogoPanel({ logoUrl, act }: { logoUrl: string | null; act: Act }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const dataUrl = await prepareLogo(file);
+      await act(() => api.admin.logo(dataUrl), "Logo saved. It now shows on the welcome screen, receipts and QR posters.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="panel settings logo-panel">
+      <h2>Logo</h2>
+      <p className="muted small">Shown on the customer welcome screen, printed receipts and QR posters. A square PNG with a plain or see-through background works best.</p>
+      <div className="logo-row">
+        <div className="logo-preview">{logoUrl ? <img src={logoUrl} alt="Current logo" /> : <span className="muted small">No logo</span>}</div>
+        <label className="btn btn-ghost">
+          {busy ? "Uploading…" : logoUrl ? "Change logo" : "Upload logo"}
+          <input type="file" accept="image/png,image/jpeg,image/webp" hidden disabled={busy} onChange={(e) => void pick(e.target.files?.[0])} />
+        </label>
+        {logoUrl && (
+          <button type="button" className="btn btn-ghost-danger" disabled={busy} onClick={() => void act(() => api.admin.removeLogo(), "Logo removed.")}>
+            Remove
+          </button>
+        )}
+      </div>
+      {error && <p className="error">{error}</p>}
+    </section>
   );
 }
 

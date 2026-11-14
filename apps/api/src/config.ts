@@ -20,6 +20,8 @@ export interface Config {
   alertWebhookUrl?: string;
   /** Shown in alerts, e.g. "demo" or "production" (APP_ENV). */
   appEnv?: string;
+  /** This API's public base URL (PUBLIC_API_URL), for links to files it serves, such as the café logo. */
+  publicApiUrl?: string;
   notifications?: {
     /** "log" records messages without sending them; "meta" sends via the WhatsApp Cloud API. */
     provider: "log" | "meta";
@@ -73,6 +75,7 @@ export function loadConfig(): Config {
     signupEnabled: process.env.SIGNUP_ENABLED ? process.env.SIGNUP_ENABLED === "true" : !isProd,
     alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || undefined,
     appEnv: process.env.APP_ENV ?? (isProd ? "production" : "dev"),
+    publicApiUrl: process.env.PUBLIC_API_URL || undefined,
     notifications: {
       provider: (process.env.NOTIFY_PROVIDER ?? "log") as "log" | "meta",
       customerAppUrl: process.env.CUSTOMER_APP_URL ?? "http://localhost:5173",

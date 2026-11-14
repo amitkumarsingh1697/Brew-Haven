@@ -20,6 +20,7 @@ import type { Db, Tx } from "../db/client.js";
 import { categories, menuItems, modifierGroups, modifierOptions, outletItemStock, outlets, staffUsers, stations, tenants } from "../db/schema.js";
 import { AppError, notFound } from "../errors.js";
 import { billingStatus, limitReached, planOf } from "@brew-haven/domain";
+import { logoUrlFor } from "./logo.js";
 
 /** Owner self-service (D-17). Every function here is ADMIN-only and scoped to the admin's tenant. */
 
@@ -84,7 +85,7 @@ export async function getSetup(db: Db, staff: StaffClaims): Promise<AdminSetup> 
       pricesIncludeTax: tenant!.pricesIncludeTax,
       lateCancelMinutes: tenant!.lateCancelMinutes,
       cashierRefundLimitPaise: tenant!.cashierRefundLimitPaise,
-      branding: { displayName: b.displayName ?? tenant!.name, tagline: b.tagline, greeting: b.greeting, managerName: b.managerName, logoUrl: b.logoUrl ?? null },
+      branding: { displayName: b.displayName ?? tenant!.name, tagline: b.tagline, greeting: b.greeting, managerName: b.managerName, logoUrl: await logoUrlFor(db, tenant!) },
       billing: tenant!.billing,
       plan: await planUsage(db, t),
     },

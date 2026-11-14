@@ -39,6 +39,9 @@ services:
         sync: false
       - key: CUSTOMER_APP_URL
         sync: false
+      # This API's own public address (e.g. https://api.brew-haven.in), for links to the café logo on receipts and posters.
+      - key: PUBLIC_API_URL
+        sync: false
       # Operational alerts (server errors, background jobs that gave up): a Slack / Google Chat / Discord webhook URL.
       - key: ALERT_WEBHOOK_URL
         sync: false
