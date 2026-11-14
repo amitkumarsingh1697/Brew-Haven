@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { formatInr } from "@brew-haven/domain";
 import { API_URL, ApiError } from "./api";
+import { useDialog } from "@brew-haven/ui-react";
+import { SubscriptionInvoiceModal, type SubscriptionInvoice } from "./SubscriptionInvoice";
 
 /**
  * Brew Haven's own team: every business on the platform, with totals only. Separate from café
@@ -63,7 +65,7 @@ const nextMonth = (b: Business) => {
 };
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-function BillingCell({ b, onChange }: { b: Business; onChange: (body: { paidUntil?: string; trialEndsOn?: string }) => void }) {
+function BillingCell({ b, onChange, onPay }: { b: Business; onChange: (body: { paidUntil?: string; trialEndsOn?: string }) => void; onPay: () => void }) {
   const { state, until, daysLeft } = b.billing;
   const ask = (question: string, suggested: string, key: "paidUntil" | "trialEndsOn") => {
     const v = window.prompt(question, suggested)?.trim();
@@ -78,8 +80,11 @@ function BillingCell({ b, onChange }: { b: Business; onChange: (body: { paidUnti
     <div className="billing-cell">
       <span className={tone}>{label}</span>
       <span className="muted small">{formatInr(b.monthlyPaise)} a month</span>
-      <button className="link-btn small" onClick={() => ask(`Paid until (YYYY-MM-DD) for ${b.name}:`, nextMonth(b), "paidUntil")} aria-label={`Record a payment for ${b.name}`}>
+      <button className="link-btn small" onClick={onPay} aria-label={`Record a payment for ${b.name}`}>
         Record payment
+      </button>
+      <button className="link-btn small" onClick={() => ask(`Correct the paid-until date (YYYY-MM-DD) for ${b.name}. No invoice is issued:`, nextMonth(b), "paidUntil")} aria-label={`Correct the paid-until date for ${b.name}`}>
+        Fix date
       </button>
       {state !== "paid" && (
         <button className="link-btn small" onClick={() => ask(`Free trial ends on (YYYY-MM-DD) for ${b.name}:`, nextMonth(b), "trialEndsOn")} aria-label={`Change the free trial for ${b.name}`}>
@@ -186,6 +191,87 @@ function PlatformLogin({ onIn }: { onIn: (w: Who) => void }) {
   );
 }
 
+/** Records a plan payment; Brew Haven's invoice for it is issued and shown. */
+function PaymentModal({ b, token, onDone, onClose }: { b: Business; token: string; onDone: () => void; onClose: () => void }) {
+  const ref = useDialog<HTMLDivElement>(onClose);
+  const [period, setPeriod] = useState<"MONTH" | "YEAR">("MONTH");
+  const [method, setMethod] = useState<"UPI" | "BANK" | "CARD" | "CASH">("UPI");
+  const [reference, setReference] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [invoice, setInvoice] = useState<SubscriptionInvoice | null>(null);
+  if (invoice)
+    return (
+      <SubscriptionInvoiceModal
+        inv={invoice}
+        onClose={() => {
+          onDone();
+          onClose();
+        }}
+      />
+    );
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div ref={ref} className="modal" role="dialog" aria-modal="true" aria-label={`Record a payment for ${b.name}`} onClick={(e) => e.stopPropagation()}>
+        <form
+          className="pay-form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            setError(null);
+            try {
+              setInvoice(await request<SubscriptionInvoice>(`/v1/platform/businesses/${b.id}/payments`, { method: "POST", token, body: JSON.stringify({ period, method, reference: reference.trim() || undefined }) }));
+            } catch (err) {
+              setError((err as ApiError).message);
+              setBusy(false);
+            }
+          }}
+        >
+          <h2>Record a payment: {b.name}</h2>
+          <p className="muted small">
+            {b.planName} plan. The paid period runs on from {b.billing.state === "paid" ? "the current end date" : "today"}, and an invoice is issued for it (18% GST is added once Brew Haven's GSTIN is set).
+          </p>
+          <fieldset className="radio-set">
+            <legend>Paid for</legend>
+            <label className="check">
+              <input type="radio" checked={period === "MONTH"} onChange={() => setPeriod("MONTH")} /> One month ({formatInr(b.monthlyPaise)} before GST)
+            </label>
+            <label className="check">
+              <input type="radio" checked={period === "YEAR"} onChange={() => setPeriod("YEAR")} /> One year ({formatInr(b.monthlyPaise * 10)} before GST)
+            </label>
+          </fieldset>
+          <label>
+            Paid by
+            <select value={method} onChange={(e) => setMethod(e.target.value as typeof method)}>
+              <option value="UPI">UPI</option>
+              <option value="BANK">Bank transfer</option>
+              <option value="CARD">Card</option>
+              <option value="CASH">Cash</option>
+            </select>
+          </label>
+          <label>
+            Reference (optional)
+            <input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={80} placeholder="e.g. UTR 4455 1234" />
+          </label>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="row-btns">
+            <button className="btn btn-primary" disabled={busy}>
+              {busy ? "Saving…" : "Record and issue invoice"}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 /** Turning on two-step sign-in: scan, confirm with a first code, then keep the recovery codes. */
 function TwoStepSetup({ who, required, onOn }: { who: Who; required: boolean; onOn: (token: string) => void }) {
   const [setup, setSetup] = useState<{ secret: string; svg: string } | null>(null);
@@ -276,6 +362,7 @@ function Businesses({ who, onSignOut, onTwoStepOn }: { who: Who; onSignOut: () =
   const [list, setList] = useState<Business[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsTwoStep, setNeedsTwoStep] = useState(false);
+  const [paying, setPaying] = useState<Business | null>(null);
   const [filter, setFilter] = useState("");
   const load = () =>
     request<{ businesses: Business[] }>("/v1/platform/businesses", { token: who.token }).then(
@@ -402,7 +489,7 @@ function Businesses({ who, onSignOut, onTwoStepOn }: { who: Who; onSignOut: () =
                       </select>
                     </td>
                     <td>
-                      <BillingCell b={b} onChange={(body) => change(b, body)} />
+                      <BillingCell b={b} onChange={(body) => change(b, body)} onPay={() => setPaying(b)} />
                     </td>
                     <td>
                       <div className="status-cell">
@@ -436,6 +523,7 @@ function Businesses({ who, onSignOut, onTwoStepOn }: { who: Who; onSignOut: () =
           </div>
         )}
       </main>
+      {paying && <PaymentModal b={paying} token={who.token} onDone={() => void load()} onClose={() => setPaying(null)} />}
     </div>
   );
 }

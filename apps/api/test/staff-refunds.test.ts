@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CounterOrderResponse, OrderView, StaffSession } from "@brew-haven/contracts";
+import { financialYear } from "@brew-haven/domain";
 import { DEMO_PINS } from "../src/db/seed-data.js";
 import { setup, teardown, type TestEnv } from "./helpers.js";
 
 // Refund policy K12-K14 (refund after service), C4 (reference), C5 (cashier limit), T1 (credit notes), P14 (to source).
 let env: TestEnv;
+const fy = financialYear(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()));
 beforeAll(async () => {
   env = await setup({ pricesIncludeTax: false });
 });
@@ -41,12 +43,12 @@ describe("refunds after service", () => {
     expect(after.refundedPaise).toBe(6300);
     expect(after.refunds[0]!.reason).toBe("Quality complaint: 1 × Veg Puff (Cold in the middle)");
     expect(after.creditNotes).toHaveLength(1);
-    expect(after.creditNotes[0]).toMatchObject({ number: "CNA2627-00001", totalPaise: 6300, taxPaise: 300 });
+    expect(after.creditNotes[0]).toMatchObject({ number: `CNA${fy}-00001`, totalPaise: 6300, taxPaise: 300 });
 
     // The second puff can still be refunded, but never a third.
     expect((await refund(v.id, { lines: [{ lineId: puff.id, quantity: 2 }], category: "QUALITY" })).json().error.message).toMatch(/Only 1 × Veg Puff/);
     const second = await refund(v.id, { lines: [{ lineId: puff.id, quantity: 1 }], category: "QUALITY" });
-    expect(second.json().order.creditNotes.map((n: { number: string }) => n.number)).toEqual(["CNA2627-00001", "CNA2627-00002"]);
+    expect(second.json().order.creditNotes.map((n: { number: string }) => n.number)).toEqual([`CNA${fy}-00001`, `CNA${fy}-00002`]);
     expect((await refund(v.id, { lines: [{ lineId: puff.id, quantity: 1 }], category: "QUALITY" })).json().error.message).toMatch(/already been refunded/);
   });
 
@@ -70,7 +72,7 @@ describe("refunds after service", () => {
 
     // The audit trail names the approval and the credit note.
     const log = await env.app.inject({ method: "GET", url: "/v1/admin/activity", headers: as(env.admin) });
-    expect(JSON.stringify(log.json())).toMatch(/approved with the owner's PIN\), credit note CNA2627-/);
+    expect(JSON.stringify(log.json())).toMatch(new RegExp(`approved with the owner's PIN\\), credit note CNA${fy}-`));
   });
 
   it("the owner's limit setting is respected", async () => {
@@ -107,10 +109,10 @@ describe("refunds after service", () => {
   it("the GST summary and download list the credit notes on the day they were issued", async () => {
     const g = (await env.app.inject({ method: "GET", url: "/v1/admin/gst-summary", headers: as(env.admin) })).json();
     expect(g.creditNotes.count).toBeGreaterThanOrEqual(3);
-    expect(g.creditNotes.first).toBe("CNA2627-00001");
+    expect(g.creditNotes.first).toBe(`CNA${fy}-00001`);
     const csv = await env.app.inject({ method: "GET", url: "/v1/admin/exports/credit-notes", headers: as(env.admin) });
     expect(csv.statusCode).toBe(200);
     expect(csv.body.split("\n")[0]).toMatch(/^\ufeff?Credit note no,Date,Café,Against invoice/);
-    expect(csv.body).toMatch(/CNA2627-00001,.*,Tower A,A2627-\d{5},"?Quality complaint: 1 × Veg Puff/);
+    expect(csv.body).toMatch(new RegExp(`CNA${fy}-00001,.*,Tower A,A${fy}-\\d{5},"?Quality complaint: 1 × Veg Puff`));
   });
 });

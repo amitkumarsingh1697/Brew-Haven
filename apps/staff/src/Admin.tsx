@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import type { AdminSetup, OutletWithStations } from "@brew-haven/contracts";
 import { formatInr } from "@brew-haven/domain";
 import { InventoryAdmin } from "./Inventory";
+import { SubscriptionInvoiceModal, dayLabel, type SubscriptionInvoice } from "./SubscriptionInvoice";
 import { ApiError, CUSTOMER_URL, api, getTenant, type ActivityEntry, type AdminItem, type ItemInput, type GstSummary, type KitchenSpeed, type SpeedSpread, type SalesReport } from "./api";
 
 /** Owner self-service (D-17): cafés, kitchens, menu, staff, settings and QR codes. */
@@ -809,7 +810,40 @@ function PlanCard({ plan }: { plan: AdminSetup["tenant"]["plan"] }) {
         {line("Active team members, you included", plan.staff, plan.maxStaff)}
       </ul>
       {(plan.maxCafes !== null || plan.maxStaff !== null) && <p className="muted small">Need more? Contact us to move to a bigger plan.</p>}
+      <BrewHavenInvoices />
     </section>
+  );
+}
+
+/** Invoices Brew Haven has issued to this business for its plan. Shown only once there is one. */
+function BrewHavenInvoices() {
+  const [list, setList] = useState<SubscriptionInvoice[] | null>(null);
+  const [open, setOpen] = useState<SubscriptionInvoice | null>(null);
+  useEffect(() => {
+    api.admin.subscriptionInvoices().then(
+      (r) => setList(r.invoices),
+      () => setList([]),
+    );
+  }, []);
+  if (!list?.length) return null;
+  return (
+    <div className="plan-invoices">
+      <h3>Invoices from Brew Haven</h3>
+      <ul>
+        {list.map((i) => (
+          <li key={i.id}>
+            <span>
+              {i.number} · {dayLabel(i.periodFrom)} to {dayLabel(i.periodTo)}
+            </span>
+            <strong>{formatInr(i.totalPaise)}</strong>
+            <button className="link-btn" onClick={() => setOpen(i)}>
+              View
+            </button>
+          </li>
+        ))}
+      </ul>
+      {open && <SubscriptionInvoiceModal inv={open} onClose={() => setOpen(null)} />}
+    </div>
   );
 }
 

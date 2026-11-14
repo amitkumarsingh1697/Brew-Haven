@@ -1,4 +1,5 @@
 import type { AdminSetup, CounterOrderResponse, MarkPaidRequest, SignupRequest, DaySummary, MenuResponse, OrderView, OutletWithStations, ReceiptView, StaffSession, StaffRefundPreview, StaffRefundRequest } from "@brew-haven/contracts";
+import type { SubscriptionInvoice } from "./SubscriptionInvoice";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:8080";
 export const CUSTOMER_URL = (import.meta.env.VITE_CUSTOMER_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:5173";
@@ -307,6 +308,7 @@ export const api = {
       if (q.before) p.set("before", String(q.before));
       return call<{ entries: ActivityEntry[]; nextBefore: number | null }>(`/v1/admin/activity?${p}`);
     },
+    subscriptionInvoices: () => call<{ invoices: SubscriptionInvoice[] }>("/v1/admin/subscription-invoices"),
     logo: (dataUrl: string) => send<{ logoUrl: string | null }>("PUT", "/v1/admin/logo", { dataUrl }),
     removeLogo: () => send<{ logoUrl: string | null }>("DELETE", "/v1/admin/logo", {}),
     settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number; pricesIncludeTax?: boolean; lateCancelMinutes?: number; cashierRefundLimitPaise?: number; billing?: { legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string } }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),

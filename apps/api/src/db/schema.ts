@@ -558,3 +558,40 @@ export const tenantLogos = pgTable("tenant_logos", {
   hash: text("hash").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Running numbers for Brew Haven's own documents, such as subscription invoices ("BH2627" → BH2627-00001). */
+export const platformCounters = pgTable("platform_counters", {
+  series: text("series").primaryKey(),
+  lastSeq: integer("last_seq").notNull().default(0),
+});
+
+/**
+ * Brew Haven's invoices to cafés for their plan. Seller and buyer details are copied in when the
+ * invoice is issued, so later edits never change an issued invoice.
+ */
+export const subscriptionInvoices = pgTable(
+  "subscription_invoices",
+  {
+    id: id(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    number: text("number").notNull().unique(),
+    issuedOn: date("issued_on").notNull(),
+    plan: text("plan").notNull(),
+    period: text("period", { enum: ["MONTH", "YEAR"] }).notNull(),
+    periodFrom: date("period_from").notNull(),
+    periodTo: date("period_to").notNull(),
+    taxablePaise: integer("taxable_paise").notNull(),
+    cgstPaise: integer("cgst_paise").notNull(),
+    sgstPaise: integer("sgst_paise").notNull(),
+    igstPaise: integer("igst_paise").notNull(),
+    totalPaise: integer("total_paise").notNull(),
+    seller: jsonb("seller").$type<{ legalName: string; gstin: string | null; address: string | null; email: string | null; stateCode: string | null }>().notNull(),
+    buyer: jsonb("buyer").$type<{ name: string; legalName: string | null; gstin: string | null; address: string | null; email: string | null }>().notNull(),
+    payment: jsonb("payment").$type<{ method: string; reference: string | null; paidOn: string }>().notNull(),
+    createdBy: text("created_by").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("subscription_invoices_tenant").on(t.tenantId, t.issuedOn)],
+);

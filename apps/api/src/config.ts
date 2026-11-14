@@ -22,6 +22,8 @@ export interface Config {
   appEnv?: string;
   /** The Brew Haven console needs two-step sign-in before it shows anything (PLATFORM_REQUIRE_TWO_STEP; on in production). */
   platformRequireTwoStep?: boolean;
+  /** Brew Haven as the seller on its invoices to cafés (BREW_HAVEN_LEGAL_NAME, _GSTIN, _ADDRESS, _EMAIL). */
+  brewHaven?: { legalName: string; gstin: string | null; address: string | null; email: string | null };
   /** This API's public base URL (PUBLIC_API_URL), for links to files it serves, such as the café logo. */
   publicApiUrl?: string;
   notifications?: {
@@ -78,6 +80,12 @@ export function loadConfig(): Config {
     alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || undefined,
     appEnv: process.env.APP_ENV ?? (isProd ? "production" : "dev"),
     publicApiUrl: process.env.PUBLIC_API_URL || undefined,
+    brewHaven: {
+      legalName: process.env.BREW_HAVEN_LEGAL_NAME || "Brew Haven",
+      gstin: process.env.BREW_HAVEN_GSTIN?.trim().toUpperCase() || null,
+      address: process.env.BREW_HAVEN_ADDRESS || null,
+      email: process.env.BREW_HAVEN_EMAIL || null,
+    },
     platformRequireTwoStep: process.env.PLATFORM_REQUIRE_TWO_STEP ? process.env.PLATFORM_REQUIRE_TWO_STEP === "true" : isProd,
     notifications: {
       provider: (process.env.NOTIFY_PROVIDER ?? "log") as "log" | "meta",
