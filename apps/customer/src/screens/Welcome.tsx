@@ -48,6 +48,7 @@ export function Welcome({ tenant, outlet }: { tenant: string; outlet: string }) 
       </div>
 
       <section className="welcome-copy">
+        {b.logoUrl && <img className="cafe-logo" src={b.logoUrl} alt="" width={132} height={132} />}
         <h1>{b.displayName}</h1>
         <p className="tagline">{b.tagline ?? "Where every sip feels like home"}</p>
         <p className="lede">

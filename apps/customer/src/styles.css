@@ -282,6 +282,13 @@ h3 {
   gap: 12px;
   text-align: center;
 }
+.cafe-logo {
+  justify-self: center;
+  width: clamp(104px, 30vw, 132px);
+  height: auto;
+  margin-bottom: -4px;
+  filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.35));
+}
 .welcome-copy h1 {
   font-size: clamp(2.2rem, 9vw, 3rem);
   color: var(--bh-cream);
