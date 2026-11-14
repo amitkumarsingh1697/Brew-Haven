@@ -307,6 +307,8 @@ export const api = {
       if (q.before) p.set("before", String(q.before));
       return call<{ entries: ActivityEntry[]; nextBefore: number | null }>(`/v1/admin/activity?${p}`);
     },
+    logo: (dataUrl: string) => send<{ logoUrl: string | null }>("PUT", "/v1/admin/logo", { dataUrl }),
+    removeLogo: () => send<{ logoUrl: string | null }>("DELETE", "/v1/admin/logo", {}),
     settings: (b: { displayName: string; tagline?: string; greeting?: string; managerName?: string; taxRateBps: number; pricesIncludeTax?: boolean; lateCancelMinutes?: number; cashierRefundLimitPaise?: number; billing?: { legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string } }) => send<AdminSetup>("PUT", "/v1/admin/settings", b),
     createIngredient: (b: { name: string; unit: Unit }) => post<{ id: string }>("/v1/admin/ingredients", b),
     updateIngredient: (id: string, b: { name?: string; active?: boolean }) => send<{ id: string }>("PATCH", `/v1/admin/ingredients/${id}`, b),

@@ -6,6 +6,7 @@ import type { Db } from "../db/client.js";
 import { orderLines, orders, outlets, payments, refunds, tenants } from "../db/schema.js";
 import { AppError, notFound } from "../errors.js";
 import { assertStaffOutlet } from "./staff.js";
+import { logoUrlFor } from "./logo.js";
 
 /**
  * The receipt for a placed order. It is a tax invoice when the café has a GSTIN on file,
@@ -44,6 +45,7 @@ async function buildReceipt(db: Db, orderId: string): Promise<ReceiptView> {
     pickupCode: o.pickupCode,
     seller: {
       name: branding.displayName ?? tenant.name,
+      logoUrl: await logoUrlFor(db, tenant),
       legalName: billing.legalName || null,
       outlet: outlet.name,
       address: outlet.address,

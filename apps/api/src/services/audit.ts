@@ -55,7 +55,12 @@ function paidWords(body: Obj, totalPaise: number) {
 export function scrub(body: unknown): Obj | null {
   if (!body || typeof body !== "object") return null;
   const out: Obj = {};
-  for (const [k, v] of Object.entries(body as Obj)) out[k] = /pin|password|secret|token/i.test(k) ? "•••" : v;
+  for (const [k, v] of Object.entries(body as Obj)) {
+    if (/pin|password|secret|token/i.test(k)) out[k] = "•••";
+    // Uploaded files (such as a logo) are kept elsewhere; the trail only notes their size.
+    else if (typeof v === "string" && v.startsWith("data:")) out[k] = `(file, ${Math.round((v.length * 3) / 4 / 1024)} KB)`;
+    else out[k] = v;
+  }
   return out;
 }
 
@@ -136,6 +141,10 @@ export async function describe(
       return { action: "inventory.low_level", summary: "Changed a low-stock level", targetId: str(body.ingredientId), outletId: str(body.outletId) };
     case "PUT /v1/admin/settings":
       return { action: "settings.update", summary: "Updated café settings" };
+    case "PUT /v1/admin/logo":
+      return { action: "logo.update", summary: "Uploaded a new café logo" };
+    case "DELETE /v1/admin/logo":
+      return { action: "logo.remove", summary: "Removed the café logo" };
     case "POST /v1/admin/outlets":
       return { action: "outlet.create", summary: `Added café ${str(result.name)} (orders ${str(result.pickupPrefix)}-001…)`, targetId: str(result.id), outletId: str(result.id) };
     case "PATCH /v1/admin/outlets/:id":

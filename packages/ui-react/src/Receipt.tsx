@@ -16,6 +16,7 @@ export function Receipt({ r }: { r: ReceiptView }) {
   return (
     <article className="bh-receipt" aria-label={r.kind === "TAX_INVOICE" ? `Tax invoice ${r.number}` : `Receipt ${r.number}`}>
       <header>
+        {r.seller.logoUrl && <img className="bh-receipt-logo" src={r.seller.logoUrl} alt="" />}
         <h2>{r.seller.name}</h2>
         {r.seller.legalName && r.seller.legalName !== r.seller.name && <p>{r.seller.legalName}</p>}
         <p>

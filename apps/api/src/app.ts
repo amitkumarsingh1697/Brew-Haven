@@ -6,6 +6,7 @@ import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { eq } from "drizzle-orm";
 import { ZodError, type ZodTypeAny, type z } from "zod";
 import {
+  AdminLogoRequest,
   AdminSettingsRequest,
   CloseDayRequest,
   CategoryRequest,
@@ -79,6 +80,7 @@ import { assertSignupOpen, signup } from "./services/signup.js";
 import { readiness } from "./services/health.js";
 import { orderView } from "./services/orders.js";
 import { receiptByToken, receiptForStaff } from "./services/receipts.js";
+import { MAX_LOGO_BYTES, configureLogoUrls, readLogo, removeLogo, saveLogo } from "./services/logo.js";
 import { assertStaffOutlet, daySummary, listOutletOrders, listStaffUsers, login, stockList, updateStock } from "./services/staff.js";
 import * as admin from "./services/admin.js";
 import * as audit from "./services/audit.js";
@@ -165,6 +167,7 @@ export async function buildApp(deps: AppDeps) {
     customerAppUrl: deps.config.notifications?.customerAppUrl ?? "http://localhost:5173",
     log: app.log,
   };
+  configureLogoUrls(deps.config.publicApiUrl ?? `http://localhost:${deps.config.port}`, ctx.customerAppUrl);
   const tokens = new StaffTokens(deps.config.staffTokenSecret);
   const platformTokens = new PlatformTokens(deps.config.staffTokenSecret);
   const limiter = new AttemptLimiter();
@@ -274,6 +277,15 @@ export async function buildApp(deps: AppDeps) {
   app.post<{ Params: { tenant: string; outlet: string } }>("/v1/cafes/:tenant/:outlet/events", perMinute(120), async (req, reply) => {
     await recordVisitStep(deps.db, req.params.tenant, req.params.outlet, (req.body ?? {}) as Record<string, unknown>);
     return reply.status(204).send();
+  });
+  app.get<{ Params: { tenant: string }; Querystring: { v?: string } }>("/v1/cafes/:tenant/logo", async (req, reply) => {
+    const logo = await readLogo(deps.db, req.params.tenant);
+    // A versioned link never changes, so it can be cached for a long time.
+    reply.header("Cache-Control", req.query.v === logo.hash ? "public, max-age=31536000, immutable" : "public, max-age=300");
+    reply.header("ETag", `"${logo.hash}"`);
+    reply.header("Content-Security-Policy", "default-src 'none'");
+    if (req.headers["if-none-match"] === `"${logo.hash}"`) return reply.status(304).send();
+    return reply.type(logo.contentType).send(logo.bytes);
   });
   app.get<{ Params: { tenant: string; outlet: string } }>("/v1/cafes/:tenant/:outlet/menu", async (req, reply) => {
     reply.header("Cache-Control", "public, max-age=15");
@@ -484,6 +496,9 @@ export async function buildApp(deps: AppDeps) {
   app.get("/v1/admin/low-stock", async (req) => ({ items: await inventory.lowStockAcrossCafes(deps.db, await staff(req)) }));
   app.get<{ Querystring: { outletId?: string; from?: string; to?: string } }>("/v1/admin/stock-report", async (req) => inventory.stockReport(deps.db, await staff(req), req.query));
   app.put("/v1/admin/settings", async (req) => admin.updateSettings(deps.db, await staff(req), parse(AdminSettingsRequest, req.body)));
+  // Base64 makes the upload about a third bigger than the image.
+  app.put("/v1/admin/logo", { bodyLimit: Math.ceil(MAX_LOGO_BYTES * 1.4) + 1024 }, async (req) => saveLogo(deps.db, await staff(req), parse(AdminLogoRequest, req.body).dataUrl));
+  app.delete("/v1/admin/logo", async (req) => removeLogo(deps.db, await staff(req)));
   app.post("/v1/admin/outlets", async (req, reply) => reply.status(201).send(await admin.createOutlet(deps.db, await staff(req), parse(CreateOutletRequest, req.body))));
   app.patch<IdParams>("/v1/admin/outlets/:id", async (req) => admin.updateOutlet(deps.db, await staff(req), req.params.id, parse(UpdateOutletRequest, req.body)));
   app.post<IdParams>("/v1/admin/outlets/:id/stations", async (req, reply) =>

@@ -12,6 +12,7 @@ import {
   tenants,
 } from "../db/schema.js";
 import { AppError, notFound } from "../errors.js";
+import { logoUrlFor } from "./logo.js";
 
 export type TenantRow = typeof tenants.$inferSelect;
 export type OutletRow = typeof outlets.$inferSelect;
@@ -66,7 +67,7 @@ export async function getMenu(db: Db, tenantSlug: string, outletSlug: string): P
         managerName: b.managerName,
         primaryColor: b.primaryColor,
         accentColor: b.accentColor,
-        logoUrl: b.logoUrl ?? null,
+        logoUrl: await logoUrlFor(db, tenant),
         baristaVideo: (b.baristaVideo as { idle: string; wave?: string; keyColor?: string } | undefined) ?? null,
       },
     },

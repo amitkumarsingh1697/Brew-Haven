@@ -12,6 +12,7 @@
   border-radius: 6px;
 }
 .bh-receipt header { text-align: center; }
+.bh-receipt-logo { display: block; margin: 0 auto 8px; width: auto; max-width: 96px; max-height: 96px; object-fit: contain; }
 .bh-receipt h2 { margin: 0 0 4px; font-family: var(--bh-font-display, Georgia, serif); font-size: 22px; }
 .bh-receipt header p, .bh-receipt footer p { margin: 0; font-size: 12px; }
 .bh-receipt-kind {

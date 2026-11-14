@@ -536,3 +536,16 @@ export const visitEvents = pgTable(
   },
   (t) => [index("visit_events_outlet_time").on(t.outletId, t.at), uniqueIndex("visit_events_once").on(t.outletId, t.visit, t.kind)],
 );
+
+/** The café's own logo, uploaded by the owner in Settings. Small (≤ 300 KB), so it lives in the database. */
+export const tenantLogos = pgTable("tenant_logos", {
+  tenantId: uuid("tenant_id")
+    .primaryKey()
+    .references(() => tenants.id),
+  contentType: text("content_type", { enum: ["image/png", "image/jpeg", "image/webp"] }).notNull(),
+  /** Base64 of the image bytes. */
+  data: text("data").notNull(),
+  /** First 16 hex characters of the SHA-256, used to bust caches when the logo changes. */
+  hash: text("hash").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
