@@ -13,6 +13,7 @@
 | `ACTION_REQUIRED` | Staff flagged one or more items as unavailable; the customer must choose | All |
 | `READY` | Ready for pickup at the counter | All |
 | `COLLECTED` | Handed over (terminal) | All |
+| `NOT_COLLECTED` | Made and held, but never picked up (terminal). Still a sale with its invoice; no refund | All |
 | `CANCELLED` | Cancelled with a reason; any captured money is refunded (terminal) | All |
 | `EXPIRED` | Payment never completed within 15 minutes (terminal) | Customer only |
 
@@ -33,6 +34,7 @@
 | PREPARING | CANCELLED | Customer cancels a late order: not ready within the café's "late after" minutes of being placed (online orders; full refund) | Customer |
 | PREPARING | READY | Mark ready | Kitchen |
 | READY | COLLECTED | Hand over | Cashier |
+| READY | NOT_COLLECTED | Nobody came: the cashier, once the order has been ready for 30 minutes, or the system after the café's business day ends | Cashier, admin, system |
 
 Every transition writes an `order_events` row (who, when, from, to, reason) and an outbox message (customer notification, SSE fan-out).
 

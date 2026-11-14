@@ -52,6 +52,16 @@ export function Track({ token }: { token: string }) {
         </section>
       )}
 
+      {order.state === "NOT_COLLECTED" && (
+        <section className="card notice">
+          <h2>Order {order.pickupCode} wasn't collected</h2>
+          <p>It was ready and kept at the counter, but nobody picked it up. Orders that are made but not collected aren't refunded. If something went wrong, please speak to the café.</p>
+          <RefundSummary order={order} />
+          <Link className="btn btn-primary" href={`/${order.outlet.tenantSlug}/${order.outlet.slug}/menu`}>
+            Order again
+          </Link>
+        </section>
+      )}
       {["PLACED", "PREPARING", "ACTION_REQUIRED", "READY", "COLLECTED"].includes(order.state) && (
         <>
           <section className={`card pickup ${order.state === "READY" ? "pickup-ready" : ""}`} aria-live="polite">

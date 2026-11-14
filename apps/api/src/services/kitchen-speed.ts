@@ -75,7 +75,7 @@ export async function kitchenSpeed(db: Db, staff: StaffClaims, q: { from?: strin
     const ready = m?.get("READY");
     const collected = m?.get("COLLECTED");
     if (!ready) {
-      if (o.state !== "CANCELLED" && o.state !== "EXPIRED" && o.state !== "COLLECTED") open++;
+      if (o.state !== "CANCELLED" && o.state !== "EXPIRED" && o.state !== "COLLECTED" && o.state !== "NOT_COLLECTED") open++;
       continue;
     }
     const hour = Number(hourOf.format(placed));

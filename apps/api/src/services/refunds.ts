@@ -13,7 +13,7 @@ import { COUNTED, businessDate, issueRefund, moneyOnOrder, orderBill, orderView,
 const sqlIncrement = sql`${invoiceCounters.lastSeq} + 1`;
 
 /** Orders that were paid and placed and are still standing. Earlier, cancel with Reject instead. */
-const REFUNDABLE = ["PLACED", "PREPARING", "READY", "COLLECTED"];
+const REFUNDABLE = ["PLACED", "PREPARING", "READY", "COLLECTED", "NOT_COLLECTED"];
 
 const CATEGORY_WORDS: Record<z.output<typeof RefundCategory>, string> = {
   WRONG_ITEM: "Wrong item or customisation",

@@ -742,7 +742,7 @@ export function Today({ outletId }: { outletId: string }) {
           <span>Orders</span>
           <strong>{s.orders.total}</strong>
           <small>
-            {s.orders.collected} collected · {s.orders.open} open · {s.orders.cancelled} cancelled
+            {s.orders.collected} collected · {s.orders.open} open · {s.orders.cancelled} cancelled{s.orders.notCollected > 0 && <> · {s.orders.notCollected} not collected</>}
           </small>
         </div>
         <div>
@@ -802,7 +802,7 @@ export function Today({ outletId }: { outletId: string }) {
               <td>{o.state.replace("_", " ").toLowerCase()}</td>
               <td className="num">{formatInr(o.paidPaise - o.refundedPaise)}</td>
               <td>
-                {["PLACED", "PREPARING", "READY", "COLLECTED"].includes(o.state) && o.paidPaise > o.refundedPaise && (
+                {["PLACED", "PREPARING", "READY", "COLLECTED", "NOT_COLLECTED"].includes(o.state) && o.paidPaise > o.refundedPaise && (
                   <button className="link-btn" onClick={() => setRefunding(o)}>
                     Refund
                   </button>
