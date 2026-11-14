@@ -1617,3 +1617,51 @@ a.btn {
   align-items: center;
   margin: 0;
 }
+.two-step-card {
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid var(--bh-brass, #d9ad70);
+  border-radius: var(--bh-radius, 12px);
+  background: #fffaf1;
+}
+.two-step-card h2 {
+  margin-top: 0;
+}
+.two-step-setup {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.two-step-setup label {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  max-width: 220px;
+}
+.two-step-qr {
+  width: 180px;
+  height: 180px;
+  flex: none;
+  background: #fff;
+}
+.two-step-qr svg {
+  width: 100%;
+  height: 100%;
+}
+.two-step-key {
+  user-select: all;
+  word-break: break-all;
+}
+.recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 12px 0 16px;
+  list-style: none;
+}
+.recovery-codes code {
+  font-size: 1.05rem;
+  user-select: all;
+}

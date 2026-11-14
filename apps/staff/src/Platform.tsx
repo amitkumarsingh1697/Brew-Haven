@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import { formatInr } from "@brew-haven/domain";
 import { API_URL, ApiError } from "./api";
 
@@ -24,7 +25,8 @@ type Business = {
   salesLast30DaysPaise: number;
   lastOrderAt: string | null;
 };
-type Who = { token: string; name: string; email: string };
+type Who = { token: string; name: string; email: string; twoStep?: boolean };
+type LoginStep = ({ step: "DONE" } & Who) | { step: "CODE"; ticket: string };
 const KEY = "bh:platform";
 const PLANS: Array<[Business["plan"], string]> = [
   ["starter", "Starter"],
@@ -104,27 +106,31 @@ export function Platform() {
     }
     setWho(null);
   };
-  if (!who)
-    return (
-      <PlatformLogin
-        onIn={(w) => {
-          try {
-            sessionStorage.setItem(KEY, JSON.stringify(w));
-          } catch {
-            /* ignore */
-          }
-          setWho(w);
-        }}
-      />
-    );
-  return <Businesses who={who} onSignOut={signOut} />;
+  const signIn = (w: Who) => {
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify(w));
+    } catch {
+      /* ignore */
+    }
+    setWho(w);
+  };
+  if (!who) return <PlatformLogin onIn={signIn} />;
+  return <Businesses who={who} onSignOut={signOut} onTwoStepOn={(token) => signIn({ ...who, token, twoStep: true })} />;
 }
 
 function PlatformLogin({ onIn }: { onIn: (w: Who) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ticket, setTicket] = useState<string | null>(null);
+  const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const finish = (r: LoginStep) => {
+    if (r.step === "CODE") {
+      setTicket(r.ticket);
+      setBusy(false);
+    } else onIn({ token: r.token, name: r.name, email: r.email, twoStep: r.twoStep });
+  };
   return (
     <main className="login">
       <form
@@ -134,8 +140,11 @@ function PlatformLogin({ onIn }: { onIn: (w: Who) => void }) {
           setBusy(true);
           setError(null);
           try {
-            onIn(await request<Who>("/v1/platform/login", { method: "POST", body: JSON.stringify({ email, password }) }));
+            if (ticket) finish(await request<LoginStep>("/v1/platform/login/code", { method: "POST", body: JSON.stringify({ ticket, code }) }));
+            else finish(await request<LoginStep>("/v1/platform/login", { method: "POST", body: JSON.stringify({ email, password }) }));
           } catch (err) {
+            // The ticket lasts 5 minutes; after that, start again from the password.
+            if ((err as ApiError).message.startsWith("That took too long")) setTicket(null);
             setError((err as ApiError).message);
             setBusy(false);
           }
@@ -143,38 +152,137 @@ function PlatformLogin({ onIn }: { onIn: (w: Who) => void }) {
       >
         <span className="brand">Brew Haven</span>
         <h1>Team sign-in</h1>
-        <p className="muted small">For the Brew Haven team. Café owners and staff sign in on the main page.</p>
-        <label>
-          Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" />
-        </label>
-        <label>
-          Password
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
-        </label>
+        {ticket ? (
+          <>
+            <p className="muted small">Enter the 6-digit code from your authenticator app. Lost your phone? Enter one of your recovery codes instead.</p>
+            <label>
+              Code
+              <input value={code} onChange={(e) => setCode(e.target.value)} required autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={12} placeholder="123 456" />
+            </label>
+          </>
+        ) : (
+          <>
+            <p className="muted small">For the Brew Haven team. Café owners and staff sign in on the main page.</p>
+            <label>
+              Email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" />
+            </label>
+            <label>
+              Password
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+            </label>
+          </>
+        )}
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
         <button className="btn btn-primary" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
+          {busy ? "Signing in…" : ticket ? "Continue" : "Sign in"}
         </button>
       </form>
     </main>
   );
 }
 
-function Businesses({ who, onSignOut }: { who: Who; onSignOut: () => void }) {
+/** Turning on two-step sign-in: scan, confirm with a first code, then keep the recovery codes. */
+function TwoStepSetup({ who, required, onOn }: { who: Who; required: boolean; onOn: (token: string) => void }) {
+  const [setup, setSetup] = useState<{ secret: string; svg: string } | null>(null);
+  const [code, setCode] = useState("");
+  const [recovery, setRecovery] = useState<{ codes: string[]; token: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const start = async () => {
+    setError(null);
+    try {
+      const s = await request<{ secret: string; otpauthUrl: string }>("/v1/platform/two-step/setup", { method: "POST", token: who.token, body: "{}" });
+      setSetup({ secret: s.secret, svg: await QRCode.toString(s.otpauthUrl, { type: "svg", margin: 1, errorCorrectionLevel: "M" }) });
+    } catch (e) {
+      setError((e as ApiError).message);
+    }
+  };
+  if (recovery)
+    return (
+      <section className="two-step-card">
+        <h2>Two-step sign-in is on</h2>
+        <p>Keep these recovery codes somewhere safe, such as your password manager. Each one works once if you lose your phone. They won't be shown again.</p>
+        <ul className="recovery-codes">
+          {recovery.codes.map((c) => (
+            <li key={c}>
+              <code>{c}</code>
+            </li>
+          ))}
+        </ul>
+        <button className="btn btn-primary" onClick={() => onOn(recovery.token)}>
+          I've saved them
+        </button>
+      </section>
+    );
+  return (
+    <section className="two-step-card">
+      <h2>Turn on two-step sign-in</h2>
+      <p>
+        {required ? "The console opens once two-step sign-in is on. " : ""}Each sign-in will also ask for a 6-digit code from an authenticator app on your phone (Google Authenticator,
+        Microsoft Authenticator, 1Password and others), so a leaked password alone can't open it.
+      </p>
+      {!setup ? (
+        <button className="btn btn-primary" onClick={() => void start()}>
+          Set it up
+        </button>
+      ) : (
+        <form
+          className="two-step-setup"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            setError(null);
+            try {
+              const r = await request<{ recoveryCodes: string[]; token: string }>("/v1/platform/two-step/confirm", { method: "POST", token: who.token, body: JSON.stringify({ code: code.replace(/\s/g, "") }) });
+              setRecovery({ codes: r.recoveryCodes, token: r.token });
+            } catch (err) {
+              setError((err as ApiError).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <div className="two-step-qr" dangerouslySetInnerHTML={{ __html: setup.svg }} />
+          <div>
+            <p className="small">1. In your authenticator app, add an account and scan this code.</p>
+            <p className="small muted">
+              Can't scan? Type this key instead: <code className="two-step-key">{setup.secret.replace(/(.{4})/g, "$1 ").trim()}</code>
+            </p>
+            <label>
+              2. Enter the 6-digit code it shows
+              <input value={code} onChange={(e) => setCode(e.target.value)} required inputMode="numeric" autoComplete="one-time-code" maxLength={7} placeholder="123456" />
+            </label>
+            <button className="btn btn-primary" disabled={busy}>
+              {busy ? "Checking…" : "Turn on"}
+            </button>
+          </div>
+        </form>
+      )}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function Businesses({ who, onSignOut, onTwoStepOn }: { who: Who; onSignOut: () => void; onTwoStepOn: (token: string) => void }) {
   const [list, setList] = useState<Business[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [needsTwoStep, setNeedsTwoStep] = useState(false);
   const [filter, setFilter] = useState("");
   const load = () =>
     request<{ businesses: Business[] }>("/v1/platform/businesses", { token: who.token }).then(
-      (r) => setList(r.businesses),
-      (e: ApiError) => (e.status === 401 ? onSignOut() : setError(e.message)),
+      (r) => (setList(r.businesses), setNeedsTwoStep(false)),
+      (e: ApiError) => (e.status === 401 ? onSignOut() : e.status === 403 && /two-step/.test(e.message) ? setNeedsTwoStep(true) : setError(e.message)),
     );
-  useEffect(() => void load(), []);
+  useEffect(() => void load(), [who.token]);
 
   const change = async (b: Business, body: { plan?: string; suspended?: boolean; paidUntil?: string; trialEndsOn?: string }, confirmText?: string) => {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -202,6 +310,7 @@ function Businesses({ who, onSignOut }: { who: Who; onSignOut: () => void }) {
         </span>
       </header>
       <main className="panel">
+        {!who.twoStep && <TwoStepSetup who={who} required={needsTwoStep} onOn={onTwoStepOn} />}
         {list && (
           <div className="stat-tiles">
             <div className="stat-tile">
@@ -241,7 +350,7 @@ function Businesses({ who, onSignOut }: { who: Who; onSignOut: () => void }) {
             {error}
           </p>
         )}
-        {!list && !error && <p className="muted">Loading…</p>}
+        {!list && !error && !needsTwoStep && <p className="muted">Loading…</p>}
         {list && (
           <div className="table-scroll">
             <table className="items-table platform-table">

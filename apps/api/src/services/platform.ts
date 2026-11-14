@@ -1,6 +1,7 @@
 import { and, count, eq, gte, inArray, max, sum } from "drizzle-orm";
 import { PLANS, type PlanId, billingStatus, formatInr, planOf } from "@brew-haven/domain";
 import { type AttemptLimiter, type PlatformClaims, type PlatformTokens, verifyPin } from "../auth.js";
+import { hashRecoveryCode, newRecoveryCodes, newTotpSecret, openSecret, otpauthUrl, sealSecret, verifyTotp } from "../totp.js";
 import type { Db } from "../db/client.js";
 import { orders, outlets, platformAdmins, staffUsers, tenants } from "../db/schema.js";
 import { AppError, notFound } from "../errors.js";
@@ -8,7 +9,11 @@ import { recordAudit } from "./audit.js";
 
 const SOLD = ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY", "COLLECTED", "NOT_COLLECTED"];
 
-/** Sign-in for Brew Haven's own team, by email and password. */
+/**
+ * Sign-in for Brew Haven's own team: email and password, then, once two-step sign-in is on, a code
+ * from their authenticator app (or a one-time recovery code). The first step then returns only a
+ * short-lived ticket for the second.
+ */
 export async function platformLogin(db: Db, tokens: PlatformTokens, limiter: AttemptLimiter, input: { email: string; password: string }, ip: string) {
   const email = input.email.trim().toLowerCase();
   const key = `platform|${email}|${ip}`;
@@ -23,8 +28,69 @@ export async function platformLogin(db: Db, tokens: PlatformTokens, limiter: Att
   }
   limiter.reset(key);
   limiter.reset(personKey);
-  const token = await tokens.issue({ sub: admin.id, email: admin.email, name: admin.name });
-  return { token, name: admin.name, email: admin.email };
+  if (admin.totpEnabledAt) return { step: "CODE" as const, ticket: await tokens.issueCodeTicket(admin.id) };
+  const token = await tokens.issue({ sub: admin.id, email: admin.email, name: admin.name, mfa: false });
+  return { step: "DONE" as const, token, name: admin.name, email: admin.email, twoStep: false };
+}
+
+/** The second step: an authenticator code, or one of the recovery codes (each works once). */
+export async function platformLoginCode(db: Db, tokens: PlatformTokens, limiter: AttemptLimiter, serverSecret: string, input: { ticket: string; code: string }) {
+  const adminId = await tokens.verifyCodeTicket(input.ticket);
+  const key = `platform-code|${adminId}`;
+  limiter.check(key);
+  const [admin] = await db.select().from(platformAdmins).where(and(eq(platformAdmins.id, adminId), eq(platformAdmins.active, true)));
+  if (!admin?.totpSecret) throw new AppError("UNAUTHORIZED", "Sign in again.");
+  const code = input.code.trim();
+  let ok = false;
+  if (/^\d[\d\s]{5,7}$/.test(code)) {
+    const step = verifyTotp(openSecret(admin.totpSecret, serverSecret), code, Date.now(), admin.totpLastStep);
+    if (step !== null) {
+      await db.update(platformAdmins).set({ totpLastStep: step }).where(eq(platformAdmins.id, admin.id));
+      ok = true;
+    }
+  } else {
+    const h = hashRecoveryCode(code);
+    if (admin.recoveryCodeHashes.includes(h)) {
+      await db
+        .update(platformAdmins)
+        .set({ recoveryCodeHashes: admin.recoveryCodeHashes.filter((x) => x !== h) })
+        .where(eq(platformAdmins.id, admin.id));
+      ok = true;
+    }
+  }
+  if (!ok) {
+    limiter.fail(key);
+    throw new AppError("UNAUTHORIZED", "That code is not right. Check the time on your phone, or use a recovery code.");
+  }
+  limiter.reset(key);
+  const token = await tokens.issue({ sub: admin.id, email: admin.email, name: admin.name, mfa: true });
+  return { step: "DONE" as const, token, name: admin.name, email: admin.email, twoStep: true };
+}
+
+/** Starts turning on two-step sign-in: a new secret to scan, kept aside until a code confirms it. */
+export async function startTwoStep(db: Db, who: PlatformClaims, serverSecret: string) {
+  const [admin] = await db.select({ on: platformAdmins.totpEnabledAt }).from(platformAdmins).where(eq(platformAdmins.id, who.sub));
+  // Moving to a new phone needs a session that already passed the code step.
+  if (admin?.on && !who.mfa) throw new AppError("FORBIDDEN", "Two-step sign-in is already on. Sign in with a code first.");
+  const secret = newTotpSecret();
+  await db.update(platformAdmins).set({ totpPendingSecret: sealSecret(secret, serverSecret) }).where(eq(platformAdmins.id, who.sub));
+  return { secret, otpauthUrl: otpauthUrl(secret, who.email) };
+}
+
+/** Confirms the scanned secret with a first code, turns two-step sign-in on, and hands out recovery codes once. */
+export async function confirmTwoStep(db: Db, tokens: PlatformTokens, who: PlatformClaims, serverSecret: string, code: string) {
+  const [admin] = await db.select().from(platformAdmins).where(eq(platformAdmins.id, who.sub));
+  if (!admin?.totpPendingSecret) throw new AppError("CONFLICT", "Start again: scan a new QR code first.");
+  const secret = openSecret(admin.totpPendingSecret, serverSecret);
+  const step = verifyTotp(secret, code, Date.now(), null);
+  if (step === null) throw new AppError("VALIDATION", "That code is not right. Check the time on your phone and try the newest code.");
+  const recoveryCodes = newRecoveryCodes();
+  await db
+    .update(platformAdmins)
+    .set({ totpSecret: admin.totpPendingSecret, totpPendingSecret: null, totpEnabledAt: new Date(), totpLastStep: step, recoveryCodeHashes: recoveryCodes.map(hashRecoveryCode) })
+    .where(eq(platformAdmins.id, admin.id));
+  const token = await tokens.issue({ sub: admin.id, email: admin.email, name: admin.name, mfa: true });
+  return { recoveryCodes, token };
 }
 
 /**

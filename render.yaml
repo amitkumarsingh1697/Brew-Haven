@@ -42,6 +42,9 @@ services:
       # This API's own public address (e.g. https://api.brew-haven.in), for links to the café logo on receipts and posters.
       - key: PUBLIC_API_URL
         sync: false
+      # The Brew Haven console needs two-step sign-in (on by default in production; "false" turns it off).
+      - key: PLATFORM_REQUIRE_TWO_STEP
+        value: "true"
       # Operational alerts (server errors, background jobs that gave up): a Slack / Google Chat / Discord webhook URL.
       - key: ALERT_WEBHOOK_URL
         sync: false

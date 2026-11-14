@@ -20,6 +20,8 @@ export interface Config {
   alertWebhookUrl?: string;
   /** Shown in alerts, e.g. "demo" or "production" (APP_ENV). */
   appEnv?: string;
+  /** The Brew Haven console needs two-step sign-in before it shows anything (PLATFORM_REQUIRE_TWO_STEP; on in production). */
+  platformRequireTwoStep?: boolean;
   /** This API's public base URL (PUBLIC_API_URL), for links to files it serves, such as the café logo. */
   publicApiUrl?: string;
   notifications?: {
@@ -76,6 +78,7 @@ export function loadConfig(): Config {
     alertWebhookUrl: process.env.ALERT_WEBHOOK_URL || undefined,
     appEnv: process.env.APP_ENV ?? (isProd ? "production" : "dev"),
     publicApiUrl: process.env.PUBLIC_API_URL || undefined,
+    platformRequireTwoStep: process.env.PLATFORM_REQUIRE_TWO_STEP ? process.env.PLATFORM_REQUIRE_TWO_STEP === "true" : isProd,
     notifications: {
       provider: (process.env.NOTIFY_PROVIDER ?? "log") as "log" | "meta",
       customerAppUrl: process.env.CUSTOMER_APP_URL ?? "http://localhost:5173",
