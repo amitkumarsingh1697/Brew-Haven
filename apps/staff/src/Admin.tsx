@@ -896,6 +896,7 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
   const [legalName, setLegalName] = useState(bill.legalName ?? "");
   const [gstin, setGstin] = useState(bill.gstin ?? "");
   const [fssai, setFssai] = useState(bill.fssaiLicence ?? "");
+  const [grievance, setGrievance] = useState(bill.grievance ?? "");
   const [footer, setFooter] = useState(bill.footer ?? "");
   return (
     <>
@@ -915,7 +916,7 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
                 pricesIncludeTax: inclusive,
                 lateCancelMinutes: Math.round(Number(lateMin)),
                 cashierRefundLimitPaise: Math.round(Number(refundLimit || "0") * 100),
-                billing: { legalName: legalName.trim(), gstin: gstin.trim().toUpperCase(), fssaiLicence: fssai.trim(), footer: footer.trim() },
+                billing: { legalName: legalName.trim(), gstin: gstin.trim().toUpperCase(), fssaiLicence: fssai.trim(), grievance: grievance.trim(), footer: footer.trim() },
               }),
             "Settings saved. Customers see them straight away.",
           );
@@ -984,6 +985,11 @@ function Settings({ setup, act }: { setup: AdminSetup; act: Act }) {
           FSSAI licence number
           <input value={fssai} onChange={(e) => setFssai(e.target.value.replace(/\D/g, ""))} inputMode="numeric" maxLength={14} placeholder="14 digits" />
           <small className="muted">Food businesses must print this on bills.</small>
+        </label>
+        <label>
+          Complaints contact (grievance officer)
+          <input value={grievance} onChange={(e) => setGrievance(e.target.value)} maxLength={140} placeholder="e.g. Priya Shah, 98765 43210, care@400coffee.in" />
+          <small className="muted">The law asks online sellers to name someone customers can complain to. It is printed on receipts.</small>
         </label>
         <label>
           Thank-you line

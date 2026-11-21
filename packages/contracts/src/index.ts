@@ -384,6 +384,8 @@ export const BillingDetails = z.object({
   legalName: z.string().trim().max(100).optional(),
   gstin: z.union([z.literal(""), Gstin]).optional(),
   fssaiLicence: z.union([z.literal(""), z.string().trim().regex(/^\d{14}$/, "The FSSAI licence number has 14 digits")]).optional(),
+  /** Who customers complain to (Consumer Protection (E-Commerce) Rules, 2020): a name with a phone or email. */
+  grievance: z.string().trim().max(140).optional(),
   footer: z.string().trim().max(140).optional(),
 });
 export type BillingDetails = z.infer<typeof BillingDetails>;
@@ -554,6 +556,8 @@ export const ReceiptView = z.object({
     address: z.string().nullable(),
     gstin: z.string().nullable(),
     fssaiLicence: z.string().nullable(),
+    /** The café's grievance officer, printed so customers know whom to complain to. */
+    grievance: z.string().nullable(),
   }),
   customerName: z.string().nullable(),
   channel: z.enum(["ONLINE", "COUNTER"]),

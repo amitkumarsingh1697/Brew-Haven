@@ -51,6 +51,7 @@ async function buildReceipt(db: Db, orderId: string): Promise<ReceiptView> {
       address: outlet.address,
       gstin,
       fssaiLicence: billing.fssaiLicence || null,
+      grievance: billing.grievance || null,
     },
     customerName: o.customerName,
     channel: o.channel,
