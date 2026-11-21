@@ -41,7 +41,9 @@ We never charge a cancellation fee.
 | Every item ends up removed | The order is cancelled and fully refunded. **Agreed** |
 
 ### 4. Problems with your order
-Please tell the cashier before you leave the counter, or use **Report a problem** in the app within [24 hours].
+Please tell the cashier, or contact the café, **on the same day** as your order (before the café closes). When we refund an item, you get its **full price, including GST**. **Agreed**
+
+This is how the café handles complaints at the counter. It does not take away any right you have under the Consumer Protection Act, 2019. If you raise a problem later, the café's grievance officer will still look at it.
 
 | Problem | What we do |
 |---|---|
@@ -122,7 +124,7 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 | K11 | Customer collects someone else's order | Check the pickup code at handover; remake for the rightful customer at no cost; log it. | Csh | Built (pickup code); Gap (log reason "wrong handover") |
 | K12 | Wrong item or customisation served | Remake free, or refund the line. | Csh | Built: refund one or more items after collection |
 | K13 | Foreign object, allergen not declared, veg/non-veg mix-up | Full refund, incident record, owner told immediately. | Csh/Adm | Partly built: full refund after collection with a food-safety reason, logged in Activity; owner alert still a gap |
-| K14 | Quality complaint after the customer has left | Accept in-app reports for [24 h]; admin reviews and refunds the line or the order. | Adm | Gap: "Report a problem" |
+| K14 | Quality complaint after the customer has left | Accept complaints on the same business day only; a refunded item is refunded at its full price including GST. Older complaints only by the owner, as an exception. | Csh/Adm | Built: cashier refunds only on the order's business day; the owner can still refund later. In-app "Report a problem" is still a gap |
 | K15 | Every line removed by item-unavailable choices | Cancel and full refund. | Sys | Built |
 | K16 | Customer never answers the item-unavailable choice | Remove and refund after 5 min; order resumes. | Sys | Built |
 
@@ -183,7 +185,7 @@ In order of importance. None of these are built yet; each is small.
 ### 3.4 Decisions for the café owner
 These are the bracketed numbers above. The defaults are reasonable for an office-tower café:
 - Late-order cancel threshold: [15] minutes past the promised time.
-- Problem reports accepted for: [24 hours].
+- Problem reports accepted for: **the same day as the order** (owner, 21 Nov 2026). A refunded item gets its full price including GST.
 - Hold time for uncollected orders: [30] minutes.
 - Cashier refund limit without admin: ₹[500].
 - Grievance officer name and contact, and the resolution target: [7 days].

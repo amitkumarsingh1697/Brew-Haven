@@ -25,6 +25,7 @@ export function Receipt({ r }: { r: ReceiptView }) {
         </p>
         {r.seller.gstin && <p>GSTIN {r.seller.gstin}</p>}
         {r.seller.fssaiLicence && <p>FSSAI Lic. No. {r.seller.fssaiLicence}</p>}
+        {r.seller.grievance && <p>Complaints: {r.seller.grievance}</p>}
       </header>
       <p className="bh-receipt-kind">{r.kind === "TAX_INVOICE" ? "Tax invoice" : "Receipt"}</p>
       <dl className="bh-receipt-meta">

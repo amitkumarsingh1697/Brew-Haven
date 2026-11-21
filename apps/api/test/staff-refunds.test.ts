@@ -116,3 +116,16 @@ describe("refunds after service", () => {
     expect(csv.body).toMatch(new RegExp(`CNA${fy}-00001,.*,Tower A,A${fy}-\\d{5},"?Quality complaint: 1 × Veg Puff`));
   });
 });
+
+describe("same-day complaints (refund policy K14)", () => {
+  it("the cashier refunds only on the order's day; the owner can still refund later", async () => {
+    const { orders } = await import("../src/db/schema.js");
+    const { eq } = await import("drizzle-orm");
+    const v = await servedOnline([env.line("Veg Puff")]);
+    await env.db.update(orders).set({ businessDate: "2020-01-01" }).where(eq(orders.id, v.id));
+    const late = await refund(v.id, { wholeOrder: true, category: "QUALITY", preview: true });
+    expect(late.statusCode).toBe(403);
+    expect(late.json().error.message).toMatch(/on the day of the order/);
+    expect((await refund(v.id, { wholeOrder: true, category: "QUALITY", preview: true }, env.admin)).statusCode).toBe(200);
+  });
+});

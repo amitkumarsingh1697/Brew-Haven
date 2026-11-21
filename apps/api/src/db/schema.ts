@@ -34,7 +34,7 @@ export const tenants = pgTable("tenants", {
   cashierRefundLimitPaise: integer("cashier_refund_limit_paise").notNull().default(50_000),
   branding: jsonb("branding").$type<Record<string, unknown>>().notNull().default({}),
   /** Seller details printed on receipts: legal name, GSTIN, FSSAI licence, footer. */
-  billing: jsonb("billing").$type<{ legalName?: string; gstin?: string; fssaiLicence?: string; footer?: string }>().notNull().default({}),
+  billing: jsonb("billing").$type<{ legalName?: string; gstin?: string; fssaiLicence?: string; grievance?: string; footer?: string }>().notNull().default({}),
   demoData: boolean("demo_data").notNull().default(false),
   /** How to reach the owner, from self-serve sign-up. Never shown to customers. */
   contact: jsonb("contact").$type<{ email?: string; phone?: string }>().notNull().default({}),

@@ -90,6 +90,11 @@ export async function staffRefund(ctx: Ctx, limiter: AttemptLimiter, staff: Staf
     if (!REFUNDABLE.includes(order.state)) {
       throw new AppError("CONFLICT", order.state === "ACTION_REQUIRED" ? "The customer is choosing what to do about an unavailable item. Wait for them first." : "Only paid orders can be refunded here");
     }
+    // Refund policy K14: complaints are accepted on the day of the order. Later, only the owner can refund, as an exception.
+    if (staff.role !== "ADMIN" && order.businessDate) {
+      const [outlet] = await tx.select({ tz: outlets.timezone }).from(outlets).where(eq(outlets.id, order.outletId));
+      if (order.businessDate < businessDate(new Date(), outlet!.tz)) throw new AppError("FORBIDDEN", "Complaints are accepted on the day of the order. For an older order, ask the owner.");
+    }
     const [tenant] = await tx.select({ limit: tenants.cashierRefundLimitPaise }).from(tenants).where(eq(tenants.id, order.tenantId));
     const p = await plan(tx, order, body);
     const { pays } = await moneyOnOrder(tx, order.id);

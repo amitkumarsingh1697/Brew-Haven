@@ -77,14 +77,15 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | "Not collected" order status: the cashier can close a ready order after a 30-minute hold, and orders still waiting at the end of the day close on their own, with no refund and the sale kept. Extra or wrong-amount payments are refunded in full automatically. Refund policy K10, P2, P3, P4 | Done (PR #39) |
 | Café logo upload in Settings (PNG, JPG or WebP, shrunk to 512 px, kept in the database, checked by its real file type). The logo shows on the customer welcome screen, printed receipts and QR posters. New setting `PUBLIC_API_URL` on the API | Done (PR #40) |
 | Two-step sign-in for the Brew Haven console: an authenticator app code (TOTP) after the password, 8 one-time recovery codes, the secret kept encrypted, no code used twice. Required in production (`PLATFORM_REQUIRE_TWO_STEP`); lost phones reset with `platform-admin <email> --reset-two-step` | Done (PR #41) |
-| Subscription invoices from Brew Haven to cafés: Record payment (month or year, method, reference) moves the paid period on and issues a numbered invoice with 18% GST split CGST/SGST or IGST; the owner sees and prints them under Your plan. Seller details from `BREW_HAVEN_*` settings | In review |
+| Subscription invoices from Brew Haven to cafés: Record payment (month or year, method, reference) moves the paid period on and issues a numbered invoice with 18% GST split CGST/SGST or IGST; the owner sees and prints them under Your plan. Seller details from `BREW_HAVEN_*` settings | Done (PR #42) |
+| Owner decisions of 21 Nov: complaints accepted on the day of the order (after that only the owner refunds), refunds at the item's full price with GST. Legal review of the terms, processing terms and privacy policy under Indian law (`docs/legal/LEGAL_REVIEW.md`) with the fixes applied, and a complaints contact (grievance officer) field in Settings printed on receipts | In review |
 
 ## Waiting on Amit
 
 | Item | What's needed |
 |---|---|
-| Deploy the demo (ADR-0002) | Cloudflare, Render and Neon accounts connected, or their API tokens shared securely |
+| Deploy the demo (ADR-0002) | Neon is ready (migrated 21 Nov). Render and Cloudflare: follow RENDER_CLOUDFLARE_SETUP.md |
 | Live payments | The café owner's choice of gateway and merchant KYC (Razorpay adapter is ready) |
 | Real WhatsApp messages | Steps 1 to 5 of WHATSAPP_SETUP.md: Meta Business verification, a WhatsApp number, a payment method and a system-user token. We do the rest |
-| Terms of service and privacy policy | Lawyer review of the draft shared on 12 Nov. The pages are live with a "Draft" notice; once approved, update `docs/legal` and build with `VITE_LEGAL_FINAL=true` |
+| Terms of service and privacy policy | Reviewed and fixed 21 Nov (LEGAL_REVIEW.md). Still needed: legal entity name, city, grievance officer, support email (section D), then an advocate's sign-off before `VITE_LEGAL_FINAL=true` |
 | Filmed barista (optional) | The AI clips cover the demo. To use the café's real barista instead, film them (with their written consent) following BARISTA_VIDEO.md and share the original files |
