@@ -6,6 +6,11 @@ Brew Haven is an ordering system for cafés. Customers scan a QR code, order and
 
 **400 Coffee Cafe** is the first café, with two outlets: Tower A and Tower B. Brew Haven is owned by Inferra Software.
 
+**Live demo** (free hosting on Render, payments simulated; the first visit after 15 quiet minutes takes about a minute while the server wakes):
+- Customer app: https://brew-haven-order.onrender.com/400-coffee/tower-a
+- Staff app: https://brew-haven-staff.onrender.com (demo PINs below)
+- Brew Haven console: https://brew-haven-staff.onrender.com/platform
+
 | App | Who uses it | Local address |
 |---|---|---|
 | Customer app (`apps/customer`) | People ordering coffee | http://localhost:5173/400-coffee/tower-a |
@@ -119,8 +124,11 @@ The demo runs on free or low-cost services. The decision record is [ADR-0002](do
 | Part | Service | Where |
 |---|---|---|
 | Database | Neon (Postgres) | Singapore |
-| API | Render, from [`render.yaml`](render.yaml) | Singapore |
-| Customer and staff apps, domain | Cloudflare Pages and DNS | Worldwide |
+| API | Render web service, from [`render.yaml`](render.yaml) | Singapore |
+| Customer and staff apps | Render static sites (rewrite `/*` to `/index.html`) | Worldwide |
+| Own domain (later) | Cloudflare DNS, or the registrar's DNS, pointed at the Render sites | Worldwide |
+
+The demo runs on Render's own addresses, so no domain is needed yet. The demo API's start command loads the demo café (it skips this if it's already there), and creates a console login when `PLATFORM_ADMIN_EMAIL` and `PLATFORM_ADMIN_PASSWORD` are set.
 
 The step-by-step account setup is in [`docs/delivery/DEPLOY_RENDER_CLOUDFLARE.md`](docs/delivery/DEPLOY_RENDER_CLOUDFLARE.md). It covers what to click, which keys to create, and where they go. Keys go into the hosting settings, never into git or chat.
 
