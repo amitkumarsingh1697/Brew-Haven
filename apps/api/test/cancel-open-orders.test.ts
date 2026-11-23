@@ -27,7 +27,7 @@ describe("cancel all open orders (K8)", () => {
     const ready = await env.placeOrder([env.line("Veg Puff")]);
     await act(ready.orderId, "START", env.kitchenA);
     await act(ready.orderId, "MARK_READY", env.kitchenA);
-    const unpaid = (await env.app.inject({ method: "POST", url: "/v1/staff/orders/counter", headers: env.auth(env.cashierA), payload: { outletId: env.outletA, lines: [env.line("Café Latte")] } })).json() as OrderView;
+    const unpaid = (await env.app.inject({ method: "POST", url: "/v1/staff/orders/counter", headers: env.auth(env.cashierA), payload: { outletId: env.outletA, lines: [env.line("Café Latte")] } })).json().order as OrderView;
     const other = await env.placeOrder([env.line("Veg Puff")], { outlet: "tower-b" });
 
     const r = await cancelAll(env.outletA, env.admin, { reason: "Power cut", closeCafe: true });

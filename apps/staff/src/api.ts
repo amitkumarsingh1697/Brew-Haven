@@ -231,6 +231,7 @@ export const api = {
   action: (id: string, action: "START" | "MARK_READY" | "HAND_OVER" | "MARK_NOT_COLLECTED") => post<OrderView>(`/v1/staff/orders/${id}/actions`, { action }),
   refund: (id: string, body: StaffRefundRequest) => post<{ preview: StaffRefundPreview | null; order: OrderView | null }>(`/v1/staff/orders/${id}/refund`, body),
   reject: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/reject`, { reason }),
+  voidPayment: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/void-payment`, { reason }),
   flag: (id: string, lineIds: string[], note: string) => post<OrderView>(`/v1/staff/orders/${id}/flag-unavailable`, { lineIds, note: note || undefined, markSoldOut: true }),
   walkIn: (body: {
     outletId: string;

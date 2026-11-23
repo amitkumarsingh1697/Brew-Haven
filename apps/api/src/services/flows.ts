@@ -623,6 +623,40 @@ export async function voidCounterOrder(ctx: Ctx, staff: StaffClaims, orderId: st
   });
 }
 
+/**
+ * Refund policy C2: a counter order was marked paid by mistake, or the customer walked off without paying.
+ * The owner voids the hand-recorded payment and cancels the order: no refund is made (no money was taken),
+ * the takings and the expected cash in the drawer drop by that amount, the invoice counts as cancelled,
+ * and Activity records who did it and why.
+ */
+export async function voidMistakenPayment(ctx: Ctx, staff: StaffClaims, orderId: string, reason: string) {
+  if (staff.role !== "ADMIN") throw new AppError("FORBIDDEN", "Only the owner can undo a payment marked by hand");
+  return withTx(ctx.db, async (tx, after) => {
+    const o = await lockStaffOrder(tx, staff, orderId);
+    if (o.channel !== "COUNTER") throw new AppError("CONFLICT", "Online payments come from the payment gateway. Refund the order instead.");
+    const pays = await tx.select().from(payments).where(and(eq(payments.orderId, o.id), eq(payments.status, "CAPTURED")));
+    if (pays.length === 0) throw new AppError("CONFLICT", "This order has no payment to undo");
+    if (pays.some((p) => p.method === "ONLINE")) throw new AppError("CONFLICT", "This order was paid through the payment gateway. Refund it instead.");
+    const [refunded] = await tx.select({ id: refunds.id }).from(refunds).where(and(eq(refunds.orderId, o.id), ne(refunds.status, "FAILED"))).limit(1);
+    if (refunded) throw new AppError("CONFLICT", "Part of this order was already refunded. Refund the rest instead.");
+    const updated = await applyTransition(tx, after, ctx.bus, o, "VOID_MISTAKEN_PAYMENT", staff.role, { actorId: staff.sub, reason });
+    await tx.update(payments).set({ status: "FAILED" }).where(inArray(payments.id, pays.map((p) => p.id)));
+    await tx.update(adjustments).set({ status: "RESOLVED", resolvedAt: new Date() }).where(and(eq(adjustments.orderId, o.id), ne(adjustments.status, "RESOLVED")));
+    const amount = pays.reduce((s, p) => s + p.amountPaise, 0);
+    await recordAudit(tx as unknown as Db, {
+      tenantId: o.tenantId,
+      actorId: staff.sub,
+      actorName: staff.name,
+      action: "order.void_payment",
+      summary: `Undid the ${formatInr(amount)} payment marked by hand on order ${o.pickupCode ?? ""} and cancelled it: ${reason}`,
+      outletId: o.outletId,
+      targetId: o.id,
+      ip: null,
+    });
+    return orderView(tx, updated.id);
+  });
+}
+
 // ---------- Customer cancels (refund policy K1, K2, K4) ----------
 
 /**
