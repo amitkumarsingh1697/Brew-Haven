@@ -121,6 +121,8 @@ export const CreateOrderRequest = QuoteRequest.extend({
     /** Offers are marketing and need a separate, unticked opt-in. */
     offers: z.boolean().default(false),
   }),
+  /** Refund policy K6: set after the customer confirms they really want the same order again. */
+  allowDuplicate: z.boolean().default(false),
 });
 export type CreateOrderRequest = z.input<typeof CreateOrderRequest>;
 

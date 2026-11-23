@@ -21,6 +21,7 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [touched, setTouched] = useState(false);
   const online = useOnline();
@@ -67,18 +68,19 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
     );
   }
 
-  const submit = async () => {
+  const submit = async (allowDuplicate = false) => {
     setTouched(true);
     if (!nameOk || !phoneCheck.success || !quote) return;
     setBusy(true);
     setSubmitError(null);
+    setDuplicate(null);
     try {
       savedDetails.set({ name: name.trim(), phone });
       track(`${tenant}/${outlet}`, "pay");
       const res = await api.createOrder(
         tenant,
         outlet,
-        { lines: payload, customer: { name: name.trim(), phone }, consent: { orderUpdates: true, offers } },
+        { lines: payload, customer: { name: name.trim(), phone }, consent: { orderUpdates: true, offers }, allowDuplicate },
         idemKey.current,
       );
       lastOrder.set(res.trackingToken);
@@ -90,7 +92,9 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
       basket.clear();
       navigate(`/order/${res.trackingToken}?pay=${res.checkout.paymentId}`);
     } catch (e) {
-      setSubmitError((e as ApiError).message);
+      // Refund policy K6: the same basket a moment ago is usually a double tap or a second attempt.
+      if (e instanceof ApiError && e.code === "DUPLICATE_ORDER") setDuplicate(e.message);
+      else setSubmitError((e as ApiError).message);
       setBusy(false);
     }
   };
@@ -193,9 +197,24 @@ export function Checkout({ tenant, outlet }: { tenant: string; outlet: string })
       </section>
 
       {submitError && <ErrorNote message={submitError} />}
+      {duplicate && (
+        <section className="card cancel-panel" role="alert">
+          <p>
+            <strong>{duplicate}</strong>
+          </p>
+          {lastOrder.get() && (
+            <Link className="btn btn-ghost" href={`/order/${lastOrder.get()}`}>
+              See my earlier order
+            </Link>
+          )}
+          <button className="btn btn-primary" onClick={() => submit(true)} disabled={busy}>
+            Yes, order it again
+          </button>
+        </section>
+      )}
 
       <div className="pay-bar">
-        <button className="btn btn-primary btn-block btn-lg" onClick={submit} disabled={busy || !quote || !online}>
+        <button className="btn btn-primary btn-block btn-lg" onClick={() => submit()} disabled={busy || !quote || !online}>
           {!online ? "You're offline" : busy ? "Placing your order…" : quote ? <>Pay <Rs paise={quote.totalPaise} /></> : "Pay"}
         </button>
         <p className="fine">Your order goes to the kitchen as soon as the payment is confirmed.</p>
