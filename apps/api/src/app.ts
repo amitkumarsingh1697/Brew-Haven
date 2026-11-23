@@ -1,4 +1,5 @@
 import cors from "@fastify/cors";
+import { captureError } from "./errorTracking.js";
 import { reportProblem, resolveProblem } from "./services/problems.js";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
@@ -217,6 +218,7 @@ export async function buildApp(deps: AppDeps) {
     if (status && status < 500) return reply.status(status).send({ error: { code: "BAD_REQUEST", message: (err as Error).message } });
     req.log.error({ err }, "unhandled error");
     const route = req.routeOptions?.url ?? req.url.split("?")[0];
+    captureError(err, { route: `${req.method} ${route}`, ref: String(req.id) });
     void alerter.send({ key: `500 ${req.method} ${route}`, title: `Server error on ${req.method} ${route}`, detail: `${(err as Error).message} (ref ${req.id})` });
     return reply.status(500).send({ error: { code: "INTERNAL", message: `Something went wrong on our side. Please try again. If it keeps happening, quote ref ${req.id}.`, ref: req.id } });
   });

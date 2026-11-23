@@ -2,9 +2,12 @@ import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDb } from "./db/client.js";
 import { migrate } from "./db/migrate.js";
+import { captureError, initErrorTracking } from "./errorTracking.js";
 import { drainOutbox, runSweeps } from "./services/flows.js";
 
 const config = loadConfig();
+await initErrorTracking(config.appEnv ?? "production");
+process.on("unhandledRejection", (e) => captureError(e, { source: "unhandledRejection" }));
 const { db, pool } = createDb(config.databaseUrl);
 if (process.env.MIGRATE_ON_START !== "false") await migrate(db);
 const { app, ctx } = await buildApp({ config, db, rateLimit: config.rateLimits });
@@ -20,13 +23,17 @@ if (config.runWorker) {
       ctx.worker!.lastTickAt = Date.now();
     } catch (e) {
       app.log.error({ err: e }, "outbox tick failed");
+      captureError(e, { source: "worker" });
       void ctx.alerter?.send({ key: "worker tick", title: "Background worker pass failed", detail: String(e) });
     } finally {
       busy = false;
     }
   };
   timers.push(setInterval(tick, 1000));
-  timers.push(setInterval(() => void runSweeps(ctx).catch((e) => app.log.error({ err: e }, "sweep failed")), 30_000));
+  timers.push(setInterval(() => void runSweeps(ctx).catch((e) => {
+    app.log.error({ err: e }, "sweep failed");
+    captureError(e, { source: "sweep" });
+  }), 30_000));
 }
 
 const shutdown = async () => {

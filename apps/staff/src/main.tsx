@@ -4,6 +4,7 @@ import type { MenuResponse, OutletWithStations, StaffRole, StaffSession } from "
 import { registerServiceWorker, useOnline } from "@brew-haven/pwa";
 import "@brew-haven/ui-tokens/tokens.css";
 import "./styles.css";
+import { ErrorBoundary, initErrorTracking } from "./errorTracking";
 import { api, setSessionToken } from "./api";
 import { useLiveOrders } from "./live";
 import { useCounterQueueSync } from "./counterQueue";
@@ -190,9 +191,12 @@ function OfflineBanner() {
 }
 
 registerServiceWorker(import.meta.env.PROD);
+void initErrorTracking();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );

@@ -119,6 +119,7 @@ The Business is the data fiduciary for personal data of its customers and staff 
 | Cloudflare | Serves the customer and staff apps and protects them from attacks. Requests pass through; no data is stored | Worldwide network |
 | Razorpay, contracted by the Business | Takes payments and refunds | India |
 | Meta (WhatsApp Business Platform) | Sends order and marketing messages, when the Business turns them on | Meta's data centres, mainly outside India |
+| Sentry (Functional Software, Inc.) | Error reports for fixing faults. Names, phone numbers, IP addresses and order links are removed before sending | European Union (Frankfurt) |
 
 Personal data is stored in Singapore. Singapore is not restricted under section 16 of the DPDP Act. Card and UPI data never reaches Brew Haven: it stays with the payment gateway, which keeps it in India as RBI requires.
 
