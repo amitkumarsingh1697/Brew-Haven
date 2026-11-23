@@ -27,7 +27,15 @@ export function OrderCard({
   big?: boolean;
   stationFilter?: string;
 }) {
-  const [mode, setMode] = useState<"none" | "reject" | "flag">("none");
+  const [mode, setMode] = useState<"none" | "reject" | "flag" | "void">("none");
+  // Refund policy C2: only the owner, only for a counter order paid by hand that hasn't been refunded or handed over.
+  const canUndoPayment =
+    role === "ADMIN" &&
+    order.channel === "COUNTER" &&
+    order.paidPaise > 0 &&
+    order.refundedPaise === 0 &&
+    ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY"].includes(order.state) &&
+    order.payments.every((p) => p.method !== "ONLINE");
   const [receipt, setReceipt] = useState(false);
   const [reason, setReason] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
@@ -101,6 +109,19 @@ export function OrderCard({
             </button>
           </div>
         </div>
+      ) : mode === "void" ? (
+        <div className="inline-form">
+          <p className="small">Use this when the order was marked paid by mistake or the customer left without paying. No refund is made, and the order is cancelled.</p>
+          <input autoFocus placeholder="What happened (e.g. Marked the wrong order paid)" value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} />
+          <div className="row-btns">
+            <button className="btn btn-danger" disabled={busy || reason.trim().length < 3} onClick={() => run(() => api.voidPayment(order.id, reason.trim()))}>
+              Undo {formatInr(order.paidPaise)} payment
+            </button>
+            <button className="btn btn-ghost" onClick={() => setMode("none")}>
+              Back
+            </button>
+          </div>
+        </div>
       ) : mode === "flag" ? (
         <div className="inline-form">
           <input placeholder="Note for the customer (optional)" value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} />
@@ -143,6 +164,11 @@ export function OrderCard({
           {order.state !== "READY" && can.reject(role) && (
             <button className="btn btn-ghost-danger" disabled={busy} onClick={() => setMode("reject")}>
               Reject
+            </button>
+          )}
+          {canUndoPayment && (
+            <button className="btn btn-ghost-danger" disabled={busy} title="The order was marked paid by mistake, or the customer left without paying" onClick={() => setMode("void")}>
+              Undo payment
             </button>
           )}
           {!big && can.handOver(role) && order.pickupCode && (

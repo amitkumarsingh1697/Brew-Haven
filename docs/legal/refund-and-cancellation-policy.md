@@ -100,7 +100,7 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 | # | Situation | Rule | Actor | Status |
 |---|---|---|---|---|
 | C1 | Cash order rejected or an item can't be made | Hand the cash back immediately; Brew Haven records a manual refund against that order. | Csh | Built |
-| C2 | Cashier marks an order "paid by cash" by mistake, or the customer walks away without paying | Admin voids it with a reason; it shows on the day close as a cash difference. | Adm | Gap: void-with-reason for a mistaken cash mark |
+| C2 | Cashier marks an order "paid by cash" by mistake, or the customer walks away without paying | Admin voids it with a reason; it shows on the day close as a cash difference. | Adm | Built: "Undo payment" on the order card (owner only, counter orders paid by hand, before handover) cancels the order with no refund, takes it off the takings and logs it in Activity |
 | C3 | Counter UPI paid to the static QR, but the money is not seen | Do not mark paid until the UPI reference is seen and entered. Orders without a reference appear in Payment checks. | Csh | Built |
 | C4 | Counter card refund | Same day: void on the card machine. Later: refund on the machine. Record the machine's reference in Brew Haven. | Csh | Built: refund reference required for counter card and UPI refunds |
 | C5 | Cashier gives a refund the customer is not entitled to, or a large refund | Cashier can refund up to ₹[500] per order alone; above that, admin approval (PIN). Every refund needs a reason. | Csh/Adm | Built: limit in Settings (default ₹500), owner PIN above it, reason category on every refund |
@@ -180,7 +180,7 @@ In order of importance. None of these are built yet; each is small.
 6. **Cashier refund limit and admin approval** (C5), and a ban on cash refunds against online payments (P14).
 7. **Late-order cancel** (K4): needs a promised ready time per order.
 8. **Refund proof export** per order for disputes (P12, P13).
-9. Smaller items: cashier answers an adjustment for the customer (C7), reference field on manual refunds (C4), duplicate-order warning (K6), failed-payment message (P1), refund history per phone (F1).
+9. Smaller items: cashier answers an adjustment for the customer (C7), reference field on manual refunds (C4, built), duplicate-order warning (K6), failed-payment message (P1), refund history per phone (F1).
 
 ### 3.4 Decisions for the café owner
 These are the bracketed numbers above. The defaults are reasonable for an office-tower café:

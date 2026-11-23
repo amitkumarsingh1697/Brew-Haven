@@ -25,6 +25,7 @@ export type OrderAction =
   | "PAYMENT_VERIFIED"
   | "MARK_PAID"
   | "VOID_UNPAID"
+  | "VOID_MISTAKEN_PAYMENT"
   | "PAYMENT_FAILED_OR_TIMEOUT"
   | "START"
   | "FLAG_UNAVAILABLE"
@@ -55,6 +56,9 @@ export const RULES: Record<OrderAction, Rule> = {
   MARK_PAID: { from: ["AWAITING_PAYMENT"], to: "PLACED", actors: STAFF },
   // Counter orders only: the customer left without paying. Nothing was taken, so nothing is refunded.
   VOID_UNPAID: { from: ["AWAITING_PAYMENT"], to: "CANCELLED", actors: STAFF, requiresReason: true },
+  // Refund policy C2, counter orders only: the cashier marked it paid by mistake, or the customer walked off
+  // without paying. The owner voids the hand-recorded payment; nothing is refunded because nothing was taken.
+  VOID_MISTAKEN_PAYMENT: { from: ["PLACED", "PREPARING", "ACTION_REQUIRED", "READY"], to: "CANCELLED", actors: ["ADMIN"], requiresReason: true },
   PAYMENT_FAILED_OR_TIMEOUT: { from: ["AWAITING_PAYMENT"], to: "EXPIRED", actors: ["SYSTEM"] },
   START: { from: ["PLACED"], to: "PREPARING", actors: ["KITCHEN", "ADMIN"] },
   FLAG_UNAVAILABLE: { from: ["PLACED", "PREPARING"], to: "ACTION_REQUIRED", actors: ["CASHIER", "KITCHEN", "ADMIN"] },
