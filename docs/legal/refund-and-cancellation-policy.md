@@ -118,7 +118,7 @@ Actor key: **Sys** = Brew Haven does it automatically; **Csh** = cashier; **Adm*
 | K5 | Customer ordered at the wrong café (two towers) | Before the kitchen starts: free cancel, re-order at the right café. After: the cashier may cancel and refund at their discretion. | Cust/Csh | Gap: show the café name loudly at checkout |
 | K6 | Same order placed twice by mistake (same items within [2] minutes) | Warn before payment ("You ordered this 1 minute ago"); if paid twice anyway, free cancel of either before the kitchen starts. | Sys/Cust | Gap |
 | K7 | Price changed on the menu while the customer was paying | The price shown when they paid is the price. Never charge more after payment. | Sys | Built (order totals are fixed at creation) |
-| K8 | Outlet closes, power cut, machine breaks with paid orders in the queue | Admin cancels the affected orders with a reason; all refunded. | Adm | Built (reject); Gap: bulk "cancel all open orders" |
+| K8 | Outlet closes, power cut, machine breaks with paid orders in the queue | Admin cancels the affected orders with a reason; all refunded. | Adm | Built: "Cancel all open orders" on the café card in Setup (owner only) refunds paid orders in full, voids unpaid counter orders, keeps ready ones, and can stop new orders |
 | K9 | Café rejects because of a customer's behaviour | Still a full refund; a rejection reason is required. | Csh/Adm | Built |
 | K10 | Order READY but never collected | Hold for [30] minutes; at day close it becomes "not collected", with no refund. | Sys | Built: "Not collected" state; cashier can close after 30 min, the system closes the rest at day end; no refund |
 | K11 | Customer collects someone else's order | Check the pickup code at handover; remake for the rightful customer at no cost; log it. | Csh | Built (pickup code); Gap (log reason "wrong handover") |
@@ -180,7 +180,7 @@ In order of importance. None of these are built yet; each is small.
 6. **Cashier refund limit and admin approval** (C5), and a ban on cash refunds against online payments (P14).
 7. **Late-order cancel** (K4): needs a promised ready time per order.
 8. **Refund proof export** per order for disputes (P12, P13).
-9. Smaller items: cashier answers an adjustment for the customer (C7), reference field on manual refunds (C4), bulk cancel on outage (K8), duplicate-order warning (K6), failed-payment message (P1), refund history per phone (F1).
+9. Smaller items: cashier answers an adjustment for the customer (C7), reference field on manual refunds (C4), duplicate-order warning (K6), failed-payment message (P1), refund history per phone (F1).
 
 ### 3.4 Decisions for the café owner
 These are the bracketed numbers above. The defaults are reasonable for an office-tower café:

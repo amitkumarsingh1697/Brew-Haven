@@ -260,6 +260,9 @@ export type StaffSession = z.infer<typeof StaffSession>;
 
 export const StaffActionRequest = z.object({ action: z.enum(["START", "MARK_READY", "HAND_OVER", "MARK_NOT_COLLECTED"]) });
 export const RejectRequest = z.object({ reason: z.string().trim().min(3).max(200) });
+/** Refund policy K8: an outage (power cut, broken machine) cancels every open order at a café, with full refunds. */
+export const CancelOpenOrdersRequest = z.object({ reason: z.string().trim().min(3).max(200), closeCafe: z.boolean().optional() });
+export type CancelOpenOrdersRequest = z.infer<typeof CancelOpenOrdersRequest>;
 export const FlagUnavailableRequest = z.object({
   lineIds: z.array(Id).min(1),
   note: z.string().trim().max(200).optional(),

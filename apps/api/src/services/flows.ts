@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lt, lte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import {
   CreateOrderRequest,
   type CounterOrderRequest,
@@ -16,6 +16,7 @@ import { adjustments, customers, orderEvents, orderLines, orders, outbox, outlet
 import { AppError, notFound } from "../errors.js";
 import type { EventBus } from "../events.js";
 import type { Notifier } from "../notify/provider.js";
+import { recordAudit } from "./audit.js";
 import { consumeIngredients } from "./inventory.js";
 import { notifyCustomer } from "./notifications.js";
 import type { PaymentProvider, WebhookEvent } from "../payments/provider.js";
@@ -289,6 +290,45 @@ export async function rejectOrder(ctx: Ctx, staff: StaffClaims, orderId: string,
     await refundEverything(tx, updated, `Rejected by café: ${reason}`, `order:${o.id}:reject`);
     return orderView(tx, o.id);
   });
+}
+
+/**
+ * Refund policy K8: the café can't make anything (power cut, machine broken, has to close). The owner cancels every
+ * open order at that café in one go: paid ones are rejected and refunded in full, unpaid counter orders are voided.
+ * Ready orders are left alone, since they are already made. Optionally the café stops taking new orders too.
+ */
+export async function cancelOpenOrders(ctx: Ctx, staff: StaffClaims, outletId: string, body: { reason: string; closeCafe?: boolean | undefined }) {
+  if (staff.role !== "ADMIN") throw new AppError("FORBIDDEN", "Only the owner can cancel all open orders");
+  const [outlet] = await ctx.db.select().from(outlets).where(and(eq(outlets.id, outletId), eq(outlets.tenantId, staff.tenantId)));
+  if (!outlet) throw notFound("Café outlet");
+  if (body.closeCafe) await ctx.db.update(outlets).set({ isOpen: false }).where(eq(outlets.id, outlet.id));
+  const open = await ctx.db
+    .select({ id: orders.id, state: orders.state, channel: orders.channel })
+    .from(orders)
+    .where(and(eq(orders.outletId, outlet.id), or(inArray(orders.state, ["PLACED", "PREPARING", "ACTION_REQUIRED"]), and(eq(orders.state, "AWAITING_PAYMENT"), eq(orders.channel, "COUNTER")))));
+  let cancelled = 0;
+  let refundedPaise = 0;
+  const skipped: string[] = [];
+  for (const o of open) {
+    try {
+      const v = o.state === "AWAITING_PAYMENT" ? await voidCounterOrder(ctx, staff, o.id, body.reason) : await rejectOrder(ctx, staff, o.id, body.reason);
+      cancelled++;
+      refundedPaise += v.refundedPaise;
+    } catch {
+      // Its state changed in the meantime (for example the kitchen just marked it ready): leave it for staff to handle.
+      skipped.push(o.id);
+    }
+  }
+  await recordAudit(ctx.db, {
+    tenantId: staff.tenantId,
+    actorId: staff.sub,
+    actorName: staff.name,
+    action: "orders.cancel_all",
+    summary: `Cancelled ${cancelled} open order${cancelled === 1 ? "" : "s"} at ${outlet.name}${body.closeCafe ? " and stopped new orders" : ""}: ${body.reason}`,
+    outletId: outlet.id,
+    ip: null,
+  });
+  return { cancelled, refundedPaise, skipped: skipped.length, cafeClosed: !!body.closeCafe };
 }
 
 /** D-10: staff flag items as unavailable; the customer then chooses replace, remove or cancel. */

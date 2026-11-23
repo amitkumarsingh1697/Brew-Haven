@@ -79,7 +79,9 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Two-step sign-in for the Brew Haven console: an authenticator app code (TOTP) after the password, 8 one-time recovery codes, the secret kept encrypted, no code used twice. Required in production (`PLATFORM_REQUIRE_TWO_STEP`); lost phones reset with `platform-admin <email> --reset-two-step` | Done (PR #41) |
 | Subscription invoices from Brew Haven to cafés: Record payment (month or year, method, reference) moves the paid period on and issues a numbered invoice with 18% GST split CGST/SGST or IGST; the owner sees and prints them under Your plan. Seller details from `BREW_HAVEN_*` settings | Done (PR #42) |
 | Owner decisions of 21 Nov: complaints accepted on the day of the order (after that only the owner refunds), refunds at the item's full price with GST. Legal review of the terms, processing terms and privacy policy under Indian law (`docs/legal/LEGAL_REVIEW.md`) with the fixes applied, and a complaints contact (grievance officer) field in Settings printed on receipts | Done (PR #43) |
-| README rewritten with screenshots of all 36 screens (`docs/screenshots`), local run, deploy settings, café onboarding checklist and a how-to for each role; `tools/screenshots.cjs` to capture them again; the Render and Cloudflare setup guide in `docs/delivery` | In review |
+| README rewritten with screenshots of all 36 screens (`docs/screenshots`), local run, deploy settings, café onboarding checklist and a how-to for each role; `tools/screenshots.cjs` to capture them again; the Render and Cloudflare setup guide in `docs/delivery` | Done (PR #44) |
+| Demo deployed on Render (API, customer and staff static sites) with Neon; live links in the README | Done (PR #45) |
+| Before-launch gap K8: the owner cancels all open orders at a café in one go (outage), full refunds, optional stop of new orders, logged in Activity | In review |
 
 ## Waiting on Amit
 

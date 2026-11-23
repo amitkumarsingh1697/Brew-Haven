@@ -27,6 +27,7 @@ import {
   StockMovementInput,
   QuoteRequest,
   RejectRequest,
+  CancelOpenOrdersRequest,
   SignupRequest,
   ResolveAdjustmentRequest,
   SimulatePaymentRequest,
@@ -67,6 +68,7 @@ import {
   flagUnavailable,
   handleWebhook,
   rejectOrder,
+  cancelOpenOrders,
   resolveCustomerAdjustment,
   customerCancel,
   retryPayment,
@@ -430,6 +432,9 @@ export async function buildApp(deps: AppDeps) {
   );
   app.post<{ Params: { id: string } }>("/v1/staff/orders/:id/reject", async (req) =>
     rejectOrder(ctx, await staff(req), req.params.id, parse(RejectRequest, req.body).reason),
+  );
+  app.post<{ Params: { id: string } }>("/v1/staff/outlets/:id/cancel-open-orders", async (req) =>
+    cancelOpenOrders(ctx, await staff(req), req.params.id, parse(CancelOpenOrdersRequest, req.body)),
   );
   app.post<{ Params: { id: string } }>("/v1/staff/orders/:id/flag-unavailable", async (req) =>
     flagUnavailable(ctx, await staff(req), req.params.id, parse(FlagUnavailableRequest, req.body)),

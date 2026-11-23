@@ -793,6 +793,10 @@ h2 {
 .link-btn.danger {
   color: var(--bh-danger);
 }
+.btn.danger {
+  color: var(--bh-danger);
+  border-color: var(--bh-danger);
+}
 .menu-admin {
   display: grid;
   grid-template-columns: 240px 1fr;
