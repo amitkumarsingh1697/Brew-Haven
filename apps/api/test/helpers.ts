@@ -81,12 +81,12 @@ export async function setup(opts: { pricesIncludeTax?: boolean; config?: Partial
 
   const auth = (s: StaffSession) => ({ authorization: `Bearer ${s.token}` });
 
-  async function placeOrder(lines: ReturnType<typeof line>[], opts: { pay?: boolean; outlet?: string; key?: string } = {}) {
+  async function placeOrder(lines: ReturnType<typeof line>[], opts: { pay?: boolean; outlet?: string; key?: string; allowDuplicate?: boolean } = {}) {
     const r = await app.inject({
       method: "POST",
       url: `/v1/cafes/${DEMO_TENANT_SLUG}/${opts.outlet ?? "tower-a"}/orders`,
       headers: { "idempotency-key": opts.key ?? randomUUID() },
-      payload: { lines, customer: { name: "Priya", phone: "98765 43210" }, consent: { orderUpdates: true, offers: false } },
+      payload: { lines, customer: { name: "Priya", phone: "98765 43210" }, consent: { orderUpdates: true, offers: false }, allowDuplicate: opts.allowDuplicate ?? true },
     });
     if (r.statusCode !== 201) throw new Error(`create failed ${r.statusCode}: ${r.body}`);
     const created = r.json() as { orderId: string; trackingToken: string; totalPaise: number; checkout: { paymentId: string; amountPaise: number } };

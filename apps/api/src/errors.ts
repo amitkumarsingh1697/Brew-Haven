@@ -8,7 +8,8 @@ export type ErrorCode =
   | "UNAUTHORIZED"
   | "PAYMENT"
   | "RATE_LIMITED"
-  | "PLAN_LIMIT";
+  | "PLAN_LIMIT"
+  | "DUPLICATE_ORDER";
 
 const STATUS: Record<ErrorCode, number> = {
   NOT_FOUND: 404,
@@ -22,6 +23,8 @@ const STATUS: Record<ErrorCode, number> = {
   RATE_LIMITED: 429,
   /** The business's plan doesn't allow it (one more café, one more team member). */
   PLAN_LIMIT: 403,
+  /** Looks like the same order placed again a moment ago; the client may confirm and resend. */
+  DUPLICATE_ORDER: 409,
 };
 
 export class AppError extends Error {

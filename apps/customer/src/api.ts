@@ -41,7 +41,7 @@ export const api = {
   createOrder: (
     tenant: string,
     outlet: string,
-    body: { lines: LineInput[]; customer: { name: string; phone: string }; consent: { orderUpdates: true; offers: boolean } },
+    body: { lines: LineInput[]; customer: { name: string; phone: string }; consent: { orderUpdates: true; offers: boolean }; allowDuplicate?: boolean },
     idempotencyKey: string,
   ) =>
     call<CreateOrderResponse>(`/v1/cafes/${tenant}/${outlet}/orders`, {

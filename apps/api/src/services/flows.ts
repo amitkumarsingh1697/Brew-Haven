@@ -67,6 +67,43 @@ function checkout(ctx: Ctx, p: typeof payments.$inferSelect, keyId?: string) {
 
 // ---------- Customer: place an online order (pay-now, D-02) ----------
 
+/** Refund policy K6: the same basket from the same phone within this window is probably a mistake. */
+export const DUPLICATE_WINDOW_MS = 2 * 60_000;
+
+const basketKey = (ls: Array<{ itemId: string; quantity: number }>) =>
+  ls
+    .map((l) => `${l.itemId}:${l.quantity}`)
+    .sort()
+    .join("|");
+
+async function refuseDuplicate(db: Db, tenantId: string, outletId: string, phone: string, totalPaise: number, lines: Array<{ itemId: string; quantity: number }>) {
+  const since = new Date(Date.now() - DUPLICATE_WINDOW_MS);
+  const recent = await db
+    .select({ id: orders.id, createdAt: orders.createdAt })
+    .from(orders)
+    .innerJoin(customers, eq(customers.id, orders.customerId))
+    .where(
+      and(
+        eq(orders.tenantId, tenantId),
+        eq(orders.outletId, outletId),
+        eq(customers.phone, phone),
+        eq(orders.totalPaise, totalPaise),
+        sql`${orders.createdAt} >= ${since}`,
+        inArray(orders.state, ["AWAITING_PAYMENT", "PLACED", "PREPARING", "ACTION_REQUIRED", "READY", "COLLECTED"]),
+      ),
+    )
+    .orderBy(desc(orders.createdAt))
+    .limit(5);
+  if (recent.length === 0) return;
+  const key = basketKey(lines);
+  const prior = await db.select({ orderId: orderLines.orderId, itemId: orderLines.itemId, quantity: orderLines.quantity }).from(orderLines).where(inArray(orderLines.orderId, recent.map((r) => r.id)));
+  for (const r of recent) {
+    if (basketKey(prior.filter((l) => l.orderId === r.id)) !== key) continue;
+    const mins = Math.max(1, Math.round((Date.now() - r.createdAt.getTime()) / 60_000));
+    throw new AppError("DUPLICATE_ORDER", `You placed this same order ${mins === 1 ? "a minute" : `${mins} minutes`} ago. Do you want to order it again?`);
+  }
+}
+
 export async function createOnlineOrder(ctx: Ctx, tenantSlug: string, outletSlug: string, body: z.output<typeof CreateOrderRequest>, idempotencyKey: string) {
   if (!/^[A-Za-z0-9-]{8,64}$/.test(idempotencyKey)) throw new AppError("VALIDATION", "Idempotency-Key header must be 8-64 letters, digits or dashes");
   const { tenant, outlet } = await loadTenantOutlet(ctx.db, tenantSlug, outletSlug);
@@ -83,6 +120,7 @@ export async function createOnlineOrder(ctx: Ctx, tenantSlug: string, outletSlug
   if (!outlet.isOpen || tenant.suspendedAt) throw new AppError("UNAVAILABLE", `${outlet.name} is not taking orders right now`);
   const lines = await resolveLines(ctx.db, tenant.id, outlet.id, body.lines, { requireAvailable: true });
   const q = quote(lines, tenant.taxRateBps, tenant.pricesIncludeTax);
+  if (!body.allowDuplicate) await refuseDuplicate(ctx.db, tenant.id, outlet.id, body.customer.phone, q.totalPaise, lines);
   const trackingToken = newTrackingToken();
   const providerOrder = await ctx.provider.createOrder({ amountPaise: q.totalPaise, receipt: trackingToken, notes: { outlet: outlet.slug } });
 
