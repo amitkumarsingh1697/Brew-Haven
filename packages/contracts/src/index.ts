@@ -199,9 +199,18 @@ export const OrderView = z.object({
   placedAt: z.string().nullable(),
   /** When the order was last marked ready, if it was. */
   readyAt: z.string().nullable(),
+  /** Refund policy K14: a problem the customer reported, and whether the café has dealt with it. */
+  problem: z.object({ category: z.enum(["WRONG_ITEM", "MISSING", "QUALITY", "SAFETY", "OTHER"]), note: z.string(), status: z.enum(["OPEN", "RESOLVED"]), at: z.string() }).nullable(),
+  /** Can the customer report a problem now (a served order, on the day of the order, none reported yet). */
+  canReportProblem: z.boolean(),
   updatedAt: z.string(),
 });
 export type OrderView = z.infer<typeof OrderView>;
+
+/** Refund policy K14: what the customer can report about a collected order. */
+export const ProblemCategory = z.enum(["WRONG_ITEM", "MISSING", "QUALITY", "SAFETY", "OTHER"]);
+export const ReportProblemRequest = z.object({ category: ProblemCategory, note: z.string().trim().min(3, "Tell us a little about what went wrong").max(500) });
+export type ReportProblemRequest = z.infer<typeof ReportProblemRequest>;
 
 export const ResolveAdjustmentRequest = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("REPLACE"), replacement: LineRequest }),

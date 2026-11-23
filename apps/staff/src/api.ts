@@ -232,6 +232,7 @@ export const api = {
   refund: (id: string, body: StaffRefundRequest) => post<{ preview: StaffRefundPreview | null; order: OrderView | null }>(`/v1/staff/orders/${id}/refund`, body),
   reject: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/reject`, { reason }),
   voidPayment: (id: string, reason: string) => post<OrderView>(`/v1/staff/orders/${id}/void-payment`, { reason }),
+  resolveProblem: (id: string) => post<OrderView>(`/v1/staff/orders/${id}/problem/resolve`, {}),
   flag: (id: string, lineIds: string[], note: string) => post<OrderView>(`/v1/staff/orders/${id}/flag-unavailable`, { lineIds, note: note || undefined, markSoldOut: true }),
   walkIn: (body: {
     outletId: string;

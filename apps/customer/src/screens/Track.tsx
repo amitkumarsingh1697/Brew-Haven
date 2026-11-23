@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import type { CheckoutInfo, MenuItemDto, OrderView } from "@brew-haven/contracts";
+import type { CheckoutInfo, MenuItemDto, OrderView, ReportProblemRequest } from "@brew-haven/contracts";
 import { ApiError, api } from "../api";
 import { ErrorNote, Rs, Spinner } from "../components/ui";
 import { useMenu, useNow, useOrder } from "../hooks";
@@ -131,6 +131,7 @@ export function Track({ token }: { token: string }) {
           <Rs paise={order.paidPaise} />
         </div>
         {order.state !== "CANCELLED" && <RefundSummary order={order} />}
+        <ProblemPanel order={order} token={token} onChange={setOrder} />
         {order.pickupCode && (
           <Link className="link-btn receipt-link" href={`/order/${token}/receipt`}>
             View receipt
@@ -194,6 +195,74 @@ function CancelPanel({ order, token, onChange }: { order: OrderView; token: stri
         </div>
       )}
     </section>
+  );
+}
+
+const PROBLEM_CHOICES: Array<{ value: ReportProblemRequest["category"]; label: string }> = [
+  { value: "WRONG_ITEM", label: "I got the wrong item" },
+  { value: "MISSING", label: "Something was missing" },
+  { value: "QUALITY", label: "Cold, stale or not made right" },
+  { value: "SAFETY", label: "Food safety (foreign object, illness, allergy)" },
+  { value: "OTHER", label: "Something else" },
+];
+
+/** Refund policy K13/K14: tell the café about a problem the same day; food-safety reports alert the owner at once. */
+function ProblemPanel({ order, token, onChange }: { order: OrderView; token: string; onChange: (o: OrderView) => void }) {
+  const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState<ReportProblemRequest["category"]>("WRONG_ITEM");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  if (order.problem) {
+    return (
+      <p className="problem-sent" role="status">
+        {order.problem.status === "RESOLVED"
+          ? "The café has handled the problem you reported."
+          : "Thanks, the café has your report and will look at it today. Show this order at the counter if you're still here."}
+      </p>
+    );
+  }
+  if (!order.canReportProblem) return null;
+  if (!open)
+    return (
+      <button className="link-btn" onClick={() => setOpen(true)}>
+        Something wrong with your order?
+      </button>
+    );
+  const send = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      onChange(await api.reportProblem(token, { category, note: note.trim() }));
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : "Couldn't send. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="problem-form" role="group" aria-label="Report a problem">
+      <label>
+        What went wrong?
+        <select value={category} onChange={(e) => setCategory(e.target.value as ReportProblemRequest["category"])}>
+          {PROBLEM_CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Tell us a little more
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={3} placeholder="For example: I got a latte instead of a cappuccino" />
+      </label>
+      {category === "SAFETY" && <p className="cancel-hint">The owner is told straight away. If you feel unwell, please see a doctor.</p>}
+      {err && <p className="error-text" role="alert">{err}</p>}
+      <button className="btn" onClick={send} disabled={busy || note.trim().length < 3}>
+        {busy ? "Sending…" : "Send to the café"}
+      </button>
+      <button className="btn btn-ghost" onClick={() => setOpen(false)} disabled={busy}>
+        Never mind
+      </button>
+    </div>
   );
 }
 

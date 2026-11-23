@@ -1,10 +1,11 @@
 import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm";
 import type { StaffClaims } from "../auth.js";
 import type { Db } from "../db/client.js";
-import { orders, outlets, payments, refunds } from "../db/schema.js";
+import { orders, outlets, payments, problemReports, refunds } from "../db/schema.js";
+import { PROBLEM_WORDS } from "./problems.js";
 import { AppError } from "../errors.js";
 
-export type ExceptionKind = "REFUND_FAILED" | "REFUND_STUCK" | "PAID_NOT_SERVED" | "UPI_NO_REFERENCE";
+export type ExceptionKind = "REFUND_FAILED" | "REFUND_STUCK" | "PAID_NOT_SERVED" | "UPI_NO_REFERENCE" | "PROBLEM_REPORTED";
 export interface PaymentException {
   kind: ExceptionKind;
   /** "act" needs someone to do something; "check" is worth a look when reconciling. */
@@ -79,6 +80,27 @@ export async function listPaymentExceptions(db: Db, staff: StaffClaims, q: { out
     .limit(200);
   for (const u of noRef)
     items.push({ kind: "UPI_NO_REFERENCE", severity: "check", at: u.p.createdAt.toISOString(), orderId: u.orderId, orderCode: u.code, outlet: u.outlet, amountPaise: u.p.amountPaise, message: "UPI at the counter, no reference entered. Match it on the bank statement." });
+
+  // Refund policy K13/K14: problems customers reported that nobody has dealt with yet. Food safety comes first.
+  const problems = await db
+    .select({ ...base, pr: problemReports, total: orders.totalPaise })
+    .from(problemReports)
+    .innerJoin(orders, eq(orders.id, problemReports.orderId))
+    .innerJoin(outlets, eq(outlets.id, orders.outletId))
+    .where(and(...scope, gte(problemReports.createdAt, since), eq(problemReports.status, "OPEN")));
+  for (const p of problems) {
+    const safety = p.pr.category === "SAFETY";
+    items.push({
+      kind: "PROBLEM_REPORTED",
+      severity: "act",
+      at: p.pr.createdAt.toISOString(),
+      orderId: p.orderId,
+      orderCode: p.code,
+      outlet: p.outlet,
+      amountPaise: p.total,
+      message: `${safety ? "FOOD SAFETY. " : ""}Customer reported: ${PROBLEM_WORDS[p.pr.category]}. "${p.pr.note}" Refund the items or contact the customer, then close it.`,
+    });
+  }
 
   items.sort((a, b) => (a.severity === b.severity ? b.at.localeCompare(a.at) : a.severity === "act" ? -1 : 1));
   return { items };

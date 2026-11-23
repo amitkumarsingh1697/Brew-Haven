@@ -1,4 +1,5 @@
 import cors from "@fastify/cors";
+import { reportProblem, resolveProblem } from "./services/problems.js";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import { randomBytes } from "node:crypto";
@@ -28,6 +29,7 @@ import {
   QuoteRequest,
   RejectRequest,
   CancelOpenOrdersRequest,
+  ReportProblemRequest,
   SignupRequest,
   ResolveAdjustmentRequest,
   SimulatePaymentRequest,
@@ -337,6 +339,9 @@ export async function buildApp(deps: AppDeps) {
   app.post<{ Params: { token: string } }>("/v1/track/:token/pay", perMinute(10), async (req) => retryPayment(ctx, req.params.token));
 
   app.post<{ Params: { token: string } }>("/v1/track/:token/cancel", perMinute(10), async (req) => customerCancel(ctx, req.params.token));
+  // Refund policy K14: the customer reports a problem with a served order, on the day of the order.
+  app.post<{ Params: { token: string } }>("/v1/track/:token/problem", perMinute(5), async (req) => reportProblem(ctx, req.params.token, parse(ReportProblemRequest, req.body)));
+  app.post<{ Params: { id: string } }>("/v1/staff/orders/:id/problem/resolve", async (req) => resolveProblem(ctx, await staff(req), req.params.id));
 
   app.post<{ Params: { token: string; id: string } }>("/v1/track/:token/adjustments/:id/resolve", async (req) =>
     resolveCustomerAdjustment(ctx, req.params.token, req.params.id, parse(ResolveAdjustmentRequest, req.body)),

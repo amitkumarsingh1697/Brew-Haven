@@ -1830,16 +1830,23 @@ const CHECK_LABEL: Record<string, string> = {
   REFUND_STUCK: "Refund stuck",
   PAID_NOT_SERVED: "Paid, not served",
   UPI_NO_REFERENCE: "UPI, no reference",
+  PROBLEM_REPORTED: "Customer problem",
 };
 
 function PaymentChecks({ setup }: { setup: AdminSetup }) {
   const [outletId, setOutletId] = useState("");
   const [data, setData] = useState<Awaited<ReturnType<typeof api.admin.paymentChecks>> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     setData(null);
     api.admin.paymentChecks(outletId || undefined).then(setData, (e: ApiError) => setError(e.message));
-  }, [outletId]);
+  }, [outletId, tick]);
+  const closeProblem = (orderId: string) =>
+    api.resolveProblem(orderId).then(
+      () => setTick((t) => t + 1),
+      (e: ApiError) => setError(e.message),
+    );
   const when = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
   const act = data?.items.filter((i) => i.severity === "act").length ?? 0;
   return (
@@ -1855,7 +1862,7 @@ function PaymentChecks({ setup }: { setup: AdminSetup }) {
           ))}
         </select>
       </header>
-      <p className="muted small">The last 30 days: refunds that failed or are stuck, money taken for orders that weren't served, and counter UPI payments with no reference to match on the bank statement.</p>
+      <p className="muted small">The last 30 days: problems customers reported, refunds that failed or are stuck, money taken for orders that weren't served, and counter UPI payments with no reference to match on the bank statement. Refunding a reported order closes its problem; otherwise mark it handled once you've spoken to the customer.</p>
       {error && <p className="error">{error}</p>}
       {data && (
         <p className={act ? "banner-inline note" : "ok"}>{act ? `${act} need${act === 1 ? "s" : ""} action.` : "Nothing needs action."}</p>
@@ -1882,7 +1889,17 @@ function PaymentChecks({ setup }: { setup: AdminSetup }) {
                   <span className={`pill ${i.severity === "act" ? "pill-failed" : "pill-logged"}`}>{CHECK_LABEL[i.kind] ?? i.kind}</span>
                 </td>
                 <td className="num">{formatInr(i.amountPaise)}</td>
-                <td>{i.message}</td>
+                <td>
+                  {i.message}
+                  {i.kind === "PROBLEM_REPORTED" && (
+                    <>
+                      {" "}
+                      <button className="link-btn small" onClick={() => void closeProblem(i.orderId)}>
+                        Mark handled
+                      </button>
+                    </>
+                  )}
+                </td>
               </tr>
             ))}
             {data && data.items.length === 0 && (

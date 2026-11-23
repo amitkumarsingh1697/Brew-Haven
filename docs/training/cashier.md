@@ -25,6 +25,7 @@ When the kitchen marks an order **Ready**, it shows on Orders. Check the pickup 
 
 ## Problems with an order
 - **Reject**: if you can't make an order at all. Type the reason the customer will see. Online payments are refunded automatically. For counter orders, hand the cash back; Brew Haven records it as a manual refund.
+- **Customer problem**: customers can report a problem from their order page on the same day. If they come to the counter about it, check the order and refund the item if it's fair (it closes the report). Tell the owner about anything to do with food safety.
 - **Item ran out** (online orders): tick the missing items and tap **Ask customer**. The customer chooses a replacement, removal with refund, or cancelling. The ticket shows "waiting on customer" until they answer.
 
 ## Sold out and stock
