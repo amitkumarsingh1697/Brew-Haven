@@ -84,7 +84,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | Before-launch gap K8: the owner cancels all open orders at a café in one go (outage), full refunds, optional stop of new orders, logged in Activity | Done (PR #46) |
 | Before-launch gap C2: the owner undoes a counter payment marked by hand by mistake (Undo payment on the order card): order cancelled, no refund, takings corrected, logged | Done (PR #47) |
 | Before-launch gaps K13, K14: the customer reports a problem on the order page the same day (wrong item, missing, quality, food safety); it shows in Payment checks until handled or refunded; food-safety reports and refunds alert the owner at once | Done (PR #48) |
-| Before-launch gap K6: warn before paying when the same basket was ordered from the same phone at the same café in the last 2 minutes; the customer can see the earlier order or go ahead | In review |
+| Before-launch gap K6: warn before paying when the same basket was ordered from the same phone at the same café in the last 2 minutes; the customer can see the earlier order or go ahead | Done (PR #49) |
+| Before-launch gap: error tracking with Sentry in the API and both apps (off until a DSN is set; personal data scrubbed); crash screen with Reload; Sentry added to the sub-processor list | In review |
 
 ## Waiting on Amit
 

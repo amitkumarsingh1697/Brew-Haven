@@ -146,6 +146,7 @@ The step-by-step account setup is in [`docs/delivery/DEPLOY_RENDER_CLOUDFLARE.md
 | `BREW_HAVEN_*` | Brew Haven's details on subscription invoices |
 | `SIGNUP_ENABLED` | Lets new cafés sign themselves up (off in production unless set) |
 | `ALERT_WEBHOOK_URL` | Where alerts go when something breaks |
+| `SENTRY_DSN` (API), `VITE_SENTRY_DSN` (each app) | Error tracking with Sentry, optional ([setup](docs/delivery/OPERATIONS.md#error-tracking-sentry)) |
 
 Backups, health checks, alerts and restore drills are covered in [`docs/delivery/OPERATIONS.md`](docs/delivery/OPERATIONS.md).
 

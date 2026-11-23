@@ -30,6 +30,24 @@ to the logs. `APP_ENV` labels the alerts ("demo", "production").
 
 Every response carries an `X-Request-Id` header with the same reference.
 
+## Error tracking (Sentry)
+
+Alerts say *that* something broke; Sentry keeps the full error, the stack trace and how often it
+happens, including crashes on customers' phones and the staff tablets. The free Developer plan
+(5,000 errors a month) is enough for a pilot.
+
+1. Sign up at sentry.io and choose the **EU (Frankfurt)** data region.
+2. Create three projects: `brew-haven-api` (Node.js), `brew-haven-order` (React) and
+   `brew-haven-staff` (React). Each shows a DSN.
+3. In Render, add `SENTRY_DSN` to the API service, and `VITE_SENTRY_DSN` to each static site
+   (the order app and the staff app, each with its own DSN). Optionally add `VITE_APP_ENV`
+   (`demo`, `production`) to the static sites. The static sites need a rebuild to pick it up.
+
+With the variables unset, nothing is sent and the Sentry code isn't even loaded. When set, the
+apps never send names, phone numbers, IP addresses, request bodies, sign-in tokens or order
+tracking links. A screen that crashes shows "Something went wrong" with a Reload button instead
+of a blank page, and the crash is reported.
+
 ## Backups
 
 1. **Neon point-in-time restore** (built in): restore the database to any moment within the

@@ -4,6 +4,7 @@ import { registerServiceWorker, useOnline } from "@brew-haven/pwa";
 import { Redirect, Route, Switch } from "wouter";
 import "@brew-haven/ui-tokens/tokens.css";
 import "./styles.css";
+import { ErrorBoundary, initErrorTracking } from "./errorTracking";
 import { Checkout } from "./screens/Checkout";
 import { Legal } from "./screens/Legal";
 import { Menu } from "./screens/Menu";
@@ -43,9 +44,12 @@ function App() {
 }
 
 registerServiceWorker(import.meta.env.PROD);
+void initErrorTracking();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );

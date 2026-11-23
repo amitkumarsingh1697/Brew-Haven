@@ -29,6 +29,7 @@ Only service providers we need to run Brew Haven:
 - Cloudflare, which delivers the app to your phone and protects it from attacks.
 - The café's payment gateway (Razorpay), in India.
 - Meta's WhatsApp Business Platform, if the café sends order updates on WhatsApp.
+- Sentry (Functional Software, Inc.), in the European Union, which records technical error reports so we can fix faults. We remove names, phone numbers, IP addresses and order links before a report is sent.
 
 Each is bound by a contract to protect the data. We do not sell personal data and do not show advertising. We share data with authorities only when Indian law requires it.
 
