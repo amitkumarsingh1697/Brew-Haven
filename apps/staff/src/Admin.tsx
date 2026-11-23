@@ -329,6 +329,22 @@ function CafeCard({ outlet, act, onQr, onOutletsChanged }: { outlet: OutletWithS
         <button className="btn btn-primary" onClick={onQr}>
           QR code poster
         </button>
+        <button
+          className="btn btn-ghost danger"
+          onClick={() => {
+            // Refund policy K8: an outage at this café. Paid orders are refunded in full; ready orders are kept.
+            const reason = window.prompt(`Cancel every open order at ${outlet.name} and refund customers in full? Ready orders are kept.\n\nReason customers will see:`, "Sorry, we've had a power cut and can't make orders right now")?.trim();
+            if (!reason) return;
+            const closeCafe = window.confirm(`Also stop new orders at ${outlet.name}? You can reopen it here later.`);
+            void act(async () => {
+              const r = await api.admin.cancelOpenOrders(outlet.id, { reason, closeCafe });
+              onOutletsChanged();
+              return r;
+            }, `Open orders cancelled at ${outlet.name}. Customers are refunded and told why.`);
+          }}
+        >
+          Cancel all open orders
+        </button>
         {!editing && (
           <button className="btn btn-ghost" onClick={() => setEditing(true)}>
             Edit details

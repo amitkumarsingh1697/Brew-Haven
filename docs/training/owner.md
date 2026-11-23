@@ -3,7 +3,7 @@
 Everything a cashier and kitchen can do, plus **Setup**. Your PIN opens all your cafés; switch café at the top.
 
 ## Setting up
-- **Cafés & kitchens**: add a café, its pickup letter and address, and its kitchen stations. Close a café for orders when needed.
+- **Cafés & kitchens**: add a café, its pickup letter and address, and its kitchen stations. Close a café for orders when needed. If the café can't make anything (power cut, broken machine), **Cancel all open orders** refunds every paid order in full, tells customers why, and can stop new orders. Ready orders are kept.
 - **Menu**: categories, items, prices (including GST), choices such as milk or size, and which kitchen station makes each item.
 - **Staff**: add people, choose Cashier, Kitchen or Admin, the cafés they work at, and their PIN. Turn someone off when they leave.
 - **Café settings**: name, welcome text, GST rate, and the details printed on receipts (legal name, GSTIN, FSSAI licence). With a GSTIN, receipts become tax invoices.

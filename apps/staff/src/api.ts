@@ -342,6 +342,8 @@ export const api = {
       call<{ from: string; to: string; rows: StockReportRow[] }>(`/v1/admin/stock-report?${new URLSearchParams(q)}`),
     createOutlet: (b: { name: string; pickupPrefix: string; address?: string }) => post<OutletWithStations>("/v1/admin/outlets", b),
     updateOutlet: (id: string, b: { name?: string; pickupPrefix?: string; address?: string; isOpen?: boolean }) => send<OutletWithStations>("PATCH", `/v1/admin/outlets/${id}`, b),
+    cancelOpenOrders: (outletId: string, b: { reason: string; closeCafe?: boolean }) =>
+      call<{ cancelled: number; refundedPaise: number; skipped: number; cafeClosed: boolean }>(`/v1/staff/outlets/${outletId}/cancel-open-orders`, { method: "POST", body: JSON.stringify(b) }),
     addStation: (outletId: string, name: string) => post<OutletWithStations>(`/v1/admin/outlets/${outletId}/stations`, { name }),
     renameStation: (id: string, name: string) => send<OutletWithStations>("PATCH", `/v1/admin/stations/${id}`, { name }),
     removeStation: (id: string) => send<OutletWithStations>("DELETE", `/v1/admin/stations/${id}`),
