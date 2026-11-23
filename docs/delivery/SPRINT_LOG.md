@@ -82,7 +82,8 @@ How the build is being delivered under D-18: one PR per item, merged once CI is 
 | README rewritten with screenshots of all 36 screens (`docs/screenshots`), local run, deploy settings, café onboarding checklist and a how-to for each role; `tools/screenshots.cjs` to capture them again; the Render and Cloudflare setup guide in `docs/delivery` | Done (PR #44) |
 | Demo deployed on Render (API, customer and staff static sites) with Neon; live links in the README | Done (PR #45) |
 | Before-launch gap K8: the owner cancels all open orders at a café in one go (outage), full refunds, optional stop of new orders, logged in Activity | Done (PR #46) |
-| Before-launch gap C2: the owner undoes a counter payment marked by hand by mistake (Undo payment on the order card): order cancelled, no refund, takings corrected, logged | In review |
+| Before-launch gap C2: the owner undoes a counter payment marked by hand by mistake (Undo payment on the order card): order cancelled, no refund, takings corrected, logged | Done (PR #47) |
+| Before-launch gaps K13, K14: the customer reports a problem on the order page the same day (wrong item, missing, quality, food safety); it shows in Payment checks until handled or refunded; food-safety reports and refunds alert the owner at once | In review |
 
 ## Waiting on Amit
 

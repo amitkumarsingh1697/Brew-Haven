@@ -17,6 +17,7 @@ import type { After, Tx } from "../db/client.js";
 import {
   adjustments,
   creditNotes,
+  problemReports,
   dailyCounters,
   invoiceCounters,
   orderEvents,
@@ -302,6 +303,12 @@ export function customerCancelOption(
   return { allowed: false, kind: null, lateFrom: null };
 }
 
+/** Refund policy K14: served orders (ready, collected or not collected) can be reported on the day of the order. */
+export const PROBLEM_STATES = ["READY", "COLLECTED", "NOT_COLLECTED"] as const;
+export function canReportProblem(o: { state: string; businessDate: string | null }, tz: string, now = new Date()) {
+  return (PROBLEM_STATES as readonly string[]).includes(o.state) && !!o.businessDate && o.businessDate >= businessDate(now, tz);
+}
+
 export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
   const [o] = await tx.select().from(orders).where(eq(orders.id, orderId));
   if (!o) throw notFound("Order");
@@ -313,6 +320,7 @@ export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
   const refs = await tx.select().from(refunds).where(eq(refunds.orderId, o.id)).orderBy(desc(refunds.createdAt));
   const notes = await tx.select().from(creditNotes).where(eq(creditNotes.orderId, o.id)).orderBy(asc(creditNotes.createdAt));
   const [ready] = await tx.select({ at: orderEvents.at }).from(orderEvents).where(and(eq(orderEvents.orderId, o.id), eq(orderEvents.toState, "READY"))).orderBy(desc(orderEvents.at)).limit(1);
+  const [problem] = await tx.select().from(problemReports).where(eq(problemReports.orderId, o.id));
   const staffIds = [...new Set(pays.map((p) => p.recordedByStaffId).filter((x): x is string => !!x))];
   const staffNames = new Map(staffIds.length ? (await tx.select({ id: staffUsers.id, name: staffUsers.name }).from(staffUsers).where(inArray(staffUsers.id, staffIds))).map((s) => [s.id, s.name]) : []);
   const counted = lines.filter((l) => (COUNTED as readonly string[]).includes(l.status)).reduce((s, l) => s + l.lineTotalPaise, 0);
@@ -373,6 +381,8 @@ export async function orderView(tx: Tx, orderId: string): Promise<OrderView> {
     createdAt: o.createdAt.toISOString(),
     placedAt: o.placedAt?.toISOString() ?? null,
     readyAt: ready?.at.toISOString() ?? null,
+    problem: problem ? { category: problem.category, note: problem.note, status: problem.status, at: problem.createdAt.toISOString() } : null,
+    canReportProblem: !problem && canReportProblem(o, outlet!.timezone),
     updatedAt: o.updatedAt.toISOString(),
   };
 }

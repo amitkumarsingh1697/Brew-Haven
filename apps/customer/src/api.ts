@@ -1,4 +1,4 @@
-import type { CheckoutInfo, ReceiptView, CreateOrderResponse, MenuResponse, OrderView, QuoteResponse, ResolveAdjustmentRequest } from "@brew-haven/contracts";
+import type { CheckoutInfo, ReceiptView, CreateOrderResponse, MenuResponse, OrderView, QuoteResponse, ResolveAdjustmentRequest, ReportProblemRequest } from "@brew-haven/contracts";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:8080";
 
@@ -53,6 +53,8 @@ export const api = {
   receipt: (token: string) => call<ReceiptView>(`/v1/track/${token}/receipt`),
   retryPayment: (token: string) => call<CheckoutInfo>(`/v1/track/${token}/pay`, { method: "POST" }),
   cancel: (token: string) => call<OrderView>(`/v1/track/${token}/cancel`, { method: "POST" }),
+  reportProblem: (token: string, body: ReportProblemRequest) =>
+    call<OrderView>(`/v1/track/${token}/problem`, { method: "POST", body: JSON.stringify(body) }),
   resolve: (token: string, adjustmentId: string, body: ResolveAdjustmentRequest) =>
     call<OrderView>(`/v1/track/${token}/adjustments/${adjustmentId}/resolve`, { method: "POST", body: JSON.stringify(body) }),
   simulatePayment: (paymentId: string, outcome: "SUCCESS" | "FAILURE", instrument: "upi" | "card" = "upi") =>

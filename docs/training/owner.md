@@ -12,7 +12,7 @@ Everything a cashier and kitchen can do, plus **Setup**. Your PIN opens all your
 ## Every day
 - **Undo payment**: if a cashier marked a counter order paid by mistake, or the customer left without paying, open it on the Orders board and choose **Undo payment** with a reason. The order is cancelled, no refund is made, and the takings drop by that amount.
 - **Reports**: sales by day and café, payment methods, top items, busiest hours, day closes, kitchen speed and the GST summary, for any dates.
-- **Payment checks**: anything that needs a look, such as a refund that failed, a UPI payment without a reference, or an order paid but not served.
+- **Payment checks**: anything that needs a look, such as a refund that failed, a UPI payment without a reference, or an order paid but not served. A **Customer problem** row is a report a customer sent from their order page (wrong item, missing, quality or food safety). Refund it from the order, or tap **Mark handled** once you've sorted it out. Food-safety reports also send you an alert straight away.
 - **Inventory**: stock levels across cafés, low-stock warnings, and the stock report (received, used, wasted, counted).
 - **Activity**: who changed what and when.
 

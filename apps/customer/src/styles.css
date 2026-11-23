@@ -1118,3 +1118,28 @@ h3 {
   font-size: 0.85rem;
   color: var(--bh-ink-muted);
 }
+
+/* Refund policy K13/K14: report a problem the same day. */
+.problem-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.problem-form label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+.problem-form select,
+.problem-form textarea {
+  font: inherit;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line, #ddd);
+  background: var(--surface, #fff);
+  color: inherit;
+}
+.problem-sent {
+  margin: 12px 0 0;
+  font-size: 0.95em;
+}

@@ -346,6 +346,26 @@ export const refunds = pgTable("refunds", {
  * invoice stands. Numbered per café per financial year, e.g. CN-A2627-00001. The invoice itself is
  * never edited.
  */
+/**
+ * Refund policy K13/K14: a customer reports a problem with a collected order from their order link, on the
+ * day of the order. It shows in the owner's Payment checks until a refund or a staff member closes it.
+ */
+export const problemReports = pgTable(
+  "problem_reports",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    orderId: uuid("order_id").notNull().references(() => orders.id),
+    category: text("category", { enum: ["WRONG_ITEM", "MISSING", "QUALITY", "SAFETY", "OTHER"] }).notNull(),
+    note: text("note").notNull(),
+    status: text("status", { enum: ["OPEN", "RESOLVED"] }).notNull().default("OPEN"),
+    createdAt: createdAt(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: text("resolved_by"),
+  },
+  (t) => [index("problem_reports_tenant_status").on(t.tenantId, t.status), uniqueIndex("problem_reports_one_per_order").on(t.orderId)],
+);
+
 export const creditNotes = pgTable(
   "credit_notes",
   {

@@ -8,6 +8,7 @@ import { withTx, type Tx } from "../db/client.js";
 import { creditNotes, invoiceCounters, orderLines, outlets, refunds, staffUsers, tenants } from "../db/schema.js";
 import { AppError } from "../errors.js";
 import { lockStaffOrder, type Ctx } from "./flows.js";
+import { closeProblemOnRefund, safetyRefundAlert } from "./problems.js";
 import { COUNTED, businessDate, issueRefund, moneyOnOrder, orderBill, orderView, type OrderRow } from "./orders.js";
 
 const sqlIncrement = sql`${invoiceCounters.lastSeq} + 1`;
@@ -136,6 +137,8 @@ export async function staffRefund(ctx: Ctx, limiter: AttemptLimiter, staff: Staf
       .where(inArray(refunds.id, created.map((r) => r.id)));
 
     if (creditNote) await issueCreditNote(tx, order, p, reason);
+    await closeProblemOnRefund(tx, order.id, staff.name);
+    if (body.category === "SAFETY") await safetyRefundAlert(tx, ctx, after, order, p.amountPaise, staff.name);
     after(() => ctx.bus.orderChanged({ tenantId: order.tenantId, outletId: order.outletId, orderId: order.id, trackingToken: order.trackingToken, state: order.state }));
     return { preview: null, order: await orderView(tx, order.id) };
   });
